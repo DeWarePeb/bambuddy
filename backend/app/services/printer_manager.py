@@ -15,6 +15,7 @@ from backend.app.services.bambu_mqtt import (
     PrinterState,
     get_stage_name,
 )
+from backend.app.services.moonraker_client import MoonrakerClient
 from backend.app.utils.kprofile_lookup import build_slot_k_resolver
 
 logger = logging.getLogger(__name__)
@@ -402,7 +403,7 @@ class PrinterManager:
     """Manager for multiple printer connections."""
 
     def __init__(self):
-        self._clients: dict[int, BambuMQTTClient] = {}
+        self._clients: dict[int, BambuMQTTClient | MoonrakerClient] = {}
         self._models: dict[int, str | None] = {}  # Cache printer models for feature detection
         self._printer_info: dict[int, PrinterInfo] = {}  # Cache printer name/serial for callbacks
         # Last AMS / external-spool reading of a printer whose client has been
@@ -815,25 +816,41 @@ class PrinterManager:
             if self._on_tray_change:
                 self._schedule_async(self._on_tray_change(printer_id, tray_global, layer_num))
 
-        client = BambuMQTTClient(
-            ip_address=printer.ip_address,
-            serial_number=printer.serial_number,
-            access_code=printer.access_code,
-            model=printer.model,
-            on_state_change=on_state_change,
-            on_print_start=on_print_start,
-            on_print_complete=on_print_complete,
-            on_ams_change=on_ams_change,
-            on_fts_inlet_change=on_fts_inlet_change,
-            on_layer_change=on_layer_change,
-            on_print_progress=on_print_progress,
-            on_bed_temp_update=on_bed_temp_update,
-            on_drying_complete=on_drying_complete,
-            on_print_running_observed=on_print_running_observed,
-            on_finish_photo_moment=on_finish_photo_moment,
-            on_assignment_verified=on_assignment_verified,
-            on_tray_change=on_tray_change,
-        )
+        if getattr(printer, "provider", "bambu") == "klipper":
+            # Voron patch series: same callback surface, filled from Moonraker.
+            client: BambuMQTTClient | MoonrakerClient = MoonrakerClient(
+                printer.api_url or f"http://{printer.ip_address}",
+                printer.auth_token,
+                serial_number=printer.serial_number,
+                model=printer.model,
+                on_state_change=on_state_change,
+                on_print_start=on_print_start,
+                on_print_complete=on_print_complete,
+                on_layer_change=on_layer_change,
+                on_print_progress=on_print_progress,
+                on_bed_temp_update=on_bed_temp_update,
+                on_print_running_observed=on_print_running_observed,
+            )
+        else:
+            client = BambuMQTTClient(
+                ip_address=printer.ip_address,
+                serial_number=printer.serial_number,
+                access_code=printer.access_code,
+                model=printer.model,
+                on_state_change=on_state_change,
+                on_print_start=on_print_start,
+                on_print_complete=on_print_complete,
+                on_ams_change=on_ams_change,
+                on_fts_inlet_change=on_fts_inlet_change,
+                on_layer_change=on_layer_change,
+                on_print_progress=on_print_progress,
+                on_bed_temp_update=on_bed_temp_update,
+                on_drying_complete=on_drying_complete,
+                on_print_running_observed=on_print_running_observed,
+                on_finish_photo_moment=on_finish_photo_moment,
+                on_assignment_verified=on_assignment_verified,
+                on_tray_change=on_tray_change,
+            )
 
         client.connect()
         self._clients[printer_id] = client
@@ -918,7 +935,7 @@ class PrinterManager:
             return client.check_staleness()
         return False
 
-    def get_client(self, printer_id: int) -> BambuMQTTClient | None:
+    def get_client(self, printer_id: int) -> BambuMQTTClient | MoonrakerClient | None:
         """Get the MQTT client for a printer."""
         return self._clients.get(printer_id)
 
