@@ -303,6 +303,7 @@ export default {
     },
     pageView: {
       openCamWallPage: 'Open cam wall as page',
+      openTvPage: 'TV mode',
       cards: 'Cards',
       camWall: 'Cam wall',
     },
@@ -333,6 +334,25 @@ export default {
         snapshotIntervalHint: 'How often non-live tiles fetch a fresh snapshot.',
         statusOverlay: 'Status overlay',
         statusOverlayHint: 'Compact: state badge only. Full: + progress, layer, time left.',
+      },
+    },
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: 'Print farm',
+      backToApp: 'Back to Bambuddy',
+      refreshInterval: 'Refresh',
+      everySeconds: 'every {{seconds}}s',
+      cameras: 'Cameras',
+      total: '{{count}} printers',
+      currentJob: 'Current job',
+      unnamedJob: 'Active print',
+      progress: 'Print progress',
+      eta: 'ETA {{time}}',
+      idleHint: {
+        idle: 'Ready to print',
+        finished: 'Print finished, bed not cleared yet',
+        error: 'Needs attention',
+        offline: 'No connection',
       },
     },
     // Controls

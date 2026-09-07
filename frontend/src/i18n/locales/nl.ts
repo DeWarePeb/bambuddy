@@ -303,6 +303,7 @@ export default {
     },
     pageView: {
       openCamWallPage: 'Camerawand als pagina openen',
+      openTvPage: 'Tv-modus',
       cards: 'Kaarten',
       camWall: 'Camerawand',
     },
@@ -333,6 +334,25 @@ export default {
         snapshotIntervalHint: 'Hoe vaak niet-live tegels een nieuwe momentopname ophalen.',
         statusOverlay: 'Statusoverlay',
         statusOverlayHint: 'Compact: alleen statusbadge. Volledig: + voortgang, laag, resterende tijd.',
+      },
+    },
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: 'Printfarm',
+      backToApp: 'Terug naar Bambuddy',
+      refreshInterval: 'Verversen',
+      everySeconds: 'elke {{seconds}}s',
+      cameras: "Camera's",
+      total: '{{count}} printers',
+      currentJob: 'Huidige print',
+      unnamedJob: 'Actieve print',
+      progress: 'Printvoortgang',
+      eta: 'Klaar om {{time}}',
+      idleHint: {
+        idle: 'Klaar om te printen',
+        finished: 'Print klaar, bed nog niet leeggehaald',
+        error: 'Heeft aandacht nodig',
+        offline: 'Geen verbinding',
       },
     },
     // Controls

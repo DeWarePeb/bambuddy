@@ -16,6 +16,7 @@ import { FileManagerPage } from './pages/FileManagerPage';
 import { LibraryTrashPage } from './pages/LibraryTrashPage';
 import { CameraPage } from './pages/CameraPage';
 import { CamWallPage } from './pages/CamWallPage';
+import { TvPage } from './pages/TvPage';
 import { StreamOverlayPage } from './pages/StreamOverlayPage';
 import { ExternalLinkPage } from './pages/ExternalLinkPage';
 import { GroupEditPage } from './pages/GroupEditPage';
@@ -190,6 +191,10 @@ function App() {
                     ?token= kiosk has no session to protect; the page itself sends a
                     tokenless visitor to /login, and the backend gates the feed. */}
                 <Route path="/camwall" element={<CamWallPage />} />
+                {/* TV / kiosk mode (voron B10): status-first sibling of the Cam Wall.
+                    Outside the layout for the same reason — a wall display wants no
+                    sidebar. Signed-in only; the page bounces a visitor to /login. */}
+                <Route path="/tv" element={<TvPage />} />
 
                 {/* SpoolBuddy kiosk UI */}
                 <Route element={<ProtectedRoute><WebSocketProvider><SpoolBuddyLayout /></WebSocketProvider></ProtectedRoute>}>

@@ -137,6 +137,7 @@ import {
   LineChart as LineChartIcon,
   LayoutGrid,
   MonitorPlay,
+  Tv,
   ExternalLink,
   PictureInPicture2,
 } from 'lucide-react';
@@ -9740,6 +9741,17 @@ export function PrintersPage() {
           {inMenu && <span>{t('printers.pageView.openCamWallPage')}</span>}
         </RouterLink>
       )}
+
+      {/* TV / kiosk mode (voron B10): the status-first wall display. Always
+          offered — it is its own page, not a view of this one. */}
+      <RouterLink
+        to="/tv"
+        className={`flex h-8 items-center gap-1 rounded-lg border border-bambu-dark-tertiary bg-bambu-dark px-2 text-xs font-medium text-white transition-colors hover:bg-bambu-dark-tertiary ${inMenu ? 'w-full justify-center' : ''}`}
+        title={t('printers.pageView.openTvPage')}
+      >
+        <Tv className="w-3.5 h-3.5" />
+        {inMenu && <span>{t('printers.pageView.openTvPage')}</span>}
+      </RouterLink>
 
       {/* Card size selector */}
       <div className={`flex h-8 items-center bg-bambu-dark rounded-lg border border-bambu-dark-tertiary ${pageView === 'camwall' ? 'opacity-40 pointer-events-none' : ''} ${inMenu ? 'w-full' : ''}`}>
