@@ -5328,7 +5328,7 @@ function PrinterCard({
                       const sideBadge = amsSideBadge(ams.id, amsExtruderMap, amsSwitchInlet, ftsInstalled);
 
                       return (
-                        <div key={ams.id} style={getAmsCardStyle(4)} className="min-w-0 p-2 bg-bambu-dark rounded-[10px] space-y-1">
+                        <div key={ams.id} style={getAmsCardStyle(printer.provider === 'klipper' ? Math.max(1, ams.tray.length) : 4)} className="min-w-0 p-2 bg-bambu-dark rounded-[10px] space-y-1">
                             {/* Header: Label + Stats (no icon) */}
                             <div className="flex w-full min-h-7 items-center justify-between gap-2 rounded-lg bg-bambu-dark-secondary px-2 py-1">
                               <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -5454,9 +5454,10 @@ function PrinterCard({
                                 )}
                               </div>
                             )}
-                            {/* Slots grid: 4 columns - always render 4 slots */}
-                            <div className="grid w-full gap-1" style={slotGridStyle(4)}>
-                              {[0, 1, 2, 3].map((slotIdx) => {
+                            {/* Slots grid: 4 columns - always render 4 slots. A Klipper MMU
+                                (voron patch series) has as many slots as it has gates. */}
+                            <div className="grid w-full gap-1" style={slotGridStyle(printer.provider === 'klipper' ? Math.max(1, ams.tray.length) : 4)}>
+                              {Array.from({ length: printer.provider === 'klipper' ? Math.max(1, ams.tray.length) : 4 }, (_, i) => i).map((slotIdx) => {
                                 // Find tray data for this slot (may be undefined if data incomplete)
                                 // Use array index if available, as tray.id may not always be set
                                 const tray = ams.tray[slotIdx] || ams.tray.find(t => t.id === slotIdx);
