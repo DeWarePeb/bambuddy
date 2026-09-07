@@ -41,6 +41,7 @@ from backend.app.services.bambu_ftp import (
 )
 from backend.app.services.bambu_mqtt import _RACK_NOZZLE_IDS, HMS_MQTT_VERIFY_FAILED, resolve_rack_plan_mapping
 from backend.app.services.filament_deficit import compute_deficit_for_queue_item
+from backend.app.services.moonraker_dispatch import moonraker_remote_filename, upload_to_moonraker
 from backend.app.services.finance_budget import (
     create_budget_reservation,
     release_budget_reservation,
@@ -6204,6 +6205,8 @@ class PrintScheduler:
         # Upload to root directory (not /cache/) - the start_print command references
         # files by name only (ftp://{filename}), so they must be in the root
         remote_filename = derive_remote_filename(filename)
+        if getattr(printer, "provider", "bambu") == "klipper":
+            remote_filename = moonraker_remote_filename(filename, item.plate_id)
         remote_path = f"/{remote_filename}"
 
         # Get FTP retry settings
@@ -6227,27 +6230,6 @@ class PrintScheduler:
         # readable; the status writes below (upload-failure path and the
         # pending->printing CAS) transparently open a fresh transaction.
         await db.commit()
-
-        # Delete existing file if present (avoids 553 error on overwrite)
-        try:
-            logger.debug("Queue item %s: Deleting existing file %s if present...", item.id, remote_path)
-            delete_result = await delete_file_async(
-                printer.ip_address,
-                printer.access_code,
-                remote_path,
-                socket_timeout=ftp_timeout,
-                printer_model=printer.model,
-                # This delete and the upload below are one bounded, user-initiated
-                # unit -- at most nine connections -- so neither skips on the
-                # handshake cool-off the opportunistic sweeps rely on. In #2898's
-                # trace this delete took the TLS failure and armed the cool-off,
-                # and the upload's four attempts were then spent against it
-                # without a socket being opened.
-                respect_handshake_cooloff=False,
-            )
-            logger.debug("Queue item %s: Delete result: %s", item.id, delete_result)
-        except Exception as e:
-            logger.debug("Queue item %s: Delete failed (may not exist): %s", item.id, e)
 
         # Dispatch toast — announce the upload start with the total byte
         # count so the frontend can render an honest progress bar.
@@ -6279,46 +6261,83 @@ class PrintScheduler:
         # Owned here, so a background fetch for another print cannot overwrite
         # it between the failure and the sentence built from it (#2899).
         upload_failure = FtpFailureReport()
-
-        try:
-            if ftp_retry_enabled:
-                uploaded = await with_ftp_retry(
-                    upload_file_async,
-                    printer.ip_address,
-                    printer.access_code,
-                    file_path,
-                    remote_path,
-                    socket_timeout=ftp_timeout,
-                    printer_model=printer.model,
-                    progress_callback=progress_bridge,
-                    respect_handshake_cooloff=False,
-                    failure=upload_failure,
-                    max_retries=ftp_retry_count,
-                    retry_delay=ftp_retry_delay,
-                    operation_name=f"Upload print to {printer.name}",
-                )
-            else:
-                uploaded = await upload_file_async(
-                    printer.ip_address,
-                    printer.access_code,
-                    file_path,
-                    remote_path,
-                    socket_timeout=ftp_timeout,
-                    printer_model=printer.model,
-                    progress_callback=progress_bridge,
-                    respect_handshake_cooloff=False,
-                    failure=upload_failure,
-                )
-        except UploadCancelled as e:
-            uploaded = False
-            upload_error = (
-                "Upload was too slow to finish and was cancelled. The printer's connection could not sustain "
-                "the transfer — check its Wi-Fi signal, or move it closer to the access point."
+        is_klipper = getattr(printer, "provider", "bambu") == "klipper"
+        if is_klipper:
+            # Voron patch series: Moonraker takes plain G-code over HTTP. A sliced
+            # 3MF is unpacked to its plate G-code first; Bambu FTPS is never touched.
+            uploaded, upload_error, klipper_temp = await upload_to_moonraker(
+                printer_manager.get_client(printer.id),
+                file_path,
+                remote_filename,
+                plate_id=item.plate_id,
+                progress_callback=progress_bridge,
+                log_prefix=f"Queue item {item.id}: ",
             )
-            logger.error("Queue item %s: upload deadline exceeded: %s", item.id, e)
-        except Exception as e:
-            uploaded = False
-            logger.error("Queue item %s: FTP error: %s (type: %s)", item.id, e, type(e).__name__)
+            if klipper_temp is not None:
+                if injected_path and injected_path.exists():
+                    injected_path.unlink(missing_ok=True)
+                injected_path = klipper_temp
+        else:
+            # Delete existing file if present (avoids 553 error on overwrite)
+            try:
+                logger.debug("Queue item %s: Deleting existing file %s if present...", item.id, remote_path)
+                delete_result = await delete_file_async(
+                    printer.ip_address,
+                    printer.access_code,
+                    remote_path,
+                    socket_timeout=ftp_timeout,
+                    printer_model=printer.model,
+                    # This delete and the upload below are one bounded, user-initiated
+                    # unit -- at most nine connections -- so neither skips on the
+                    # handshake cool-off the opportunistic sweeps rely on. In #2898's
+                    # trace this delete took the TLS failure and armed the cool-off,
+                    # and the upload's four attempts were then spent against it
+                    # without a socket being opened.
+                    respect_handshake_cooloff=False,
+                )
+                logger.debug("Queue item %s: Delete result: %s", item.id, delete_result)
+            except Exception as e:
+                logger.debug("Queue item %s: Delete failed (may not exist): %s", item.id, e)
+
+            try:
+                if ftp_retry_enabled:
+                    uploaded = await with_ftp_retry(
+                        upload_file_async,
+                        printer.ip_address,
+                        printer.access_code,
+                        file_path,
+                        remote_path,
+                        socket_timeout=ftp_timeout,
+                        printer_model=printer.model,
+                        progress_callback=progress_bridge,
+                        respect_handshake_cooloff=False,
+                        failure=upload_failure,
+                        max_retries=ftp_retry_count,
+                        retry_delay=ftp_retry_delay,
+                        operation_name=f"Upload print to {printer.name}",
+                    )
+                else:
+                    uploaded = await upload_file_async(
+                        printer.ip_address,
+                        printer.access_code,
+                        file_path,
+                        remote_path,
+                        socket_timeout=ftp_timeout,
+                        printer_model=printer.model,
+                        progress_callback=progress_bridge,
+                        respect_handshake_cooloff=False,
+                        failure=upload_failure,
+                    )
+            except UploadCancelled as e:
+                uploaded = False
+                upload_error = (
+                    "Upload was too slow to finish and was cancelled. The printer's connection could not sustain "
+                    "the transfer — check its Wi-Fi signal, or move it closer to the access point."
+                )
+                logger.error("Queue item %s: upload deadline exceeded: %s", item.id, e)
+            except Exception as e:
+                uploaded = False
+                logger.error("Queue item %s: FTP error: %s (type: %s)", item.id, e, type(e).__name__)
 
         # Clean up injected temp file after upload attempt
         if injected_path and injected_path.exists():
@@ -6428,6 +6447,8 @@ class PrintScheduler:
                 item.id,
             )
             try:
+                if is_klipper:
+                    raise RuntimeError("skip FTP cleanup on Klipper")
                 await delete_file_async(
                     printer.ip_address,
                     printer.access_code,
@@ -6753,6 +6774,8 @@ class PrintScheduler:
         else:
             # Clean up uploaded file from SD card to prevent phantom prints
             try:
+                if is_klipper:
+                    raise RuntimeError("skip FTP cleanup on Klipper")
                 await delete_file_async(
                     printer.ip_address,
                     printer.access_code,

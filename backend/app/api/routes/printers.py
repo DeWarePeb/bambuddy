@@ -46,9 +46,11 @@ from backend.app.schemas.printer import (
     PrinterResponseWithSecret,
     PrinterStatus,
     PrinterUpdate,
+    klipper_identity_from_url,
     PrintOptionsResponse,
 )
 from backend.app.services import drying_preflight
+from backend.app.services.moonraker_client import probe_moonraker
 from backend.app.services.bambu_ftp import (
     cache_3mf_download,
     delete_file_async,
@@ -169,25 +171,44 @@ async def create_printer(
     if result.scalar_one_or_none():
         raise HTTPException(400, "Printer with this serial number already exists")
 
-    test_result = await printer_manager.test_connection(
-        ip_address=printer_data.ip_address,
-        serial_number=printer_data.serial_number,
-        access_code=printer_data.access_code,
-    )
-    if not test_result.get("success"):
-        # The frontend renders the user-facing message via i18n on `code`;
-        # `message` is an English fallback for non-UI clients (curl / scripts).
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "printer_connection_failed",
-                "message": (
-                    "Could not connect to the printer. Verify IP address, serial number, "
-                    "and access code, and confirm LAN-only mode is enabled. "
-                    "The printer was not added."
-                ),
-            },
+    if printer_data.provider == "klipper":
+        # Voron patch series: probe Moonraker instead of MQTT, and prefill the
+        # external camera from Moonraker's webcam list when the user left it empty.
+        test_result = await asyncio.to_thread(probe_moonraker, printer_data.api_url, printer_data.auth_token)
+        if not test_result.get("success"):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "printer_connection_failed",
+                    "message": f"{test_result.get('message')} The printer was not added.",
+                },
+            )
+        webcams = test_result.get("webcams") or []
+        if webcams and not printer_data.external_camera_url:
+            printer_data.external_camera_url = webcams[0]["stream_url"]
+            printer_data.external_camera_snapshot_url = webcams[0].get("snapshot_url") or None
+            printer_data.external_camera_type = "mjpeg"
+            printer_data.external_camera_enabled = True
+    else:
+        test_result = await printer_manager.test_connection(
+            ip_address=printer_data.ip_address,
+            serial_number=printer_data.serial_number,
+            access_code=printer_data.access_code,
         )
+        if not test_result.get("success"):
+            # The frontend renders the user-facing message via i18n on `code`;
+            # `message` is an English fallback for non-UI clients (curl / scripts).
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "printer_connection_failed",
+                    "message": (
+                        "Could not connect to the printer. Verify IP address, serial number, "
+                        "and access code, and confirm LAN-only mode is enabled. "
+                        "The printer was not added."
+                    ),
+                },
+            )
 
     printer = Printer(**printer_data.model_dump())
     db.add(printer)
@@ -400,11 +421,19 @@ async def update_printer(
     for field, value in update_data.items():
         setattr(printer, field, value)
 
+    if getattr(printer, "provider", "bambu") == "klipper" and "api_url" in update_data and printer.api_url:
+        # Voron patch series: ip_address mirrors the Moonraker host (used for
+        # the card, discovery dedupe and the external camera default).
+        if "://" not in printer.api_url:
+            printer.api_url = f"http://{printer.api_url}"
+        printer.api_url = printer.api_url.rstrip("/")
+        printer.ip_address = klipper_identity_from_url(printer.api_url)[1]
+
     await db.commit()
     await db.refresh(printer)
 
     # Reconnect if connection settings changed
-    if any(k in update_data for k in ["ip_address", "access_code", "is_active"]):
+    if any(k in update_data for k in ["ip_address", "access_code", "is_active", "api_url", "auth_token"]):
         printer_manager.disconnect_printer(printer_id)
         if printer.is_active:
             await printer_manager.connect_printer(printer)
@@ -1022,12 +1051,18 @@ async def disconnect_printer(
 
 @router.post("/test")
 async def test_printer_connection(
-    ip_address: str,
-    serial_number: str,
-    access_code: str,
+    ip_address: str = "",
+    serial_number: str = "",
+    access_code: str = "",
+    provider: str = "bambu",
+    api_url: str | None = None,
+    auth_token: str | None = None,
     _=RequirePermissionIfAuthEnabled(Permission.PRINTERS_CREATE),
 ):
     """Test connection to a printer without saving."""
+    if provider == "klipper":
+        # Voron patch series: Moonraker probe, returns hostname + webcams for the dialog.
+        return await asyncio.to_thread(probe_moonraker, api_url or ip_address, auth_token)
     result = await printer_manager.test_connection(
         ip_address=ip_address,
         serial_number=serial_number,
