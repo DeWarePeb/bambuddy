@@ -3349,6 +3349,33 @@ export interface GitHubBackupTriggerResponse {
   files_changed: number;
 }
 
+// Voron patch series (B5): one summary of everything that needs a hand
+export interface AlertsMaintenanceItem {
+  item_id: number;
+  printer_id: number;
+  printer_name: string;
+  name: string;
+  hours_until_due: number;
+  days_until_due: number | null;
+}
+
+export interface AlertsLowStockSpool {
+  spool_id: number;
+  material: string;
+  brand: string | null;
+  color_name: string | null;
+  remaining_g: number;
+  remaining_pct: number;
+}
+
+export interface AlertsSummary {
+  maintenance_due: AlertsMaintenanceItem[];
+  maintenance_warning: AlertsMaintenanceItem[];
+  low_stock: AlertsLowStockSpool[];
+  low_stock_threshold_pct: number;
+  total: number;
+}
+
 export interface NotificationTestRequest {
   provider_type: ProviderType;
   config: Record<string, unknown>;
@@ -6775,6 +6802,8 @@ export const api = {
   getMaintenanceHistory: (itemId: number) =>
     request<MaintenanceHistory[]>(`/maintenance/items/${itemId}/history`),
   getMaintenanceSummary: () => request<MaintenanceSummary>('/maintenance/summary'),
+  // Voron patch series (B5): maintenance due + low stock in one call, for the layout banner
+  getAlertsSummary: () => request<AlertsSummary>('/alerts/summary'),
   setPrinterHours: (printerId: number, totalHours: number) =>
     request<{ printer_id: number; total_hours: number; archive_hours: number; offset_hours: number }>(
       `/maintenance/printers/${printerId}/hours?total_hours=${totalHours}`,

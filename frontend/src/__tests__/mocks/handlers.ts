@@ -385,6 +385,15 @@ export const handlers = [
   // Version / Health
   // ========================================================================
 
+  http.get('/api/v1/alerts/summary', () =>
+    HttpResponse.json({
+      maintenance_due: [],
+      maintenance_warning: [],
+      low_stock: [],
+      low_stock_threshold_pct: 20,
+      total: 0,
+    })
+  ),
   http.get('/api/v1/version', () => {
     return HttpResponse.json({
       version: '0.1.5',

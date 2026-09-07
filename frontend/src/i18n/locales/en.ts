@@ -1,4 +1,16 @@
 export default {
+  // Voron patch series (B5): the "needs a hand" banner
+  alerts: {
+    title: 'Needs a hand',
+    maintenanceDue_one: '{{count}} maintenance task due',
+    maintenanceDue_other: '{{count}} maintenance tasks due',
+    lowStock_one: '{{count}} spool running low',
+    lowStock_other: '{{count}} spools running low',
+    more: '+{{count}} more',
+    openMaintenance: 'Open Maintenance',
+    openInventory: 'Open Inventory',
+    dismiss: 'Hide until something changes',
+  },
   // Navigation
   nav: {
     printers: 'Printers',

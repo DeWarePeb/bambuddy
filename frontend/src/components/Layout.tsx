@@ -1,7 +1,7 @@
 import { getBrand } from '../brand';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Printer, Archive, ListOrdered, BarChart3, Cloud, Settings, Sun, Moon, Monitor, ChevronLeft, ChevronRight, Keyboard, Github, ArrowUpCircle, Wrench, FolderKanban, FolderOpen, X, Menu, Info, Plug, Bug, LogOut, Key, Loader2, Disc3, ShieldAlert, Globe, Bell, Receipt, type LucideIcon } from 'lucide-react';
+import { Printer, Archive, ListOrdered, BarChart3, Cloud, Settings, Sun, Moon, Monitor, ChevronLeft, ChevronRight, Keyboard, Github, ArrowUpCircle, Wrench, FolderKanban, FolderOpen, X, Menu, Info, Plug, Bug, LogOut, Key, Loader2, Disc3, ShieldAlert, Globe, Bell, Receipt, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
@@ -87,6 +87,44 @@ export function Layout() {
   // whichever of them happens to be underneath. Moving out of the corner is
   // the only fix that covers in-flow content as well as fixed overlays.
   const [bugReportOpen, setBugReportOpen] = useState(false);
+
+  // Voron patch series (B5): one banner for maintenance that is due and spools
+  // running low, instead of walking Maintenance and Inventory to find out.
+  // Dismissing hides it for this tab until the set of alerts changes.
+  const { data: alertsSummary } = useQuery({
+    queryKey: ['alerts-summary'],
+    queryFn: () => api.getAlertsSummary(),
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  const alertsSignature = alertsSummary
+    ? [
+        ...alertsSummary.maintenance_due.map((m) => `m${m.item_id}`),
+        ...alertsSummary.low_stock.map((s) => `s${s.spool_id}`),
+      ].join(',')
+    : '';
+  const [dismissedAlerts, setDismissedAlerts] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem('bambuddy-alerts-dismissed') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const dismissAlerts = () => {
+    setDismissedAlerts(alertsSignature);
+    try {
+      sessionStorage.setItem('bambuddy-alerts-dismissed', alertsSignature);
+    } catch {
+      // private mode: the banner simply comes back on reload
+    }
+  };
+  const showAlertsBanner =
+    !!alertsSummary && alertsSummary.total > 0 && dismissedAlerts !== alertsSignature;
+  const summarize = (names: string[]) =>
+    names.length <= 3
+      ? names.join(', ')
+      : `${names.slice(0, 3).join(', ')} ${t('alerts.more', { count: names.length - 3 })}`;
   // A bug-report logging run survives the panel being closed (#2847). The
   // floating disc shows that itself; the compact header's button and the
   // debug-logging banner need telling.
@@ -909,6 +947,51 @@ export function Layout() {
                 {t('support.manageLogs', { defaultValue: 'Manage' })}
               </button>
             </div>
+          </div>
+        )}
+        {showAlertsBanner && alertsSummary && (
+          <div
+            className="bg-amber-100 dark:bg-amber-500/15 border-b border-amber-300 dark:border-amber-500/30 px-4 py-2 flex items-center justify-between gap-3"
+            data-testid="alerts-banner"
+          >
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-amber-900 dark:text-amber-100">
+              <span className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                {t('alerts.title')}
+              </span>
+              {alertsSummary.maintenance_due.length > 0 && (
+                <button
+                  onClick={() => navigate('/maintenance')}
+                  className="text-left hover:underline"
+                  title={t('alerts.openMaintenance')}
+                >
+                  {t('alerts.maintenanceDue', { count: alertsSummary.maintenance_due.length })}:{' '}
+                  {summarize(alertsSummary.maintenance_due.map((m) => `${m.printer_name}: ${m.name}`))}
+                </button>
+              )}
+              {alertsSummary.low_stock.length > 0 && (
+                <button
+                  onClick={() => navigate('/inventory')}
+                  className="text-left hover:underline"
+                  title={t('alerts.openInventory')}
+                >
+                  {t('alerts.lowStock', { count: alertsSummary.low_stock.length })}:{' '}
+                  {summarize(
+                    alertsSummary.low_stock.map(
+                      (s) => `${[s.brand, s.material, s.color_name].filter(Boolean).join(' ')} (${Math.round(s.remaining_pct)}%)`
+                    )
+                  )}
+                </button>
+              )}
+            </div>
+            <button
+              onClick={dismissAlerts}
+              className="p-1 rounded hover:bg-amber-200 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300"
+              aria-label={t('alerts.dismiss')}
+              title={t('alerts.dismiss')}
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
         {devModeWarnings && devModeWarnings.length > 0 && (

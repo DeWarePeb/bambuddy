@@ -1,4 +1,16 @@
 export default {
+  // Voron patch series (B5): de "aandacht nodig"-balk
+  alerts: {
+    title: 'Aandacht nodig',
+    maintenanceDue_one: '{{count}} onderhoudstaak open',
+    maintenanceDue_other: '{{count}} onderhoudstaken open',
+    lowStock_one: '{{count}} spoel bijna op',
+    lowStock_other: '{{count}} spoelen bijna op',
+    more: '+{{count}} meer',
+    openMaintenance: 'Onderhoud openen',
+    openInventory: 'Voorraad openen',
+    dismiss: 'Verbergen tot er iets verandert',
+  },
   // Navigation
   nav: {
     printers: 'Printers',
