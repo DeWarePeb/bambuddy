@@ -43,6 +43,24 @@ describe('spoolMatchesQuery', () => {
     expect(spoolMatchesQuery(makeSpool(), '')).toBe(true);
   });
 
+  it('returns true for a whitespace-only query', () => {
+    expect(spoolMatchesQuery(makeSpool(), '   ')).toBe(true);
+  });
+
+  it('matches a multi-word query when every word hits some field', () => {
+    const spool = makeSpool({ material: 'ABS', color_name: 'Black', brand: 'Bambu Lab' });
+    expect(spoolMatchesQuery(spool, 'abs black')).toBe(true);
+    expect(spoolMatchesQuery(spool, 'black abs')).toBe(true);
+    expect(spoolMatchesQuery(spool, 'bambu abs')).toBe(true);
+    expect(spoolMatchesQuery(spool, '  abs   black ')).toBe(true);
+  });
+
+  it('rejects a multi-word query when one word matches nothing', () => {
+    const spool = makeSpool({ material: 'ABS', color_name: 'Black' });
+    expect(spoolMatchesQuery(spool, 'abs red')).toBe(false);
+    expect(spoolMatchesQuery(spool, 'petg black')).toBe(false);
+  });
+
   it('matches on material (case-insensitive)', () => {
     const spool = makeSpool({ material: 'PETG' });
     expect(spoolMatchesQuery(spool, 'petg')).toBe(true);
