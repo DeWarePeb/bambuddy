@@ -58,7 +58,9 @@ def _load_options():
     )
 
 
-async def _broadcast(event: str, assignment: PendingSlotAssignment) -> None:
+async def _broadcast(event: str, assignment: PendingSlotAssignment, printer_name: str | None = None) -> None:
+    """Tell the UI a request changed. ``printer_name`` overrides the requested printer's name
+    (on completion it is the printer that actually took the spool — the request may say "any")."""
     try:
         await ws_manager.broadcast(
             {
@@ -67,7 +69,7 @@ async def _broadcast(event: str, assignment: PendingSlotAssignment) -> None:
                 "assignment_id": assignment.id,
                 "spool_id": assignment.spool_id,
                 "printer_id": assignment.printer_id,
-                "printer_name": assignment.printer_name,
+                "printer_name": printer_name or assignment.printer_name,
                 "status": assignment.status,
                 "assigned_printer_id": assignment.assigned_printer_id,
                 "assigned_ams_id": assignment.assigned_ams_id,
@@ -324,5 +326,6 @@ async def try_complete_pending_assignment(
         ams_id,
         tray_id,
     )
-    await _broadcast("completed", assignment)
+    taker = (await db.execute(select(Printer.name).where(Printer.id == printer_id))).scalar_one_or_none()
+    await _broadcast("completed", assignment, printer_name=taker)
     return assignment

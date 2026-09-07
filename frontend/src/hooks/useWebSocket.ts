@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
 import { inventoryLocationsQueryKey } from '../utils/inventoryQueries';
+import { formatSlotLabel } from '../utils/amsHelpers';
 
 // The only auth-failure close code /api/v1/ws emits (websocket.py
 // _WS_CLOSE_UNAUTHORIZED). A 4401 means the ws-token was missing / invalid /
@@ -28,6 +29,10 @@ interface WebSocketMessage {
   // PipelineRunResponse payload — typed loosely here so the WebSocket hook
   // doesn't pull the full client.ts types in.
   run?: { pipeline_id?: number | null };
+  // pending_slot_assignment_changed (voron B8)
+  event?: 'created' | 'completed' | 'cancelled' | 'timed_out';
+  assigned_ams_id?: number | null;
+  assigned_tray_id?: number | null;
 }
 
 export function useWebSocket() {
@@ -447,6 +452,35 @@ export function useWebSocket() {
         // Filament consumption recorded - refresh spool data
         debouncedInvalidate('inventory-spools');
         break;
+
+      case 'pending_slot_assignment_changed': {
+        // A "next loaded slot" request was created / completed / cancelled /
+        // timed out (voron B8). Completion also wrote a slot assignment and
+        // may have linked an RFID tag to the spool, so refresh those too.
+        queryClient.invalidateQueries({ queryKey: ['pending-slot-assignments'] });
+        if (message.event === 'completed') {
+          invalidateSlotQueries();
+          debouncedInvalidate('inventory-spools');
+          const slot = message.assigned_ams_id != null && message.assigned_tray_id != null
+            ? formatSlotLabel(
+                message.assigned_ams_id,
+                message.assigned_tray_id,
+                message.assigned_ams_id >= 128 && message.assigned_ams_id < 254,
+                message.assigned_ams_id === 254 || message.assigned_ams_id === 255,
+              )
+            : '?';
+          showToast(
+            t('inventory.nextSlot.completedToast', {
+              printer: message.printer_name || t('inventory.nextSlot.anyPrinter'),
+              slot,
+            }),
+            'success'
+          );
+        } else if (message.event === 'timed_out') {
+          showToast(t('inventory.nextSlot.timedOutToast'), 'warning');
+        }
+        break;
+      }
 
       case 'unknown_tag': {
         // Unknown RFID tag detected — dispatch event for UI. The backend

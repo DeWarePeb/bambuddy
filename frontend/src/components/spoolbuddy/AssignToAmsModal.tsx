@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Loader2, CheckCircle, XCircle, Layers } from 'lucide-react';
+import { X, Loader2, CheckCircle, XCircle, Layers, Hourglass } from 'lucide-react';
 import { api, type InventorySpool, type PrinterStatus, type AMSTray } from '../../api/client';
 import { ConfirmModal } from '../ConfirmModal';
+import { AssignNextSlotModal } from '../NextSlotAssignment';
 import { AmsUnitCard, NozzleBadge } from './AmsUnitCard';
 import type { AmsThresholds } from './AmsUnitCard';
 import { getFillBarColor } from '../../utils/amsHelpers';
@@ -80,6 +81,9 @@ export function AssignToAmsModal({ isOpen, onClose, spool, printerId, spoolmanMo
     location: string;
   } | null>(null);
   const [pendingSlot, setPendingSlot] = useState<{ amsId: number; trayId: number } | null>(null);
+  // "Next loaded slot instead" (voron B8): skip picking a slot, let the
+  // backend take whichever tray gets loaded next on this printer.
+  const [nextSlotOpen, setNextSlotOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -88,6 +92,7 @@ export function AssignToAmsModal({ isOpen, onClose, spool, printerId, spoolmanMo
       setShowMismatchConfirm(false);
       setMismatchDetails(null);
       setPendingSlot(null);
+      setNextSlotOpen(false);
     }
   }, [isOpen]);
 
@@ -510,6 +515,16 @@ export function AssignToAmsModal({ isOpen, onClose, spool, printerId, spoolmanMo
 
       {/* Footer */}
       <div className="flex justify-end gap-3 px-5 py-3 border-t border-zinc-800 shrink-0">
+        {!spoolmanMode && printerId !== null && statusType !== 'success' && (
+          <button
+            onClick={() => setNextSlotOpen(true)}
+            disabled={isWaiting}
+            className="mr-auto px-4 py-2.5 rounded-lg text-sm font-medium bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-colors min-h-[44px] disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            <Hourglass className="w-4 h-4" />
+            {t('inventory.nextSlot.fromSlotDialog')}
+          </button>
+        )}
         <button
           onClick={onClose}
           disabled={isWaiting}
@@ -519,6 +534,16 @@ export function AssignToAmsModal({ isOpen, onClose, spool, printerId, spoolmanMo
         </button>
       </div>
     </div>
+
+    {!spoolmanMode && (
+      <AssignNextSlotModal
+        isOpen={nextSlotOpen}
+        onClose={() => setNextSlotOpen(false)}
+        spool={spool}
+        defaultPrinterId={printerId}
+        onCreated={onClose}
+      />
+    )}
 
     {showMismatchConfirm && mismatchDetails && (() => {
       let message = '';

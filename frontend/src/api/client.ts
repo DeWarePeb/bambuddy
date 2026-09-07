@@ -3881,6 +3881,27 @@ export interface SpoolAssignment {
   ams_label?: string | null;  // User-defined friendly name for the AMS unit
 }
 
+// "Assign this spool to the next AMS slot that gets loaded" (voron B8).
+// printer_id null = whichever printer loads a spool first.
+export type PendingSlotAssignmentStatus = 'pending' | 'completed' | 'cancelled' | 'timed_out';
+
+export interface PendingSlotAssignment {
+  id: number;
+  spool_id: number;
+  printer_id: number | null;
+  printer_name: string | null;
+  source: string;
+  status: PendingSlotAssignmentStatus;
+  timeout_seconds: number;
+  created_at: string | null;
+  expires_at: string | null;
+  completed_at: string | null;
+  assigned_printer_id: number | null;
+  assigned_ams_id: number | null;
+  assigned_tray_id: number | null;
+  spool?: InventorySpool | null;
+}
+
 export interface FilamentSkuSettings {
   id: number;
   material: string;
@@ -6643,6 +6664,22 @@ export const api = {
     }),
   unassignSpool: (printerId: number, amsId: number, trayId: number) =>
     request<{ status: string }>(`/inventory/assignments/${printerId}/${amsId}/${trayId}`, { method: 'DELETE' }),
+  // ── Pending "next loaded slot" assignments (voron B8) ─────────────────────
+  getPendingSlotAssignments: (params?: { spool_id?: number; printer_id?: number; include_finished?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (params?.spool_id != null) qs.set('spool_id', String(params.spool_id));
+    if (params?.printer_id != null) qs.set('printer_id', String(params.printer_id));
+    if (params?.include_finished) qs.set('include_finished', 'true');
+    const suffix = qs.toString();
+    return request<PendingSlotAssignment[]>(`/inventory/assignments/pending${suffix ? `?${suffix}` : ''}`);
+  },
+  createPendingSlotAssignment: (data: { spool_id: number; printer_id: number | null; timeout_seconds?: number }) =>
+    request<PendingSlotAssignment>('/inventory/assignments/pending', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  cancelPendingSlotAssignment: (assignmentId: number) =>
+    request<PendingSlotAssignment>(`/inventory/assignments/pending/${assignmentId}`, { method: 'DELETE' }),
   // ── Spool label printing (#809) ──────────────────────────────────────────
   // Both endpoints return application/pdf. Frontend opens the resulting Blob
   // in a new tab so the user can print or save from the browser's PDF viewer.

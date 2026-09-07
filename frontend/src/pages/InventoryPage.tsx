@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { ForecastPanel } from '../components/ForecastPanel';
 import { api, spoolbuddyApi, ApiError } from '../api/client';
-import type { InventorySpool, SpoolCatalogEntry, LocationHASensorReading } from '../api/client';
+import type { InventorySpool, SpoolCatalogEntry, LocationHASensorReading, PendingSlotAssignment } from '../api/client';
 import { Button } from '../components/Button';
 import { FilamentSwatch } from '../components/FilamentSwatch';
 import { describeHASensorReading, iconForHASensor } from '../utils/haSensorDisplay';
@@ -23,6 +23,7 @@ import { LabelTemplatePickerModal } from '../components/LabelTemplatePickerModal
 import { SpoolCsvImportModal } from '../components/SpoolCsvImportModal';
 import { LocationsModal } from '../components/LocationsModal';
 import { BulkEditSpoolsModal } from '../components/BulkEditSpoolsModal';
+import { NextSlotBadge, NextSlotButton, usePendingSlotAssignments } from '../components/NextSlotAssignment';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { colorSortKey, resolveSpoolColorName } from '../utils/colors';
@@ -189,6 +190,9 @@ type CellCtx = {
   remaining: number;
   pct: number;
   assignmentMap: Record<number, LocationDisplay>;
+  // Spools waiting for the next loaded slot (voron B8). undefined = feature
+  // off for this table (Spoolman mode, group header rows).
+  pendingSlotMap?: Record<number, PendingSlotAssignment>;
   catalogMap: Record<number, SpoolCatalogEntry>;
   locationReadingsMap: Record<number, LocationHASensorReading[]>;
   currencySymbol: string;
@@ -279,9 +283,14 @@ const columnCells: Record<string, (ctx: CellCtx) => ReactNode> = {
       {spool.slicer_filament_name || spool.slicer_filament || '-'}
     </span>
   ),
-  location: ({ spool, assignmentMap }) => {
+  location: ({ spool, assignmentMap, pendingSlotMap }) => {
     const assignment = assignmentMap[spool.id];
-    if (!assignment) return <span className="text-sm text-bambu-gray">-</span>;
+    if (!assignment) {
+      const pending = pendingSlotMap?.[spool.id];
+      if (pending) return <NextSlotBadge pending={pending} />;
+      if (pendingSlotMap && !spool.archived_at) return <NextSlotButton spool={spool} />;
+      return <span className="text-sm text-bambu-gray">-</span>;
+    }
     const printerLabel = assignment.printer_name || `Printer ${assignment.printer_id}`;
     const isExternal = assignment.ams_id === 254 || assignment.ams_id === 255;
     const isHt = !isExternal && assignment.ams_id >= 128;
@@ -779,6 +788,16 @@ function InventoryPage({ spoolmanMode = false, spoolmanModeReady = true }: { spo
     queryFn: () => api.getAssignments(),
     refetchInterval: 30000,
   });
+
+  // Spools waiting for the next loaded AMS slot (voron B8). Local inventory
+  // only: in Spoolman mode there is no local spool id to mark.
+  const { data: pendingSlotAssignments } = usePendingSlotAssignments(!spoolmanMode);
+  const pendingSlotMap = useMemo<Record<number, PendingSlotAssignment> | undefined>(() => {
+    if (spoolmanMode) return undefined;
+    const map: Record<number, PendingSlotAssignment> = {};
+    for (const p of pendingSlotAssignments || []) map[p.spool_id] = p;
+    return map;
+  }, [spoolmanMode, pendingSlotAssignments]);
 
   // Spoolman-mode slot assignments. spool.id IS the spoolman_spool_id, so this
   // feeds into the same assignmentMap that the LOCATION column reads.
@@ -2246,6 +2265,7 @@ function InventoryPage({ spoolmanMode = false, spoolmanModeReady = true }: { spo
                           onResetConsumedCounter={(id) => setConfirmAction({ type: 'reset-consumed-counter', spoolId: id })}
                           visibleColumns={visibleColumns}
                           assignmentMap={assignmentMap}
+                          pendingSlotMap={pendingSlotMap}
                           catalogMap={catalogMap}
                           locationReadingsMap={locationReadingsMap}
                           currencySymbol={currencySymbol}
@@ -2279,6 +2299,7 @@ function InventoryPage({ spoolmanMode = false, spoolmanModeReady = true }: { spo
                         onResetConsumedCounter={() => setConfirmAction({ type: 'reset-consumed-counter', spoolId: spool.id })}
                         visibleColumns={visibleColumns}
                         assignmentMap={assignmentMap}
+                        pendingSlotMap={pendingSlotMap}
                         catalogMap={catalogMap}
                         locationReadingsMap={locationReadingsMap}
                         currencySymbol={currencySymbol}
@@ -2831,7 +2852,7 @@ function SpoolLocationFooter({
 function SpoolTableRow({
   spool, remaining, pct, isSelected, onToggleSelected,
   onEdit, onCopy, onRestore, onArchive, onDelete, onPrintLabel, onResetConsumedCounter,
-  visibleColumns, assignmentMap, catalogMap, locationReadingsMap, currencySymbol, dateFormat, t, onSyncWeight,
+  visibleColumns, assignmentMap, pendingSlotMap, catalogMap, locationReadingsMap, currencySymbol, dateFormat, t, onSyncWeight,
   colorizeLocationSensors, locationSensorAboveColor, locationSensorBelowColor, locationSensorOptimalColor,
 }: {
   spool: InventorySpool;
@@ -2848,6 +2869,7 @@ function SpoolTableRow({
   onResetConsumedCounter?: () => void;
   visibleColumns: string[];
   assignmentMap: Record<number, LocationDisplay>;
+  pendingSlotMap?: Record<number, PendingSlotAssignment>;
   catalogMap: Record<number, SpoolCatalogEntry>;
   locationReadingsMap: Record<number, LocationHASensorReading[]>;
   currencySymbol: string;
@@ -2879,7 +2901,7 @@ function SpoolTableRow({
       </td>
       {visibleColumns.map((colId) => (
         <td key={colId} className="py-3 px-4">
-          {columnCells[colId]?.({ spool, remaining, pct, assignmentMap, catalogMap, locationReadingsMap, currencySymbol, dateFormat, t, onSyncWeight, colorizeLocationSensors, locationSensorAboveColor, locationSensorBelowColor, locationSensorOptimalColor })}
+          {columnCells[colId]?.({ spool, remaining, pct, assignmentMap, pendingSlotMap, catalogMap, locationReadingsMap, currencySymbol, dateFormat, t, onSyncWeight, colorizeLocationSensors, locationSensorAboveColor, locationSensorBelowColor, locationSensorOptimalColor })}
         </td>
       ))}
       <td className="py-3 px-4">
@@ -2928,7 +2950,7 @@ function SpoolTableRow({
 function SpoolTableGroup({
   spools, headerSpool, remaining, pct, isExpanded, onToggle,
   onEdit, onCopy, onArchive, onDelete, onPrintLabel, onResetConsumedCounter,
-  visibleColumns, assignmentMap, catalogMap, locationReadingsMap, currencySymbol, dateFormat, t, onSyncWeight,
+  visibleColumns, assignmentMap, pendingSlotMap, catalogMap, locationReadingsMap, currencySymbol, dateFormat, t, onSyncWeight,
   colorizeLocationSensors, locationSensorAboveColor, locationSensorBelowColor, locationSensorOptimalColor,
   selectedIds, onToggleSelected, onToggleGroupSelected,
 }: {
@@ -2948,6 +2970,7 @@ function SpoolTableGroup({
   onResetConsumedCounter?: (id: number) => void;
   visibleColumns: string[];
   assignmentMap: Record<number, LocationDisplay>;
+  pendingSlotMap?: Record<number, PendingSlotAssignment>;
   catalogMap: Record<number, SpoolCatalogEntry>;
   locationReadingsMap: Record<number, LocationHASensorReading[]>;
   currencySymbol: string;
@@ -3024,6 +3047,7 @@ function SpoolTableGroup({
             onResetConsumedCounter={onResetConsumedCounter ? () => onResetConsumedCounter(spool.id) : undefined}
             visibleColumns={visibleColumns}
             assignmentMap={assignmentMap}
+            pendingSlotMap={pendingSlotMap}
             catalogMap={catalogMap}
             locationReadingsMap={locationReadingsMap}
             currencySymbol={currencySymbol}
