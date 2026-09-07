@@ -118,6 +118,7 @@ from backend.app.services.print_storage import (
     REASON_FTPS_COOLOFF,
     external_storage_present,
     ftp_probe_paths,
+    StorageVerdict,
     print_file_reachable_over_ftp,
 )
 from backend.app.services.printer_manager import (
@@ -4013,6 +4014,11 @@ async def on_print_start(printer_id: int, data: dict):
         # retries, then the directory walk) is ~110 connections that cannot
         # succeed. Skip it and say why (#2780).
         storage = print_file_reachable_over_ftp(printer_manager.get_status(printer_id))
+        if printer is not None and getattr(printer, "provider", "bambu") == "klipper":
+            # Voron patch series: a Klipper printer has no FTPS service at all.
+            # Queue-dispatched prints already carry their archive (expected
+            # print); anything else gets the fallback archive below.
+            storage = StorageVerdict(reachable=False, reason="klipper printer: no FTPS file service")
 
         # Set when a lookup is abandoned because the printer's FTPS cool-off is
         # running rather than because the file is somewhere unreachable. The
