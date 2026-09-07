@@ -349,11 +349,15 @@ export interface OverlayStatus {
 }
 
 // Printer types
+export type PrinterProvider = 'bambu' | 'klipper';
+
 export interface Printer {
   id: number;
   name: string;
   serial_number: string;
   ip_address: string;
+  provider: PrinterProvider;  // Voron patch series
+  api_url: string | null;     // Moonraker base URL (klipper only)
   // Optional because the backend only returns access_code when the caller has
   // PRINTERS_UPDATE — Admin / Operator JWTs or auth-disabled mode. Viewers and
   // API keys receive a Printer without this field.
@@ -661,6 +665,11 @@ export interface PrinterCreate {
   serial_number: string;
   ip_address: string;
   access_code: string;
+  // Voron patch series: "klipper" printers are driven over Moonraker at
+  // api_url; serial, IP and access code are derived server-side from it.
+  provider?: PrinterProvider;
+  api_url?: string | null;
+  auth_token?: string | null;
   model?: string;
   location?: string;
   auto_archive?: boolean;

@@ -7598,6 +7598,9 @@ export function AddPrinterModal({
     model: '',
     location: '',
     auto_archive: true,
+    provider: 'bambu',
+    api_url: '',
+    auth_token: '',
   });
 
   // Discovery state
@@ -7650,6 +7653,19 @@ export function AddPrinterModal({
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.provider === 'klipper') {
+      // Voron patch series: the MQTT/FTPS diagnostic does not apply; the
+      // backend probes Moonraker itself and derives serial/IP from the URL.
+      onAdd({
+        ...form,
+        api_url: (form.api_url || '').trim(),
+        auth_token: form.auth_token || undefined,
+        serial_number: '',
+        ip_address: '',
+        access_code: '',
+      });
+      return;
+    }
     setCheckingSave(true);
     try {
       const result = await api.diagnoseConnection({
@@ -7925,6 +7941,21 @@ export function AddPrinterModal({
           </div>
           <form onSubmit={handleAddSubmit} className="space-y-4">
             <div>
+              <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.providerLabel')}</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['bambu', 'klipper'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setForm({ ...form, provider: p })}
+                    className={`px-3 py-2 rounded-lg border text-sm transition-colors ${form.provider === p ? 'border-bambu-green text-white bg-bambu-dark' : 'border-bambu-dark-tertiary text-bambu-gray bg-bambu-dark hover:text-white'}`}
+                  >
+                    {p === 'bambu' ? t('printers.modal.providerBambu') : t('printers.modal.providerKlipper')}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <label className="block text-sm text-bambu-gray mb-1">{t('printers.name')}</label>
               <input
                 type="text"
@@ -7935,6 +7966,43 @@ export function AddPrinterModal({
                 placeholder={t('printers.modal.myPrinter')}
               />
             </div>
+            {form.provider === 'klipper' ? (
+              <>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.moonrakerUrl')}</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.api_url || ''}
+                    onChange={(e) => setForm({ ...form, api_url: e.target.value })}
+                    placeholder="http://voron.local"
+                  />
+                  <p className="text-xs text-bambu-gray mt-1">{t('printers.modal.moonrakerUrlHelp')}</p>
+                </div>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.moonrakerApiKey')}</label>
+                  <input
+                    type="password"
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.auth_token || ''}
+                    onChange={(e) => setForm({ ...form, auth_token: e.target.value })}
+                    placeholder={t('printers.modal.moonrakerApiKeyHelp')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.model')}</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.model || ''}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    placeholder={t('printers.modal.klipperModelPlaceholder')}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
             <div>
               <label className="block text-sm text-bambu-gray mb-1">{t('printers.ipAddress')}</label>
               <input
@@ -8005,6 +8073,8 @@ export function AddPrinterModal({
                 </optgroup>
               </select>
             </div>
+              </>
+            )}
             <div>
               <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.locationGroup')}</label>
               <input
@@ -8385,6 +8455,8 @@ function EditPrinterModal({
     location: printer.location || '',
     auto_archive: printer.auto_archive,
     is_active: printer.is_active,
+    api_url: printer.api_url || '',
+    auth_token: '',
   });
 
   // Setup-time pre-flight — same warn-on-save as the Add-Printer dialog, so an
@@ -8424,11 +8496,22 @@ function EditPrinterModal({
     if (form.access_code) {
       data.access_code = form.access_code;
     }
+    if (printer.provider === 'klipper') {
+      data.api_url = form.api_url.trim();
+      delete data.ip_address;  // derived server-side from api_url
+      if (form.auth_token) {
+        data.auth_token = form.auth_token;
+      }
+    }
     updateMutation.mutate(data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (printer.provider === 'klipper') {
+      doSave();
+      return;
+    }
     setCheckingSave(true);
     try {
       const result = await api.diagnoseConnection({
@@ -8468,6 +8551,43 @@ function EditPrinterModal({
                 placeholder={t('printers.modal.myPrinter')}
               />
             </div>
+            {printer.provider === 'klipper' ? (
+              <>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.moonrakerUrl')}</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.api_url}
+                    onChange={(e) => setForm({ ...form, api_url: e.target.value })}
+                    placeholder="http://voron.local"
+                  />
+                  <p className="text-xs text-bambu-gray mt-1">{t('printers.modal.moonrakerUrlHelp')}</p>
+                </div>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.moonrakerApiKey')}</label>
+                  <input
+                    type="password"
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.auth_token}
+                    onChange={(e) => setForm({ ...form, auth_token: e.target.value })}
+                    placeholder={t('printers.accessCodePlaceholder')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.model')}</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    placeholder={t('printers.modal.klipperModelPlaceholder')}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
             <div>
               <label className="block text-sm text-bambu-gray mb-1">{t('printers.ipAddress')}</label>
               <input
@@ -8536,6 +8656,8 @@ function EditPrinterModal({
                 </optgroup>
               </select>
             </div>
+              </>
+            )}
             <div>
               <label className="block text-sm text-bambu-gray mb-1">Location / Group</label>
               <input
