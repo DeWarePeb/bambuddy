@@ -1664,6 +1664,10 @@ async def list_printer_files(
         try:
             files = await asyncio.to_thread(client.list_files, path)
         except Exception as exc:  # noqa: BLE001
+            if "does not exist" in str(exc).lower():
+                # The file manager probes Bambu's fixed folders (/cache, /model,
+                # /timelapse); a Klipper gcodes root simply has no such folder.
+                return {"path": path, "files": [], "warnings": []}
             logger.warning("Moonraker file listing failed for printer %s: %s", printer_id, exc)
             return {"path": path, "files": [], "warnings": ["printer_unavailable"]}
         for f in files:
