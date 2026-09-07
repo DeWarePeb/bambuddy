@@ -4421,6 +4421,15 @@ async def on_print_start(printer_id: int, data: dict):
                 await db.refresh(fallback_archive)
 
                 logger.info("Created fallback archive %s for %s (no 3MF available)", fallback_archive.id, print_name)
+                if printer is not None and getattr(printer, "provider", "bambu") == "klipper" and filename:
+                    # Voron patch series: pull the G-code out of Moonraker so the
+                    # archive gets a file, print time and filament like a queued print.
+                    from backend.app.services.klipper_archive import attach_gcode_to_archive
+
+                    spawn_background_task(
+                        attach_gcode_to_archive(printer_manager, printer_id, fallback_archive.id, filename),
+                        name=f"klipper-archive-{fallback_archive.id}",
+                    )
 
                 _maybe_start_layer_timelapse(printer, printer_id, fallback_archive.id)
 

@@ -3929,6 +3929,14 @@ function PrinterCard({
                 </div>
                 <p className="text-sm text-bambu-gray">
                   {printer.model || 'Unknown Model'}
+                  {printer.provider === 'klipper' && (
+                    <span
+                      className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-bambu-dark-tertiary text-bambu-gray align-middle"
+                      title={printer.api_url || 'Moonraker'}
+                    >
+                      Klipper
+                    </span>
+                  )}
                   {/* Nozzle Info - only in expanded. Every fitted size, not
                       just nozzles[0]: the array is indexed by extruder, so on a
                       dual-nozzle machine with two sizes fitted showing the
@@ -3986,7 +3994,7 @@ function PrinterCard({
                 </span>
               )}
               {/* Run connection diagnostic — offered when the printer is offline, NOT in maintenance */}
-              {printer.is_active !== false && !status?.connected && (
+              {printer.is_active !== false && !status?.connected && printer.provider !== 'klipper' && (
                 <button
                   onClick={() => setShowDiagnostic(true)}
                   className="flex items-center gap-1 px-2 py-1 rounded-full text-xs cursor-pointer bg-bambu-dark-tertiary text-bambu-gray hover:text-white transition-colors"

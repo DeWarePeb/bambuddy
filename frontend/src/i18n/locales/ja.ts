@@ -562,6 +562,14 @@ export default {
       autoArchiveLabel: '完了した印刷を自動アーカイブ',
       fromPrinterSettings: 'プリンターの設定から取得',
       modelOptional: 'モデル（任意）',
+      providerLabel: 'プリンターの種類',
+      providerBambu: 'Bambu Lab',
+      providerKlipper: 'Klipper (Moonraker)',
+      moonrakerUrl: 'Moonraker URL',
+      moonrakerUrlHelp: 'Mainsail または Fluidd のアドレス（例: http://voron.local、http://192.168.1.50）。シリアル番号と IP はここから導出されます。',
+      moonrakerApiKey: 'Moonraker API キー（任意）',
+      moonrakerApiKeyHelp: 'このホストで Moonraker が認証を要求する場合のみ必要です。',
+      klipperModelPlaceholder: '例: Voron 2.4 350',
       saveChanges: '変更を保存',
     },
     // Skip objects
@@ -3139,6 +3147,9 @@ export default {
 
   // Printer File Manager modal (printer internal storage)
   printerFiles: {
+    printOnPrinter: 'プリンターで開始',
+    printStarted: 'プリンターで印刷を開始しました',
+    printFailed: '印刷を開始できませんでした: {{error}}',
     zipStarted_one: '{{count}} 個のファイルの ZIP ダウンロードを開始しました',
     zipStarted_other: '{{count}} 個のファイルの ZIP ダウンロードを開始しました',
     zipPartial: '{{total}} 個中 {{successful}} 個のファイルで ZIP ダウンロードを開始しました。残りは取得できませんでした',

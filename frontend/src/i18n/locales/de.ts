@@ -563,6 +563,14 @@ export default {
       autoArchiveLabel: 'Abgeschlossene Drucke automatisch archivieren',
       fromPrinterSettings: 'Aus Druckereinstellungen',
       modelOptional: 'Modell (optional)',
+      providerLabel: 'Druckertyp',
+      providerBambu: 'Bambu Lab',
+      providerKlipper: 'Klipper (Moonraker)',
+      moonrakerUrl: 'Moonraker-URL',
+      moonrakerUrlHelp: 'Die Adresse von Mainsail oder Fluidd, z. B. http://voron.local oder http://192.168.1.50. Seriennummer und IP werden daraus abgeleitet.',
+      moonrakerApiKey: 'Moonraker-API-Schlüssel (optional)',
+      moonrakerApiKeyHelp: 'Nur nötig, wenn Moonraker für diesen Host eine Authentifizierung verlangt.',
+      klipperModelPlaceholder: 'z. B. Voron 2.4 350',
       saveChanges: 'Änderungen speichern',
     },
     // Skip objects
@@ -3139,6 +3147,9 @@ export default {
 
   // Printer File Manager modal (printer internal storage)
   printerFiles: {
+    printOnPrinter: 'Auf dem Drucker starten',
+    printStarted: 'Druck auf dem Drucker gestartet',
+    printFailed: 'Druck konnte nicht gestartet werden: {{error}}',
     zipStarted_one: 'ZIP-Download für {{count}} Datei gestartet',
     zipStarted_other: 'ZIP-Download für {{count}} Dateien gestartet',
     zipPartial: 'ZIP-Download mit {{successful}} von {{total}} Dateien gestartet; die übrigen konnten nicht abgerufen werden',

@@ -563,6 +563,14 @@ export default {
       autoArchiveLabel: '自動歸檔已完成的列印',
       fromPrinterSettings: '來自印表機設定',
       modelOptional: '型號（可選）',
+      providerLabel: '印表機類型',
+      providerBambu: 'Bambu Lab',
+      providerKlipper: 'Klipper (Moonraker)',
+      moonrakerUrl: 'Moonraker 位址',
+      moonrakerUrlHelp: 'Mainsail 或 Fluidd 的位址，例如 http://voron.local 或 http://192.168.1.50。序號與 IP 由此推導。',
+      moonrakerApiKey: 'Moonraker API 金鑰（選填）',
+      moonrakerApiKeyHelp: '僅當 Moonraker 對此主機要求驗證時才需要。',
+      klipperModelPlaceholder: '例如 Voron 2.4 350',
       saveChanges: '儲存更改',
     },
     // Skip objects
@@ -3127,6 +3135,9 @@ export default {
 
   // Printer File Manager modal (printer internal storage)
   printerFiles: {
+    printOnPrinter: '在印表機上開始',
+    printStarted: '已在印表機上開始列印',
+    printFailed: '無法開始列印：{{error}}',
     zipStarted_one: '已開始下載 {{count}} 個檔案的 ZIP',
     zipStarted_other: '已開始下載 {{count}} 個檔案的 ZIP',
     zipPartial: '已開始下載 ZIP，共 {{total}} 個檔案中成功取得 {{successful}} 個，其餘檔案無法取得',

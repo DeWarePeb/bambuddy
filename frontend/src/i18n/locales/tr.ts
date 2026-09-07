@@ -563,6 +563,14 @@ export default {
       autoArchiveLabel: 'Tamamlanan baskıları otomatik arşivle',
       fromPrinterSettings: 'Yazıcı ayarlarından',
       modelOptional: 'Model (isteğe bağlı)',
+      providerLabel: 'Yazıcı türü',
+      providerBambu: 'Bambu Lab',
+      providerKlipper: 'Klipper (Moonraker)',
+      moonrakerUrl: 'Moonraker URL’si',
+      moonrakerUrlHelp: 'Mainsail veya Fluidd adresi, örn. http://voron.local veya http://192.168.1.50. Seri numarası ve IP bundan türetilir.',
+      moonrakerApiKey: 'Moonraker API anahtarı (isteğe bağlı)',
+      moonrakerApiKeyHelp: 'Yalnızca Moonraker bu ana bilgisayar için kimlik doğrulaması istiyorsa gereklidir.',
+      klipperModelPlaceholder: 'örn. Voron 2.4 350',
       saveChanges: 'Değişiklikleri Kaydet',
     },
     // Nesneleri atla
@@ -3142,6 +3150,9 @@ export default {
 
   // Yazıcı Dosya Yöneticisi modali (yazıcı dahili deposu)
   printerFiles: {
+    printOnPrinter: 'Yazıcıda başlat',
+    printStarted: 'Baskı yazıcıda başlatıldı',
+    printFailed: 'Baskı başlatılamadı: {{error}}',
     zipStarted_one: '{{count}} dosya için ZIP indirmesi başlatıldı',
     zipStarted_other: '{{count}} dosya için ZIP indirmesi başlatıldı',
     zipPartial: '{{total}} dosyanın {{successful}} tanesiyle ZIP indirmesi başlatıldı; kalan dosyalar alınamadı',

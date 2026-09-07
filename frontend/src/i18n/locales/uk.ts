@@ -566,6 +566,14 @@ export default {
       autoArchiveLabel: "Автоматичне архівування завершених роздруківок",
       fromPrinterSettings: "З налаштувань принтера",
       modelOptional: "Модель (необов’язково)",
+      providerLabel: 'Тип принтера',
+      providerBambu: 'Bambu Lab',
+      providerKlipper: 'Klipper (Moonraker)',
+      moonrakerUrl: 'URL Moonraker',
+      moonrakerUrlHelp: 'Адреса Mainsail або Fluidd, наприклад http://voron.local або http://192.168.1.50. Серійний номер та IP визначаються з неї.',
+      moonrakerApiKey: 'API-ключ Moonraker (необов’язково)',
+      moonrakerApiKeyHelp: 'Потрібен лише якщо Moonraker вимагає автентифікацію для цього хоста.',
+      klipperModelPlaceholder: 'наприклад Voron 2.4 350',
       saveChanges: "Зберегти зміни",
     },
     // Skip objects
@@ -3167,6 +3175,9 @@ export default {
 
   // Printer File Manager modal (printer internal storage)
   printerFiles: {
+    printOnPrinter: 'Запустити на принтері',
+    printStarted: 'Друк запущено на принтері',
+    printFailed: 'Не вдалося запустити друк: {{error}}',
     zipStarted_one: 'Розпочато завантаження ZIP для {{count}} файлу',
     zipStarted_other: 'Розпочато завантаження ZIP для {{count}} файлів',
     zipPartial: 'Розпочато завантаження ZIP із {{successful}} з {{total}} файлів; решту отримати не вдалося',
