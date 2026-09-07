@@ -684,6 +684,7 @@ export default {
       subnetToScan: 'Subnet to scan',
       dockerNote: 'Docker detected. Enter your printer\'s subnet in CIDR notation. Requires network_mode: host in docker-compose.yml.',
       scanSubnet: 'Scan Subnet for Printers',
+      scanKlipper: 'Scan Network for Klipper Printers',
       discoverNetwork: 'Discover Printers on Network',
       scanningSubnet: 'Scanning subnet for Bambu printers...',
       scanningNetwork: 'Scanning network...',

@@ -63,6 +63,8 @@ class DiscoveredPrinterResponse(BaseModel):
     ip_address: str
     model: str | None = None
     discovered_at: str | None = None
+    provider: str = "bambu"  # voron patch series: "klipper" for Moonraker hosts
+    api_url: str | None = None
 
 
 @router.get("/info", response_model=DiscoveryInfo)
@@ -134,6 +136,8 @@ async def get_discovered_printers(
             ip_address=p.ip_address,
             model=p.model,
             discovered_at=p.discovered_at,
+            provider=getattr(p, "provider", "bambu"),
+            api_url=getattr(p, "api_url", None),
         )
         for p in printers.values()
     ]

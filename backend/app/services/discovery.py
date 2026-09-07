@@ -19,6 +19,7 @@ import struct
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,10 @@ class DiscoveredPrinter:
     ip_address: str
     model: str | None = None
     discovered_at: str | None = None
+    # Voron patch series: the subnet scan also finds Klipper hosts (Moonraker
+    # on 7125). Those carry provider="klipper" and the Moonraker URL to prefill.
+    provider: str = "bambu"
+    api_url: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -81,6 +86,8 @@ class DiscoveredPrinter:
             "ip_address": self.ip_address,
             "model": self.model,
             "discovered_at": self.discovered_at,
+            "provider": self.provider,
+            "api_url": self.api_url,
         }
 
 
@@ -311,12 +318,45 @@ class PrinterDiscoveryService:
         logger.info("Discovered printer: %s (%s) at %s", name, serial, ip_address)
 
 
+def klipper_serial_for_host(host: str) -> str:
+    """Same rule as ``schemas/printer.py`` uses when a Klipper printer is created
+    from its Moonraker URL, so a discovered host matches an already-added one."""
+    return "KLIPPER-" + re.sub(r"[^A-Za-z0-9]+", "-", host).strip("-").upper()
+
+
+async def fetch_moonraker_printer_info(ip: str, port: int, timeout: float) -> dict[str, Any] | None:
+    """``GET /printer/info`` on a suspected Moonraker host.
+
+    Returns the ``result`` object only when it looks like Moonraker (hostname
+    and software_version present), so some other service that happens to
+    listen on 7125 is not reported as a printer.
+    """
+    import httpx
+
+    url = f"http://{ip}:{port}/printer/info"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+    except Exception as exc:  # noqa: BLE001 - any failure just means "not Moonraker"
+        logger.debug("No Moonraker at %s: %s", url, exc)
+        return None
+    result = data.get("result", data) if isinstance(data, dict) else None
+    if not isinstance(result, dict) or "hostname" not in result or "software_version" not in result:
+        return None
+    return result
+
+
 class SubnetScanner:
     """Scanner for discovering Bambu printers by probing IP addresses."""
 
     # Bambu printer ports
     MQTT_PORT = 8883
     FTP_PORT = 990
+    # Moonraker's own port (Voron patch series); Mainsail/Fluidd proxy it on 80,
+    # but 7125 is the one address every Klipper host answers on.
+    MOONRAKER_PORT = 7125
 
     def __init__(self):
         self._discovered: dict[str, DiscoveredPrinter] = {}
@@ -391,6 +431,8 @@ class SubnetScanner:
         # Check FTP port (990) - more reliable indicator
         ftp_open = await self._check_port(ip, self.FTP_PORT, timeout)
         if not ftp_open:
+            # Not a Bambu. Maybe a Klipper host running Moonraker (Voron patch series).
+            await self._probe_moonraker(ip, timeout)
             return
 
         # Also check MQTT port (8883) for confirmation
@@ -417,6 +459,25 @@ class SubnetScanner:
             discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         self._discovered[ip] = printer
+
+    async def _probe_moonraker(self, ip: str, timeout: float) -> None:
+        """Record ``ip`` as a Klipper printer when Moonraker answers on 7125."""
+        if not await self._check_port(ip, self.MOONRAKER_PORT, timeout):
+            return
+        info = await fetch_moonraker_printer_info(ip, self.MOONRAKER_PORT, timeout)
+        if info is None:
+            return
+        hostname = str(info.get("hostname") or "").strip()
+        logger.info("Found Klipper printer at %s (%s)", ip, hostname or "no hostname")
+        self._discovered[ip] = DiscoveredPrinter(
+            serial=klipper_serial_for_host(ip),
+            name=hostname or f"Klipper at {ip}",
+            ip_address=ip,
+            model=None,
+            discovered_at=datetime.now(timezone.utc).isoformat(),
+            provider="klipper",
+            api_url=f"http://{ip}:{self.MOONRAKER_PORT}",
+        )
 
     async def _get_printer_info_ssdp(self, ip: str, timeout: float) -> tuple[str | None, str | None, str | None]:
         """Try to get printer info via SSDP unicast query."""

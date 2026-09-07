@@ -7612,6 +7612,7 @@ export function AddPrinterModal({
     api_url: '',
     auth_token: '',
   });
+  const klipperScan = form.provider === 'klipper';
 
   // Discovery state
   const [discovering, setDiscovering] = useState(false);
@@ -7706,7 +7707,9 @@ export function AddPrinterModal({
     // "Custom" — SSDP can't reach a printer on a different L3 segment
     // (#1564). Docker mode always uses subnet scan (multicast unavailable).
     const scanCidr = useCustomSubnet ? customSubnet.trim() : subnet;
-    const wantsSubnetScan = isDocker || useCustomSubnet;
+    // Voron patch series: SSDP only finds Bambu printers, so a Klipper add
+    // always probes the subnet (Moonraker on 7125), native install or not.
+    const wantsSubnetScan = isDocker || useCustomSubnet || klipperScan;
 
     if (wantsSubnetScan && useCustomSubnet) {
       try {
@@ -7782,6 +7785,18 @@ export function AddPrinterModal({
   // Reuse module-level mapModelCode
 
   const selectPrinter = (printer: DiscoveredPrinter) => {
+    if (printer.provider === 'klipper') {
+      // Voron patch series: a Moonraker host found by the subnet scan. The
+      // backend derives serial and IP from the URL; the model is free text.
+      setForm({
+        ...form,
+        provider: 'klipper',
+        name: printer.name || '',
+        api_url: printer.api_url || `http://${printer.ip_address}:7125`,
+      });
+      setDiscovered([]);
+      return;
+    }
     // Don't pre-fill serial if it's a placeholder (unknown-*) - user needs to enter actual serial
     const serialNumber = printer.serial.startsWith('unknown-') ? '' : printer.serial;
     setForm({
@@ -7890,14 +7905,16 @@ export function AddPrinterModal({
               {discovering ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {(isDocker || useCustomSubnet) && scanProgress.total > 0
+                  {(isDocker || useCustomSubnet || klipperScan) && scanProgress.total > 0
                     ? t('printers.discovery.scanProgress', { scanned: scanProgress.scanned, total: scanProgress.total })
                     : t('printers.discovery.scanning')}
                 </>
               ) : (
                 <>
                   <Search className="w-4 h-4" />
-                  {(isDocker || useCustomSubnet) ? t('printers.discovery.scanSubnet') : t('printers.discovery.discoverNetwork')}
+                  {klipperScan
+                    ? t('printers.discovery.scanKlipper')
+                    : (isDocker || useCustomSubnet) ? t('printers.discovery.scanSubnet') : t('printers.discovery.discoverNetwork')}
                 </>
               )}
             </Button>
@@ -7919,7 +7936,10 @@ export function AddPrinterModal({
                         {printer.name || printer.serial}
                       </p>
                       <p className="text-xs text-bambu-gray truncate">
-                        {mapModelCode(printer.model) || t('printers.discovery.unknown')} • {printer.ip_address}
+                        {printer.provider === 'klipper'
+                          ? t('printers.modal.providerKlipper')
+                          : mapModelCode(printer.model) || t('printers.discovery.unknown')}{' '}
+                        • {printer.ip_address}
                         {printer.serial.startsWith('unknown-') && (
                           <span className="text-yellow-500"> • {t('printers.discovery.serialRequired')}</span>
                         )}

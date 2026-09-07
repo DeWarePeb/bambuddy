@@ -8232,6 +8232,9 @@ export interface DiscoveredPrinter {
   ip_address: string;
   model: string | null;
   discovered_at: string | null;
+  // Voron patch series: subnet scan also reports Klipper hosts (Moonraker on 7125)
+  provider?: 'bambu' | 'klipper';
+  api_url?: string | null;
 }
 
 export interface DiscoveryStatus {

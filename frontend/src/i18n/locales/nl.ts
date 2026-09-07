@@ -684,6 +684,7 @@ export default {
       subnetToScan: 'Te scannen subnet',
       dockerNote: 'Docker gedetecteerd. Voer het subnet van je printer in CIDR-notatie in. Vereist network_mode: host in docker-compose.yml.',
       scanSubnet: 'Subnet scannen op printers',
+      scanKlipper: 'Netwerk scannen op Klipper-printers',
       discoverNetwork: 'Printers op netwerk ontdekken',
       scanningSubnet: 'Subnet scannen op Bambu-printers...',
       scanningNetwork: 'Netwerk scannen...',
