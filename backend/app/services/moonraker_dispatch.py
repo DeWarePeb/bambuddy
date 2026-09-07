@@ -69,17 +69,15 @@ def extract_plate_gcode(threemf_path: Path, plate_id: int | None = None) -> Path
                     f"{threemf_path.name} has no G-code for plate {plate}"
                     + (f" (found: {', '.join(available)})" if available else " (not sliced?)")
                 )
-        tmp = tempfile.NamedTemporaryFile(prefix="bambuddy-klipper-", suffix=".gcode", delete=False)
-        try:
+        with tempfile.NamedTemporaryFile(prefix="bambuddy-klipper-", suffix=".gcode", delete=False) as tmp:
             with zf.open(member) as src:
                 while True:
                     chunk = src.read(1024 * 1024)
                     if not chunk:
                         break
                     tmp.write(chunk)
-        finally:
-            tmp.close()
-    return Path(tmp.name)
+            out = Path(tmp.name)
+    return out
 
 
 async def upload_to_moonraker(

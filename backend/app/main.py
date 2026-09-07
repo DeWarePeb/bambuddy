@@ -116,9 +116,9 @@ from backend.app.services.print_cost_estimate import plate_scoped_run_estimate a
 from backend.app.services.print_scheduler import scheduler as print_scheduler
 from backend.app.services.print_storage import (
     REASON_FTPS_COOLOFF,
+    StorageVerdict,
     external_storage_present,
     ftp_probe_paths,
-    StorageVerdict,
     print_file_reachable_over_ftp,
 )
 from backend.app.services.printer_manager import (

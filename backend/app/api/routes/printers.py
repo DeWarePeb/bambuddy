@@ -46,11 +46,10 @@ from backend.app.schemas.printer import (
     PrinterResponseWithSecret,
     PrinterStatus,
     PrinterUpdate,
-    klipper_identity_from_url,
     PrintOptionsResponse,
+    klipper_identity_from_url,
 )
 from backend.app.services import drying_preflight
-from backend.app.services.moonraker_client import probe_moonraker
 from backend.app.services.bambu_ftp import (
     cache_3mf_download,
     delete_file_async,
@@ -61,6 +60,7 @@ from backend.app.services.bambu_ftp import (
     get_storage_info_async,
     list_files_result_async,
 )
+from backend.app.services.moonraker_client import probe_moonraker
 from backend.app.services.print_storage import ftp_probe_paths, print_file_reachable_over_ftp
 from backend.app.services.printer_diagnostic import run_connection_diagnostic
 from backend.app.services.printer_manager import (

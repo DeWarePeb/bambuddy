@@ -246,4 +246,3 @@ def test_printer_create_bambu_still_requires_access_code():
 def test_printer_create_klipper_requires_api_url():
     with pytest.raises(ValueError):
         PrinterCreate(name="Voron", provider="klipper")
-

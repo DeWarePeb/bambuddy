@@ -31,9 +31,10 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -146,7 +147,9 @@ class MoonrakerClient:
         return {"X-Api-Key": self.auth_token} if self.auth_token else {}
 
     def _get(self, path: str, timeout: float | None = None) -> dict[str, Any]:
-        response = httpx.get(f"{self.base_url}/{path.lstrip('/')}", headers=self._headers(), timeout=timeout or self.timeout)
+        response = httpx.get(
+            f"{self.base_url}/{path.lstrip('/')}", headers=self._headers(), timeout=timeout or self.timeout
+        )
         response.raise_for_status()
         data = response.json()
         return data.get("result", data) if isinstance(data, dict) else {}
@@ -423,7 +426,9 @@ class MoonrakerClient:
                 payload["actual_time_seconds"] = max(1, int(time.monotonic() - self._print_started_at))
                 self._print_started_at = None
             if self.on_print_complete:
-                logger.info("[%s] PRINT %s - file: %s", self.serial_number, payload["status"].upper(), payload["filename"])
+                logger.info(
+                    "[%s] PRINT %s - file: %s", self.serial_number, payload["status"].upper(), payload["filename"]
+                )
                 self.on_print_complete(payload)
 
         if active_now:
@@ -650,7 +655,11 @@ def probe_moonraker(base_url: str, auth_token: str | None = None, timeout: float
         printer_info = client._get("printer/info")
     except httpx.HTTPStatusError as exc:
         code = exc.response.status_code
-        message = "Moonraker rejected the request (401): an API key is required" if code == 401 else f"Moonraker answered HTTP {code}"
+        message = (
+            "Moonraker rejected the request (401): an API key is required"
+            if code == 401
+            else f"Moonraker answered HTTP {code}"
+        )
         return {"success": False, "message": message}
     except Exception as exc:  # noqa: BLE001
         return {"success": False, "message": f"Could not reach Moonraker at {client.base_url}: {exc}"}
