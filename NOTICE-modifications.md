@@ -23,7 +23,7 @@ Base: upstream tag `v1.2.5.5`.
   (`backend/app/services/klipper_archive.py`, new).
 - **Frontend**: printer type toggle with Moonraker fields, Klipper badge, per-gate MMU slots, file manager
   over Moonraker with "start on printer", and a display brand loaded from `/brand.json`
-  (`frontend/src/brand.ts`, new; `frontend/public/brand.json`, `frontend/public/img/printhok_logo_*.svg`).
+  (`frontend/src/brand.ts`, new; `frontend/public/img/brand.json`, `frontend/public/img/printhok_logo_*.svg`).
 - Translation keys for the above in all fourteen locales.
 
 The full list of modifications is the commit range `v1.2.5.5..voron` in this repository's history;

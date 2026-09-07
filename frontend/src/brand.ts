@@ -3,7 +3,7 @@
  *
  * The backend, service, paths and API stay "Bambuddy"; only what the user
  * sees is renamed. Everything comes from one static file, `/brand.json`,
- * so the name and logo can be changed on the server (static/brand.json)
+ * so the name and logo can be changed on the server (static/img/brand.json)
  * without a rebuild, and upstream's hardcoded strings elsewhere are left
  * alone to keep the rebase surface small.
  */
@@ -29,7 +29,7 @@ export function getBrand(): Brand {
 /** Fetch /brand.json once; falls back to the defaults on any error. */
 export async function loadBrand(): Promise<Brand> {
   try {
-    const res = await fetch('/brand.json', { cache: 'no-store' });
+    const res = await fetch('/img/brand.json', { cache: 'no-store' });
     if (res.ok) {
       const data = (await res.json()) as Partial<Brand>;
       current = {
