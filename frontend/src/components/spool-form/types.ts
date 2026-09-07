@@ -36,16 +36,26 @@ export interface SpoolFormData {
   core_weight_catalog_id: number | null;
   weight_used: number;
   slicer_filament: string;
+  // Prefilled by the Open Filament Database lookup (voron B6); the form has no
+  // inputs for them, they ride along to the backend.
+  nozzle_temp_min: number | null;
+  nozzle_temp_max: number | null;
   note: string;
   cost_per_kg: number | null;
   // User-defined category + per-spool low-stock threshold override (#729).
   category: string;
   low_stock_threshold_pct: number | null;
   location_id: number | null;
+  // Provenance marker: '' (manual) or OFDB_DATA_ORIGIN when the OFDB lookup
+  // filled the form. Read back from the spool when editing.
+  data_origin: string;
   // When set the spool is linked to a specific Spoolman filament catalog entry;
   // the backend skips find_or_create_filament() and uses this ID directly.
   spoolman_filament_id: number | null;
 }
+
+// Spool.data_origin value for OFDB-created spools (String(20) column — exactly 20 chars).
+export const OFDB_DATA_ORIGIN = 'openfilamentdatabase';
 
 export const defaultFormData: SpoolFormData = {
   material: '',
@@ -60,11 +70,14 @@ export const defaultFormData: SpoolFormData = {
   core_weight_catalog_id: null,
   weight_used: 0,
   slicer_filament: '',
+  nozzle_temp_min: null,
+  nozzle_temp_max: null,
   note: '',
   cost_per_kg: null,
   category: '',
   low_stock_threshold_pct: null,
   location_id: null,
+  data_origin: '',
   spoolman_filament_id: null,
 };
 
@@ -183,6 +196,9 @@ export interface FilamentSectionProps extends SectionProps {
   quantity: number;
   onQuantityChange: (value: number) => void;
   errors?: Partial<Record<keyof SpoolFormData, string>>;
+  // Show the Open Filament Database lookup panel (voron B6). Only when the
+  // setting is on and a new spool is being created.
+  openFilamentDatabaseEnabled?: boolean;
 }
 
 // Color section props
@@ -268,7 +284,10 @@ export function validateForm(
     };
   }
 
-  if (!formData.slicer_filament) {
+  // Not every Open Filament Database entry carries a slicer preset, and the
+  // rest of the row (brand/material/subtype/colour/weight) is still worth
+  // saving. The preset can be attached later in the edit form (voron B6).
+  if (!formData.slicer_filament && formData.data_origin !== OFDB_DATA_ORIGIN) {
     errors.slicer_filament = 'Slicer preset is required';
   }
 

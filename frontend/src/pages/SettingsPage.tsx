@@ -1151,6 +1151,7 @@ export function SettingsPage() {
       baseline.ams_history_retention_days !== localSettings.ams_history_retention_days ||
       baseline.disable_filament_warnings !== localSettings.disable_filament_warnings ||
       baseline.prefer_lowest_filament !== localSettings.prefer_lowest_filament ||
+      (baseline.open_filament_database_enabled ?? false) !== (localSettings.open_filament_database_enabled ?? false) ||
       (baseline.queue_drying_enabled ?? false) !== (localSettings.queue_drying_enabled ?? false) ||
       (baseline.queue_drying_block ?? false) !== (localSettings.queue_drying_block ?? false) ||
       (baseline.ambient_drying_enabled ?? false) !== (localSettings.ambient_drying_enabled ?? false) ||
@@ -1263,6 +1264,7 @@ export function SettingsPage() {
         ams_history_retention_days: localSettings.ams_history_retention_days,
         disable_filament_warnings: localSettings.disable_filament_warnings,
         prefer_lowest_filament: localSettings.prefer_lowest_filament,
+        open_filament_database_enabled: localSettings.open_filament_database_enabled ?? false,
         queue_drying_enabled: localSettings.queue_drying_enabled,
         queue_drying_block: localSettings.queue_drying_block,
         ambient_drying_enabled: localSettings.ambient_drying_enabled,
@@ -5976,6 +5978,25 @@ export function SettingsPage() {
                       checked={localSettings.prefer_lowest_filament}
                       onChange={(e) => updateSetting('prefer_lowest_filament', e.target.checked)}
                       className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-bambu-dark-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bambu-green"></div>
+                  </label>
+                </div>
+                {/* Open Filament Database lookup in the Add Spool form (voron B6) */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white">{t('settings.openFilamentDatabase')}</p>
+                    <p className="text-sm text-bambu-gray">
+                      {t('settings.openFilamentDatabaseDesc')}
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.open_filament_database_enabled ?? false}
+                      onChange={(e) => updateSetting('open_filament_database_enabled', e.target.checked)}
+                      className="sr-only peer"
+                      aria-label={t('settings.openFilamentDatabase')}
                     />
                     <div className="w-11 h-6 bg-bambu-dark-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bambu-green"></div>
                   </label>

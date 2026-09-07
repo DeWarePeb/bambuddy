@@ -43,6 +43,11 @@ vi.mock('../../api/client', () => ({
       failed_count: 0,
     }),
     getSpoolmanInventoryFilaments: vi.fn().mockResolvedValue([]),
+    getOpenFilamentDatabaseBrands: vi.fn().mockResolvedValue({ count: 0, brands: [] }),
+    getOpenFilamentDatabaseBrand: vi.fn().mockResolvedValue({ materials: [] }),
+    searchOpenFilamentDatabase: vi.fn().mockResolvedValue({ count: 0, filaments: [] }),
+    getOpenFilamentDatabaseFilament: vi.fn().mockResolvedValue({ variants: [], spool_prefill: {} }),
+    getOpenFilamentDatabaseVariant: vi.fn().mockResolvedValue({ spool_prefill: {} }),
     getAssignments: vi.fn().mockResolvedValue([]),
     getSpoolmanSlotAssignments: vi.fn().mockResolvedValue([]),
     unassignSpool: vi.fn().mockResolvedValue({}),
@@ -1318,5 +1323,151 @@ describe('SpoolFormModal header spool ID (#1385)', () => {
       expect(screen.getByRole('heading', { name: 'Copy Spool' })).toBeInTheDocument();
     });
     expect(screen.queryByText(/^#\d+$/)).not.toBeInTheDocument();
+  });
+});
+
+describe('SpoolFormModal Open Filament Database lookup (voron B6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.getOpenFilamentDatabaseBrands).mockResolvedValue({
+      source: 'openfilamentdatabase',
+      count: 1,
+      brands: [{ id: 'brand-id', name: 'ELEGOO', slug: 'elegoo', origin: 'CN', material_count: 7 }],
+    });
+    vi.mocked(api.getOpenFilamentDatabaseBrand).mockResolvedValue({
+      source: 'openfilamentdatabase',
+      id: 'brand-id',
+      name: 'ELEGOO',
+      slug: 'elegoo',
+      origin: 'CN',
+      website: null,
+      materials: [{ id: 'material-id', material: 'PLA', slug: 'PLA', filament_count: 11 }],
+    });
+    vi.mocked(api.searchOpenFilamentDatabase).mockResolvedValue({
+      source: 'openfilamentdatabase',
+      brand_slug: 'elegoo',
+      material: 'PLA',
+      query: '',
+      count: 1,
+      filaments: [{ id: 'filament-id', name: 'PLA MATTE', slug: 'pla_matte', variant_count: 1 }],
+    });
+    vi.mocked(api.getOpenFilamentDatabaseFilament).mockResolvedValue({
+      source: 'openfilamentdatabase',
+      brand_slug: 'elegoo',
+      material: 'PLA',
+      id: 'filament-id',
+      name: 'PLA MATTE',
+      slug: 'pla_matte',
+      density: 1.24,
+      diameter_tolerance: 0.02,
+      min_print_temperature: 190,
+      max_print_temperature: 230,
+      min_bed_temperature: 50,
+      max_bed_temperature: 70,
+      discontinued: false,
+      preferred_slicer_setting: {},
+      variants: [{ id: 'variant-id', name: 'Matte Black', slug: 'matte_black', color_hex: '#101010', size_count: 1 }],
+      spool_prefill: { material: 'PLA', subtype: 'MATTE', data_origin: 'openfilamentdatabase' },
+    });
+    vi.mocked(api.getOpenFilamentDatabaseVariant).mockResolvedValue({
+      source: 'openfilamentdatabase',
+      brand: { id: 'brand-id', slug: 'elegoo', name: 'ELEGOO' },
+      material: 'PLA',
+      filament: {},
+      variant: { id: 'variant-id', name: 'Matte Black', slug: 'matte_black', color_hex: '#101010' },
+      sizes: [],
+      selected_size: { id: 'size-id', filament_weight: 1000, diameter: 1.75 },
+      spool_prefill: {
+        brand: 'ELEGOO',
+        material: 'PLA',
+        subtype: 'MATTE',
+        color_name: 'Matte Black',
+        rgba: '101010FF',
+        label_weight: 1000,
+        core_weight: 180,
+        nozzle_temp_min: 190,
+        nozzle_temp_max: 230,
+        slicer_filament: 'GFE05',
+        slicer_filament_name: 'Elegoo PLA Matte',
+        data_origin: 'openfilamentdatabase',
+      },
+    });
+  });
+
+  it('stays hidden while the setting is off', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({ open_filament_database_enabled: false } as never);
+
+    render(<SpoolFormModal isOpen={true} onClose={vi.fn()} currencySymbol="$" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Add Spool' })).toBeInTheDocument();
+    });
+    expect(screen.queryByPlaceholderText('Search OFDB brands...')).not.toBeInTheDocument();
+    expect(api.getOpenFilamentDatabaseBrands).not.toHaveBeenCalled();
+  });
+
+  it('walks brand > material > filament > colour and prefills the new local spool', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({ open_filament_database_enabled: true } as never);
+
+    render(<SpoolFormModal isOpen={true} onClose={vi.fn()} currencySymbol="$" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Add Spool' })).toBeInTheDocument();
+    });
+
+    const brandInput = await screen.findByPlaceholderText('Search OFDB brands...');
+    fireEvent.focus(brandInput);
+    fireEvent.change(brandInput, { target: { value: 'ele' } });
+    fireEvent.click(await screen.findByRole('button', { name: /ELEGOO.*7 material/i }));
+    await waitFor(() => {
+      expect(api.getOpenFilamentDatabaseBrand).toHaveBeenCalledWith('elegoo');
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /PLA.*11 filament/i }));
+    await waitFor(() => {
+      expect(api.searchOpenFilamentDatabase).toHaveBeenCalledWith('elegoo', 'PLA', '');
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /PLA MATTE.*1 colour/i }));
+    await waitFor(() => {
+      expect(api.getOpenFilamentDatabaseFilament).toHaveBeenCalledWith('elegoo', 'PLA', 'pla_matte');
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /Matte Black.*1 size/i }));
+    await waitFor(() => {
+      expect(api.getOpenFilamentDatabaseVariant).toHaveBeenCalledWith('elegoo', 'PLA', 'pla_matte', 'matte_black');
+    });
+    await screen.findByText(/Prefilled from Open Filament Database/);
+
+    // The preset input shows the OFDB profile name; the form fields carry the rest.
+    expect(screen.getByDisplayValue('Elegoo PLA Matte')).toBeInTheDocument();
+    // Both the OFDB brand picker and the form's own Brand field show it.
+    expect(screen.getAllByDisplayValue('ELEGOO')).toHaveLength(2);
+    expect(screen.getByDisplayValue('MATTE')).toBeInTheDocument();
+
+    const addButtons = screen.getAllByRole('button', { name: /add spool/i });
+    const submitButton = addButtons.find(btn => btn.tagName === 'BUTTON' && btn.querySelector('svg.lucide-save'));
+    expect(submitButton).toBeTruthy();
+    fireEvent.click(submitButton!);
+
+    await waitFor(() => {
+      expect(api.createSpool).toHaveBeenCalledTimes(1);
+    });
+    const [payload] = vi.mocked(api.createSpool).mock.calls[0];
+    expect(payload).toMatchObject({
+      brand: 'ELEGOO',
+      material: 'PLA',
+      subtype: 'MATTE',
+      color_name: 'Matte Black',
+      rgba: '101010FF',
+      label_weight: 1000,
+      core_weight: 180,
+      core_weight_catalog_id: null,
+      slicer_filament: 'GFE05',
+      slicer_filament_name: 'Elegoo PLA Matte',
+      nozzle_temp_min: 190,
+      nozzle_temp_max: 230,
+      data_origin: 'openfilamentdatabase',
+    });
   });
 });

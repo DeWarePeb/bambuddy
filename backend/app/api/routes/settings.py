@@ -171,6 +171,7 @@ async def _build_settings_response(db: AsyncSession, is_api_key: bool = False) -
             "auto_add_unknown_rfid",
             "disable_filament_warnings",
             "prefer_lowest_filament",
+            "open_filament_database_enabled",
             "check_updates",
             "check_printer_firmware",
             "include_beta_updates",

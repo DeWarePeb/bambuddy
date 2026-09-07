@@ -406,11 +406,14 @@ export function SpoolFormModal({
           core_weight_catalog_id: spool.core_weight_catalog_id ?? null,
           weight_used: isCopying ? 0 : spool.weight_used || 0,
           slicer_filament: spool.slicer_filament || '',
+          nozzle_temp_min: spool.nozzle_temp_min ?? null,
+          nozzle_temp_max: spool.nozzle_temp_max ?? null,
           note: spool.note || '',
           cost_per_kg: spool.cost_per_kg ?? null,
           category: spool.category || '',
           low_stock_threshold_pct: spool.low_stock_threshold_pct ?? null,
           location_id: spool.location_id ?? null,
+          data_origin: spool.data_origin || '',
           spoolman_filament_id: null,
         });
         setPresetInputValue(spool.slicer_filament_name || spool.slicer_filament || '');
@@ -515,7 +518,9 @@ export function SpoolFormModal({
 
   // Update field helper
   const updateField = <K extends keyof SpoolFormData>(key: K, value: SpoolFormData[K]) => {
-    const isLinkedField = SPOOLMAN_LINKED_FIELDS.has(key);
+    // An OFDB prefill (data_origin) replaces the whole identity, so it drops a
+    // Spoolman catalog link the same way a manual edit to a linked field does.
+    const isLinkedField = SPOOLMAN_LINKED_FIELDS.has(key) || key === 'data_origin';
     if (spoolmanMode && isLinkedField && formData.spoolman_filament_id !== null) {
       showToast(t('inventory.spoolmanFilamentUnlinked'), 'info');
     }
@@ -554,6 +559,7 @@ export function SpoolFormModal({
       rgba: prefillRgba,
       color_name: filament.color_name || '',
       label_weight: filament.weight ?? prev.label_weight,
+      data_origin: '',
     }));
     showToast(t('inventory.spoolmanFilamentSelected'), 'success');
   };
@@ -867,12 +873,15 @@ export function SpoolFormModal({
       ...(spoolmanMode ? {} : { core_weight: formData.core_weight, core_weight_catalog_id: formData.core_weight_catalog_id }),
       slicer_filament: formData.slicer_filament || null,
       slicer_filament_name: presetName,
-      nozzle_temp_min: null,
-      nozzle_temp_max: null,
+      nozzle_temp_min: formData.nozzle_temp_min,
+      nozzle_temp_max: formData.nozzle_temp_max,
       note: formData.note || null,
       cost_per_kg: formData.cost_per_kg,
       category: formData.category.trim() || null,
       low_stock_threshold_pct: formData.low_stock_threshold_pct,
+      // Provenance for OFDB-prefilled spools (voron B6). Local inventory only:
+      // Spoolman's create schema has no such column.
+      ...(spoolmanMode ? {} : { data_origin: formData.data_origin || null }),
       ...(spoolmanMode ? { spoolman_filament_id: formData.spoolman_filament_id } : {}),
     };
 
@@ -1047,6 +1056,7 @@ export function SpoolFormModal({
                   quantity={quantity}
                   onQuantityChange={setQuantity}
                   errors={errors}
+                  openFilamentDatabaseEnabled={!isEditing && !isCopying && Boolean(settingsForForm?.open_filament_database_enabled)}
                 />
               </div>
 

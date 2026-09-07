@@ -135,4 +135,29 @@ describe('validateForm', () => {
       expect(validateForm(data).isValid).toBe(false);
     });
   });
+
+  describe('Open Filament Database spools (voron B6)', () => {
+    it('does not require a slicer preset when the OFDB lookup filled the form', () => {
+      const data = {
+        ...defaultFormData,
+        data_origin: 'openfilamentdatabase',
+        slicer_filament: '',
+        material: 'ABS',
+        brand: 'ELEGOO',
+        subtype: 'ABS',
+      };
+      const result = validateForm(data);
+      expect(result.isValid).toBe(true);
+      expect(result.errors.slicer_filament).toBeUndefined();
+    });
+
+    it('still requires brand and subtype for an OFDB spool', () => {
+      const data = { ...defaultFormData, data_origin: 'openfilamentdatabase', material: 'ABS' };
+      const result = validateForm(data);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.slicer_filament).toBeUndefined();
+      expect(result.errors.brand).toBeDefined();
+      expect(result.errors.subtype).toBeDefined();
+    });
+  });
 });

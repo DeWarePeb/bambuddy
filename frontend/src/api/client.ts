@@ -1343,6 +1343,7 @@ export interface AppSettings {
   // Filament tracking
   disable_filament_warnings: boolean;  // Disable filament warnings (print insufficiency and assignment mismatch)
   prefer_lowest_filament: boolean;  // When multiple spools match, prefer lowest remaining filament
+  open_filament_database_enabled: boolean;  // Offer the Open Filament Database lookup in the Add Spool form (voron B6)
   spoolman_enabled: boolean;  // True when the user has switched filament tracking to Spoolman; backend includes this in the /settings/ response even though earlier consumers read it from the dedicated /settings/spoolman endpoint as a string
   auto_add_unknown_rfid: boolean;  // When false, the backend skips auto-creating inventory spools for unknown RFID tags and instead broadcasts an unknown_tag event for the confirmation modal
   spoolman_url: string;
@@ -3550,6 +3551,117 @@ export interface PrintSpoolLabelsRequest {
   template: SpoolLabelTemplate;
   monochrome: boolean;
   starting_position: number;
+}
+
+// Open Filament Database proxy (voron B6). Shapes mirror
+// backend/app/services/open_filament_database.py; list entries are the
+// upstream index rows passed through as-is.
+export interface OpenFilamentDatabaseBrandSummary {
+  id: string;
+  name: string;
+  slug: string;
+  origin: string | null;
+  material_count: number;
+  path?: string;
+  logo_slug?: string | null;
+}
+
+export interface OpenFilamentDatabaseMaterialSummary {
+  id: string;
+  material: string;
+  slug: string;
+  filament_count: number;
+  path?: string;
+}
+
+export interface OpenFilamentDatabaseFilamentSummary {
+  id: string;
+  name: string;
+  slug: string;
+  variant_count: number;
+  path?: string;
+}
+
+export interface OpenFilamentDatabaseVariantSummary {
+  id: string;
+  name: string;
+  slug: string;
+  color_hex: string | null;
+  size_count: number;
+  path?: string;
+}
+
+export interface OpenFilamentDatabaseBrandsResponse {
+  source: 'openfilamentdatabase';
+  version?: string | null;
+  generated_at?: string | null;
+  count: number;
+  brands: OpenFilamentDatabaseBrandSummary[];
+}
+
+export interface OpenFilamentDatabaseBrandResponse {
+  source: 'openfilamentdatabase';
+  id: string | null;
+  name: string | null;
+  slug: string;
+  origin: string | null;
+  website: string | null;
+  materials: OpenFilamentDatabaseMaterialSummary[];
+}
+
+export interface OpenFilamentDatabaseSearchResponse {
+  source: 'openfilamentdatabase';
+  brand_slug: string;
+  material: string;
+  query: string;
+  count: number;
+  filaments: OpenFilamentDatabaseFilamentSummary[];
+}
+
+// Spool fields the backend derived from an OFDB entry, in Bambuddy's own names.
+export interface OpenFilamentDatabaseSpoolPrefill {
+  brand?: string | null;
+  material?: string | null;
+  subtype?: string | null;
+  color_name?: string | null;
+  rgba?: string | null;
+  label_weight?: number | null;
+  core_weight?: number | null;
+  nozzle_temp_min?: number | null;
+  nozzle_temp_max?: number | null;
+  slicer_filament?: string | null;
+  slicer_filament_name?: string | null;
+  data_origin?: string;
+}
+
+export interface OpenFilamentDatabaseFilamentResponse {
+  source: 'openfilamentdatabase';
+  brand_slug: string;
+  material: string;
+  id: string | null;
+  name: string | null;
+  slug: string;
+  density: number | null;
+  diameter_tolerance: number | null;
+  min_print_temperature: number | null;
+  max_print_temperature: number | null;
+  min_bed_temperature: number | null;
+  max_bed_temperature: number | null;
+  discontinued: boolean;
+  preferred_slicer_setting: Record<string, unknown>;
+  variants: OpenFilamentDatabaseVariantSummary[];
+  spool_prefill: OpenFilamentDatabaseSpoolPrefill;
+}
+
+export interface OpenFilamentDatabaseVariantResponse {
+  source: 'openfilamentdatabase';
+  brand: { id: string | null; slug: string; name: string };
+  material: string;
+  filament: Record<string, unknown>;
+  variant: { id: string | null; name: string | null; slug: string; color_hex: string | null; traits?: Record<string, unknown>; discontinued?: boolean };
+  sizes: Array<Record<string, unknown>>;
+  selected_size: Record<string, unknown> | null;
+  spool_prefill: OpenFilamentDatabaseSpoolPrefill;
 }
 
 export interface InventorySpool {
@@ -6360,6 +6472,18 @@ export const api = {
     request<{ filaments: unknown[] }>('/spoolman/filaments'),
   getSpoolmanInventoryFilaments: () =>
     request<SpoolmanFilamentEntry[]>('/spoolman/inventory/filaments'),
+
+  // Open Filament Database proxy (voron B6) — read-only, 403 while the setting is off.
+  getOpenFilamentDatabaseBrands: () =>
+    request<OpenFilamentDatabaseBrandsResponse>('/open-filament-database/brands'),
+  getOpenFilamentDatabaseBrand: (brand: string) =>
+    request<OpenFilamentDatabaseBrandResponse>(`/open-filament-database/brands/${encodeURIComponent(brand)}`),
+  searchOpenFilamentDatabase: (brand: string, material: string, q = '') =>
+    request<OpenFilamentDatabaseSearchResponse>(`/open-filament-database/search?brand=${encodeURIComponent(brand)}&material=${encodeURIComponent(material)}&q=${encodeURIComponent(q)}`),
+  getOpenFilamentDatabaseFilament: (brand: string, material: string, filament: string) =>
+    request<OpenFilamentDatabaseFilamentResponse>(`/open-filament-database/brands/${encodeURIComponent(brand)}/materials/${encodeURIComponent(material)}/filaments/${encodeURIComponent(filament)}`),
+  getOpenFilamentDatabaseVariant: (brand: string, material: string, filament: string, variant: string) =>
+    request<OpenFilamentDatabaseVariantResponse>(`/open-filament-database/brands/${encodeURIComponent(brand)}/materials/${encodeURIComponent(material)}/filaments/${encodeURIComponent(filament)}/variants/${encodeURIComponent(variant)}`),
   patchSpoolmanFilament: (
     filamentId: number,
     data: { name?: string; spool_weight?: number | null; keep_existing_spools?: boolean },

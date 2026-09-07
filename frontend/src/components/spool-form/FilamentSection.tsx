@@ -2,9 +2,11 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Loader2, ChevronDown, Cloud, CloudOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FilamentSectionProps, FilamentOption } from './types';
+import { OFDB_DATA_ORIGIN } from './types';
 import { KNOWN_VARIANTS } from './constants';
 import { parsePresetName } from './utils';
 import { PresetSourceBadge } from './PresetPicker';
+import { OpenFilamentDatabaseSearch } from './OpenFilamentDatabaseSearch';
 
 // The identity fields a slicer preset can auto-fill.
 type PresetFilledField = 'material' | 'brand' | 'subtype';
@@ -48,8 +50,11 @@ export function FilamentSection({
   quantity,
   onQuantityChange,
   errors,
+  openFilamentDatabaseEnabled = false,
 }: FilamentSectionProps) {
   const { t } = useTranslation();
+  // An OFDB-created spool may be saved without a preset (validateForm agrees).
+  const presetRequired = detailsRequired && formData.data_origin !== OFDB_DATA_ORIGIN;
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
   const [subtypeDropdownOpen, setSubtypeDropdownOpen] = useState(false);
@@ -238,11 +243,20 @@ export function FilamentSection({
         </div>
       )}
 
+      {/* Open Filament Database lookup (voron B6) — opt-in via Settings */}
+      {openFilamentDatabaseEnabled && !quickAdd && (
+        <OpenFilamentDatabaseSearch
+          formData={formData}
+          updateField={updateField}
+          setPresetInputValue={setPresetInputValue}
+        />
+      )}
+
       {/* Slicer Preset (autocomplete) — hidden in quick-add mode */}
       {!quickAdd && (
         <div>
           <label className="block text-sm font-medium text-bambu-gray mb-1">
-            {t('inventory.slicerPreset')}{detailsRequired && ' *'}
+            {t('inventory.slicerPreset')}{presetRequired && ' *'}
           </label>
           <div className="relative" ref={presetRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bambu-gray/50 pointer-events-none" />

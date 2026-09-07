@@ -92,6 +92,13 @@ class AppSettings(BaseModel):
         description="When multiple AMS spools match, prefer the one with lowest remaining filament",
     )
 
+    # Open Filament Database lookup in the spool form (voron B6). Off by default:
+    # it calls an external API from the backend.
+    open_filament_database_enabled: bool = Field(
+        default=False,
+        description="Offer Open Filament Database search when adding a spool",
+    )
+
     # Updates
     check_updates: bool = Field(default=True, description="Automatically check for updates on startup")
     check_printer_firmware: bool = Field(default=True, description="Check for printer firmware updates from Bambu Lab")
@@ -665,6 +672,7 @@ class AppSettingsUpdate(BaseModel):
     auto_add_unknown_rfid: bool | None = None
     disable_filament_warnings: bool | None = None
     prefer_lowest_filament: bool | None = None
+    open_filament_database_enabled: bool | None = None
     check_updates: bool | None = None
     check_printer_firmware: bool | None = None
     include_beta_updates: bool | None = None
