@@ -1340,6 +1340,44 @@ class NotificationService:
             variables=variables,
         )
 
+    async def on_print_almost_done(
+        self,
+        printer_id: int,
+        printer_name: str,
+        filename: str,
+        progress: int,
+        db: AsyncSession,
+        remaining_time: int | None = None,
+        image_data: bytes | None = None,
+    ):
+        """Handle the "almost done" moment shortly before a print finishes (with snapshot)."""
+        providers = await self._get_providers_for_event(db, "on_print_almost_done", printer_id)
+        if not providers:
+            return
+
+        eta_str = await self._format_eta(remaining_time, db)
+
+        variables = {
+            "printer": printer_name,
+            "filename": self._clean_filename(filename),
+            "progress": str(progress),
+            "remaining_time": self._format_duration(remaining_time) if remaining_time else "Unknown",
+            "eta": eta_str,
+        }
+
+        title, message = await self._build_message_from_template(db, "print_almost_done", variables)
+        await self._send_to_providers(
+            providers,
+            title,
+            message,
+            db,
+            "print_almost_done",
+            printer_id,
+            printer_name,
+            image_data=image_data,
+            variables=variables,
+        )
+
     async def on_print_missing_spool_assignment(
         self,
         printer_id: int,

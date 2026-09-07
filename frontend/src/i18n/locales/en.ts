@@ -3177,6 +3177,9 @@ export default {
 
   // Printer File Manager modal (printer internal storage)
   printerFiles: {
+    printOnPrinter: 'Start on printer',
+    printStarted: 'Print started on the printer',
+    printFailed: 'Could not start the print: {{error}}',
     zipStarted_one: 'Started ZIP download for {{count}} file',
     zipStarted_other: 'Started ZIP download for {{count}} files',
     zipPartial: 'ZIP download started with {{successful}} of {{total}} files; the rest could not be retrieved',
@@ -6203,6 +6206,8 @@ export default {
     printStopped: 'Print Stopped',
     progressMilestones: 'Progress Milestones',
     progressMilestonesDescription: 'Notify at 25%, 50%, 75%',
+    printAlmostDone: 'Almost Done',
+    printAlmostDoneDescription: 'Notify at 97% with a camera snapshot, so the parts can come off the moment the print finishes',
     printerOffline: 'Printer Offline',
     printerError: 'Printer Error',
     aiFailureDetection: 'AI Failure Detection',
@@ -6273,6 +6278,7 @@ export default {
     digestCollected: 'Events will be collected and sent as a single summary at this time',
     notificationEvents: 'Notification Events',
     progressPercent: '(25%, 50%, 75%)',
+    printAlmostDoneHint: '(97%, with camera snapshot)',
     bedCooledAfterPrint: '(after print completes)',
     haSensorAlert: 'Printer Sensor Alert',
     haSensorAlertDescription: '(a bound Home Assistant sensor needs attention)',

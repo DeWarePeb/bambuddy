@@ -359,3 +359,89 @@ class TestProgressMilestoneSessionHygiene:
             assert open_sessions["count"] == 0
 
         main_module._last_progress_milestone.clear()
+
+
+class TestPrintAlmostDoneNotification:
+    """One "almost done" notification per print, fired at the configured
+    progress with a snapshot taken outside any DB session, and re-armed when
+    the next print starts."""
+
+    @staticmethod
+    def _printing_state(progress: int):
+        st = _state(connected=True, state="RUNNING")
+        st.progress = progress
+        st.remaining_time = 3
+        st.gcode_file = "benchy.gcode"
+        return st
+
+    @pytest.mark.asyncio
+    async def test_fires_once_at_threshold_and_rearms_on_next_print(self):
+        main_module._last_progress_milestone.clear()
+        main_module._print_almost_done_notified.clear()
+
+        printer = SimpleNamespace(id=1, name="Voron")
+        db = AsyncMock()
+        db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=printer)))
+        open_sessions = {"count": 0}
+
+        class _SessionCM:
+            async def __aenter__(self):
+                open_sessions["count"] += 1
+                return db
+
+            async def __aexit__(self, *exc):
+                open_sessions["count"] -= 1
+                return False
+
+        async def _snap(printer_id, prn, _logger):
+            assert open_sessions["count"] == 0, "camera snapshot ran while a DB session was held"
+            return b"jpeg-bytes"
+
+        ws_mgr = MagicMock()
+        ws_mgr.send_printer_status = AsyncMock()
+        relay = MagicMock()
+        relay.on_printer_status = AsyncMock()
+        pm = MagicMock()
+        pm.get_printer.return_value = None
+        pm.get_model.return_value = ""
+
+        with (
+            patch("backend.app.main.ws_manager", ws_mgr),
+            patch("backend.app.main.mqtt_relay", relay),
+            patch("backend.app.main.printer_manager", pm),
+            _spawn_patch(),
+            patch("backend.app.main.printer_state_to_dict", return_value={}),
+            patch("backend.app.main.async_session", side_effect=lambda: _SessionCM()),
+            patch("backend.app.main._capture_snapshot_for_notification", new=_snap),
+            patch("backend.app.main.notification_service") as mock_notif,
+        ):
+            mock_notif.on_print_progress = AsyncMock()
+            mock_notif.on_print_almost_done = AsyncMock()
+
+            threshold = main_module.PRINT_ALMOST_DONE_PROGRESS
+
+            # Below the threshold: nothing.
+            await main_module.on_printer_status_change(1, self._printing_state(threshold - 1))
+            mock_notif.on_print_almost_done.assert_not_awaited()
+
+            # At the threshold: exactly one notification, with the snapshot.
+            await main_module.on_printer_status_change(1, self._printing_state(threshold))
+            mock_notif.on_print_almost_done.assert_awaited_once()
+            args = mock_notif.on_print_almost_done.await_args
+            assert args.args[0] == 1
+            assert args.args[1] == "Voron"
+            assert args.args[2] == "benchy.gcode"
+            assert args.args[3] == threshold
+            assert args.args[5] == 3 * 60
+            assert args.kwargs["image_data"] == b"jpeg-bytes"
+
+            # Later progress on the same print: no repeat.
+            await main_module.on_printer_status_change(1, self._printing_state(99))
+            mock_notif.on_print_almost_done.assert_awaited_once()
+
+            # A new print starts (progress back at 0) and reaches the threshold again.
+            await main_module.on_printer_status_change(1, self._printing_state(0))
+            await main_module.on_printer_status_change(1, self._printing_state(threshold + 1))
+            assert mock_notif.on_print_almost_done.await_count == 2
+
+            assert open_sessions["count"] == 0

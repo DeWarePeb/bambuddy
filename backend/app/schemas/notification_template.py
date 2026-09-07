@@ -15,6 +15,7 @@ class EventType(StrEnum):
     PRINT_FAILED = "print_failed"
     PRINT_STOPPED = "print_stopped"
     PRINT_PROGRESS = "print_progress"
+    PRINT_ALMOST_DONE = "print_almost_done"
     PRINT_MISSING_SPOOL_ASSIGNMENT = "print_missing_spool_assignment"
     BILLING_CHARGE_FAILED = "billing_charge_failed"
     PRINTER_OFFLINE = "printer_offline"
@@ -66,6 +67,7 @@ EVENT_VARIABLES: dict[str, list[str]] = {
         "app_name",
     ],
     "print_progress": ["printer", "filename", "progress", "remaining_time", "eta", "timestamp", "app_name"],
+    "print_almost_done": ["printer", "filename", "progress", "remaining_time", "eta", "timestamp", "app_name"],
     "print_missing_spool_assignment": [
         "printer",
         "missing_slots",
@@ -160,6 +162,15 @@ SAMPLE_DATA: dict[str, dict[str, str]] = {
         "progress": "50",
         "remaining_time": "0h 41m",
         "eta": "15:41",
+        "timestamp": "2024-01-15 15:00",
+        "app_name": "Bambuddy",
+    },
+    "print_almost_done": {
+        "printer": "Bambu X1C",
+        "filename": "Benchy.3mf",
+        "progress": "97",
+        "remaining_time": "0h 3m",
+        "eta": "15:03",
         "timestamp": "2024-01-15 15:00",
         "app_name": "Bambuddy",
     },

@@ -454,6 +454,14 @@ _print_plate_ids: dict[int, int] = {}
 # Milestones are 25, 50, 75. Value of 0 means no milestone notified yet for current print.
 _last_progress_milestone: dict[int, int] = {}
 
+# Progress at which the "almost done" notification fires. Not 99: the last
+# percent of a Bambu print is often skipped (progress jumps 98 -> 100 while
+# the final layer and the cooldown run), so the notification would never send.
+PRINT_ALMOST_DONE_PROGRESS = 97
+
+# Whether the almost-done notification has been sent for the current print
+_print_almost_done_notified: dict[int, bool] = {}
+
 # Track whether first layer complete notification has been sent for current print
 _first_layer_notified: dict[int, bool] = {}
 
@@ -1747,9 +1755,42 @@ async def on_printer_status_change(printer_id: int, state: PrinterState):
                     )
             except Exception as e:
                 logging.getLogger(__name__).warning(f"Progress milestone notification failed: {e}")
+
+        # "Almost done": one notification shortly before the end, with a snapshot,
+        # so the parts can be collected the moment the print finishes.
+        if progress >= PRINT_ALMOST_DONE_PROGRESS and not _print_almost_done_notified.get(printer_id, False):
+            _print_almost_done_notified[printer_id] = True
+            try:
+                from backend.app.models.printer import Printer
+
+                # Same pattern as the milestones above: read the printer, release
+                # the session, then take the (slow) snapshot without a DB connection.
+                async with async_session() as db:
+                    result = await db.execute(select(Printer).where(Printer.id == printer_id))
+                    printer = result.scalar_one_or_none()
+
+                printer_name = printer.name if printer else f"Printer {printer_id}"
+                filename = state.subtask_name or state.gcode_file or "Unknown"
+                remaining_time_seconds = state.remaining_time * 60 if state.remaining_time else None
+
+                image_data = await _capture_snapshot_for_notification(printer_id, printer, logging.getLogger(__name__))
+
+                async with async_session() as db:
+                    await notification_service.on_print_almost_done(
+                        printer_id,
+                        printer_name,
+                        filename,
+                        int(progress),
+                        db,
+                        remaining_time_seconds,
+                        image_data=image_data,
+                    )
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Print almost-done notification failed: {e}")
     elif progress < 5:
         # Reset milestone tracking when print restarts or new print begins
         _last_progress_milestone[printer_id] = 0
+        _print_almost_done_notified[printer_id] = False
         _first_layer_notified[printer_id] = False
 
     # HMS error codes that should not trigger notifications even though they

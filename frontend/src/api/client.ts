@@ -2923,6 +2923,7 @@ export interface NotificationProvider {
   on_print_failed: boolean;
   on_print_stopped: boolean;
   on_print_progress: boolean;
+  on_print_almost_done: boolean;
   on_print_missing_spool_assignment: boolean;
   on_billing_charge_failed: boolean;
   // Printer status events
@@ -2987,6 +2988,7 @@ export interface NotificationProviderCreate {
   on_print_failed?: boolean;
   on_print_stopped?: boolean;
   on_print_progress?: boolean;
+  on_print_almost_done?: boolean;
   on_print_missing_spool_assignment?: boolean;
   on_billing_charge_failed?: boolean;
   // Printer status events
@@ -3044,6 +3046,7 @@ export interface NotificationProviderUpdate {
   on_print_failed?: boolean;
   on_print_stopped?: boolean;
   on_print_progress?: boolean;
+  on_print_almost_done?: boolean;
   on_print_missing_spool_assignment?: boolean;
   on_billing_charge_failed?: boolean;
   // Printer status events

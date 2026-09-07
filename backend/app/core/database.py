@@ -1786,6 +1786,7 @@ async def run_migrations(conn):
 
     # Migration: Add on_print_stopped column to notification_providers
     await _safe_execute(conn, "ALTER TABLE notification_providers ADD COLUMN on_print_stopped BOOLEAN DEFAULT 1")
+    await _safe_execute(conn, "ALTER TABLE notification_providers ADD COLUMN on_print_almost_done BOOLEAN DEFAULT 0")
 
     # Migration: Add source_3mf_path column to print_archives
     await _safe_execute(conn, "ALTER TABLE print_archives ADD COLUMN source_3mf_path VARCHAR(500)")

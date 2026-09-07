@@ -3177,6 +3177,9 @@ export default {
 
   // Printer File Manager modal (printer internal storage)
   printerFiles: {
+    printOnPrinter: 'Starten op printer',
+    printStarted: 'Print gestart op de printer',
+    printFailed: 'Print kon niet starten: {{error}}',
     zipStarted_one: 'ZIP-download gestart voor {{count}} bestand',
     zipStarted_other: 'ZIP-download gestart voor {{count}} bestanden',
     zipPartial: 'ZIP-download gestart met {{successful}} van {{total}} bestanden; de overige konden niet worden opgehaald',
@@ -6203,6 +6206,8 @@ export default {
     printStopped: 'Afdruk gestopt',
     progressMilestones: 'Voortgangsmijlpalen',
     progressMilestonesDescription: 'Melden bij 25%, 50%, 75%',
+    printAlmostDone: 'Bijna klaar',
+    printAlmostDoneDescription: 'Melden bij 97% met een camerafoto, zodat de onderdelen direct na de afdruk van de plaat kunnen',
     printerOffline: 'Printer offline',
     printerError: 'Printerfout',
     aiFailureDetection: 'AI-foutdetectie',
@@ -6273,6 +6278,7 @@ export default {
     digestCollected: 'Gebeurtenissen worden verzameld en op dit tijdstip als één samenvatting verzonden',
     notificationEvents: 'Meldingsgebeurtenissen',
     progressPercent: '(25%, 50%, 75%)',
+    printAlmostDoneHint: '(97%, met camerafoto)',
     bedCooledAfterPrint: '(nadat de afdruk is voltooid)',
     haSensorAlert: 'Sensorwaarschuwing',
     haSensorAlertDescription: '(een gekoppelde Home Assistant-sensor vereist aandacht)',

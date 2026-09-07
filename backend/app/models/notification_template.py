@@ -56,6 +56,12 @@ DEFAULT_TEMPLATES = [
         "body_template": "{printer}: {filename}\nRemaining: {remaining_time}",
     },
     {
+        "event_type": "print_almost_done",
+        "name": "Print Almost Done",
+        "title_template": "Print almost done",
+        "body_template": "{printer}: {filename}\nRemaining: {remaining_time}\nETA: {eta}",
+    },
+    {
         "event_type": "print_missing_spool_assignment",
         "name": "Missing Spool Assignment",
         "title_template": "Missing Spool Assignment",

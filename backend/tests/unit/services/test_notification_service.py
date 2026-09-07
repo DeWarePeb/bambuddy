@@ -224,6 +224,51 @@ class TestNotificationService:
             call_args = mock_get.call_args
             assert call_args[0][1] == "on_print_stopped"
 
+    @pytest.mark.asyncio
+    async def test_on_print_almost_done_uses_own_event_and_attaches_snapshot(self, service, mock_provider, mock_db):
+        """The almost-done event has its own provider flag and template, and carries the snapshot."""
+        image_data = b"jpeg-bytes"
+
+        with (
+            patch.object(service, "_get_providers_for_event", new_callable=AsyncMock) as mock_get,
+            patch.object(service, "_send_to_providers", new_callable=AsyncMock) as mock_send,
+            patch.object(service, "_build_message_from_template", new_callable=AsyncMock) as mock_build,
+            patch.object(service, "_format_eta", new_callable=AsyncMock) as mock_eta,
+        ):
+            mock_get.return_value = [mock_provider]
+            mock_build.return_value = ("Print almost done", "Voron: benchy")
+            mock_eta.return_value = "15:03"
+
+            await service.on_print_almost_done(
+                printer_id=1,
+                printer_name="Voron",
+                filename="benchy.gcode",
+                progress=97,
+                db=mock_db,
+                remaining_time=180,
+                image_data=image_data,
+            )
+
+            mock_get.assert_called_once_with(mock_db, "on_print_almost_done", 1)
+            assert mock_build.call_args.args[1] == "print_almost_done"
+            variables = mock_build.call_args.args[2]
+            assert variables["printer"] == "Voron"
+            assert variables["filename"] == "benchy"
+            assert variables["progress"] == "97"
+            assert variables["remaining_time"] == "3m"
+            assert variables["eta"] == "15:03"
+            assert mock_send.call_args.args[4] == "print_almost_done"
+            assert mock_send.call_args.kwargs["image_data"] == image_data
+
+    @pytest.mark.asyncio
+    async def test_on_print_almost_done_without_providers_sends_nothing(self, service, mock_db):
+        with (
+            patch.object(service, "_get_providers_for_event", new_callable=AsyncMock, return_value=[]),
+            patch.object(service, "_send_to_providers", new_callable=AsyncMock) as mock_send,
+        ):
+            await service.on_print_almost_done(1, "Voron", "benchy.gcode", 97, mock_db)
+            mock_send.assert_not_called()
+
     # ========================================================================
     # Tests for provider filtering
     # ========================================================================
