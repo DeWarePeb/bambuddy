@@ -903,7 +903,6 @@ export interface FailureAnalysis {
     failure_reason: string | null;
     filament_type: string | null;
     printer_id: number | null;
-   printer_ids: number[];
     created_at: string | null;
   }>;
   trend: Array<{
@@ -2970,6 +2969,7 @@ export interface NotificationProvider {
   daily_digest_time: string | null;
   // Printer filter
   printer_id: number | null;
+  printer_ids: number[] | null;
   // Status tracking
   last_success: string | null;
   last_error: string | null;
@@ -3035,10 +3035,11 @@ export interface NotificationProviderCreate {
   daily_digest_time?: string | null;
   // Printer filter
   printer_id?: number | null;
+  printer_ids?: number[] | null;
 }
 
 export interface NotificationProviderUpdate {
-  printer_ids?: number[];
+  printer_ids?: number[] | null;
   name?: string;
   provider_type?: ProviderType;
   enabled?: boolean;
@@ -5209,7 +5210,6 @@ export const api = {
     ),
   updateArchive: (id: number, data: {
     printer_id?: number | null;
-   printer_ids?: number[];
     project_id?: number | null;
     print_name?: string;
     is_favorite?: boolean;
