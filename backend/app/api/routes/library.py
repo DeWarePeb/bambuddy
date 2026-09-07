@@ -33,6 +33,7 @@ from backend.app.core.tasks import spawn_background_task
 from backend.app.models.archive import PrintArchive
 from backend.app.models.library import LibraryFile, LibraryFileTag, LibraryFolder
 from backend.app.models.print_queue import PrintQueueItem
+from backend.app.models.printer import Printer
 from backend.app.models.project import Project
 from backend.app.models.user import User
 from backend.app.schemas.library import (
@@ -228,7 +229,15 @@ def calculate_file_hash(file_path: Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def validate_print_file_upload(filename: str, content: bytes) -> None:
+async def _has_active_klipper_printer(db: AsyncSession) -> bool:
+    """Voron patch series: raw .gcode uploads are useful once a Klipper printer exists."""
+    result = await db.execute(
+        select(Printer.id).where(Printer.provider == "klipper", Printer.is_active == True).limit(1)  # noqa: E712
+    )
+    return result.scalar() is not None
+
+
+def validate_print_file_upload(filename: str, content: bytes, *, allow_raw_gcode: bool = False) -> None:
     """Reject obviously-unprintable uploads early so the printer doesn't see them (#1401).
 
     Bambu printers in network mode only parse ``.gcode.3mf`` zip containers
@@ -255,12 +264,17 @@ def validate_print_file_upload(filename: str, content: bytes) -> None:
     is_3mf_upload = lower_filename.endswith(".3mf")
     is_raw_gcode_upload = lower_filename.endswith(".gcode") and not lower_filename.endswith(".gcode.3mf")
 
-    if is_raw_gcode_upload:
-        # Voron patch series: raw G-code is exactly what a Klipper printer
-        # wants, so it is accepted here. A Bambu printer still cannot print it;
-        # the queue refuses that combination at dispatch with the old message
-        # (print_scheduler._start_print) instead of blocking the upload.
-        return None
+    if is_raw_gcode_upload and not allow_raw_gcode:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Raw .gcode files can't be printed on Bambu printers in network mode — "
+                "they need a .gcode.3mf zip container (gcode plus metadata). Re-export from "
+                "your slicer and make sure the file ends in '.gcode.3mf', not just '.gcode'. "
+                "If your OS hides extensions, double-check the file with the extension visible. "
+                "(Raw .gcode is accepted once a Klipper printer is configured.)"
+            ),
+        )
 
     if is_3mf_upload and not content.startswith(b"PK\x03\x04"):
         raise HTTPException(
@@ -2273,7 +2287,7 @@ async def upload_file(
         # Read upload now so the validation can sniff magic bytes; the file
         # is written to disk only after the checks. #1401.
         content = await file.read()
-        validate_print_file_upload(filename, content)
+        validate_print_file_upload(filename, content, allow_raw_gcode=await _has_active_klipper_printer(db))
 
         # Save file
         with open(file_path, "wb") as f:

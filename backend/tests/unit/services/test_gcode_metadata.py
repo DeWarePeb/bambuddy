@@ -93,3 +93,17 @@ def test_plain_gcode_without_comments(tmp_path):
 
 def test_missing_file_is_empty(tmp_path):
     assert parse_gcode_metadata(tmp_path / "nope.gcode") == {}
+
+
+def test_raw_gcode_upload_gate():
+    import pytest
+    from fastapi import HTTPException
+
+    from backend.app.api.routes.library import validate_print_file_upload
+
+    with pytest.raises(HTTPException) as exc:
+        validate_print_file_upload("part.gcode", b"G28\n")
+    assert "gcode.3mf" in exc.value.detail
+    assert validate_print_file_upload("part.gcode", b"G28\n", allow_raw_gcode=True) is None
+    # .gcode.3mf and non-gcode files are unaffected by the flag
+    assert validate_print_file_upload("part.stl", b"solid", allow_raw_gcode=False) is None
