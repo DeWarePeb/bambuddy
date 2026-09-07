@@ -818,10 +818,19 @@ function ProjectCard({ project, parentName, onClick, onEdit, onDelete, hasPermis
                   </div>
                 </div>
               )}
-              {/* Failed count */}
-              {project.failed_count > 0 && (
-                <div className="text-xs text-red-600 dark:text-red-400">
-                  {project.failed_count} {t('projects.failed')}
+              {/* One line under the bar: what is still wrong or still to come */}
+              {(project.failed_count > 0 || project.queue_count > 0) && (
+                <div className="flex items-center gap-3 text-xs">
+                  {project.failed_count > 0 && (
+                    <span className="text-red-600 dark:text-red-400">
+                      {project.failed_count} {t('projects.failed')}
+                    </span>
+                  )}
+                  {project.queue_count > 0 && (
+                    <span className="text-blue-600 dark:text-blue-400">
+                      {project.queue_count} {t('projects.inQueue')}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
