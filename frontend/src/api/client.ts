@@ -4980,6 +4980,11 @@ export const api = {
     request<{ status: string; path: string }>(`/printers/${printerId}/files?path=${encodeURIComponent(path)}`, {
       method: 'DELETE',
     }),
+  // Voron patch series: start a file that is already on a Klipper printer.
+  printPrinterFile: (printerId: number, path: string) =>
+    request<{ status: string; path: string }>(`/printers/${printerId}/files/print?path=${encodeURIComponent(path)}`, {
+      method: 'POST',
+    }),
   getPrinterStorage: (printerId: number) =>
     request<{ used_bytes: number | null; free_bytes: number | null }>(`/printers/${printerId}/storage`),
 
