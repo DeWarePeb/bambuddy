@@ -6207,6 +6207,27 @@ class PrintScheduler:
         remote_filename = derive_remote_filename(filename)
         if getattr(printer, "provider", "bambu") == "klipper":
             remote_filename = moonraker_remote_filename(filename, item.plate_id)
+        elif filename.lower().endswith(".gcode"):
+            # Voron patch series: the library accepts raw G-code for Klipper
+            # printers. A Bambu printer needs the .gcode.3mf container, so fail
+            # the item here with the message the upload used to give.
+            item.status = "failed"
+            item.error_message = (
+                "Raw .gcode files can't be printed on Bambu printers in network mode — they need a "
+                ".gcode.3mf container. Re-export from your slicer as .gcode.3mf, or queue this file on a Klipper printer."
+            )
+            item.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            logger.error("Queue item %s: raw .gcode %s cannot be sent to Bambu printer %s", item.id, filename, printer.name)
+            await notification_service.on_queue_job_failed(
+                job_name=filename[: -len(".gcode")],
+                printer_id=printer.id,
+                printer_name=printer.name,
+                reason=item.error_message,
+                db=db,
+            )
+            await self._power_off_if_needed(db, item)
+            return
         remote_path = f"/{remote_filename}"
 
         # Get FTP retry settings

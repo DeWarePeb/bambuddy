@@ -71,6 +71,7 @@ from backend.app.services.design_settings import (
     overrides_from_config,
 )
 from backend.app.services.filament_requirements import annotate_rack_groups
+from backend.app.services.gcode_metadata import parse_gcode_metadata
 from backend.app.services.plate_thumbnail import inject_plate_thumbnails_if_missing
 from backend.app.services.process_overrides import apply_process_overrides
 from backend.app.services.slice_output_check import (
@@ -255,15 +256,11 @@ def validate_print_file_upload(filename: str, content: bytes) -> None:
     is_raw_gcode_upload = lower_filename.endswith(".gcode") and not lower_filename.endswith(".gcode.3mf")
 
     if is_raw_gcode_upload:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Raw .gcode files can't be printed on Bambu printers in network mode — "
-                "they need a .gcode.3mf zip container (gcode plus metadata). Re-export from "
-                "your slicer and make sure the file ends in '.gcode.3mf', not just '.gcode'. "
-                "If your OS hides extensions, double-check the file with the extension visible."
-            ),
-        )
+        # Voron patch series: raw G-code is exactly what a Klipper printer
+        # wants, so it is accepted here. A Bambu printer still cannot print it;
+        # the queue refuses that combination at dispatch with the old message
+        # (print_scheduler._start_print) instead of blocking the upload.
+        return None
 
     if is_3mf_upload and not content.startswith(b"PK\x03\x04"):
         raise HTTPException(
@@ -2338,6 +2335,9 @@ async def upload_file(
                 logger.warning("Failed to parse 3MF: %s", e)
 
         elif ext == ".gcode":
+            # Voron patch series: print time, filament and layers from the
+            # slicer comments, same keys the 3MF parser produces.
+            metadata = parse_gcode_metadata(file_path)
             # Extract embedded thumbnail from gcode
             try:
                 thumbnail_data = extract_gcode_thumbnail(file_path)
@@ -2612,6 +2612,7 @@ async def extract_zip_file(
                             logger.warning("Failed to parse 3MF from ZIP: %s", e)
 
                     elif ext == ".gcode":
+                        metadata = parse_gcode_metadata(file_path)
                         try:
                             thumbnail_data = extract_gcode_thumbnail(file_path)
                             if thumbnail_data:
