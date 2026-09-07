@@ -246,3 +246,20 @@ def test_printer_create_bambu_still_requires_access_code():
 def test_printer_create_klipper_requires_api_url():
     with pytest.raises(ValueError):
         PrinterCreate(name="Voron", provider="klipper")
+
+
+def test_pick_light_object_prefers_chamber_light_over_mmu_leds():
+    from backend.app.services.moonraker_client import _pick_light_object
+
+    voron = [
+        "neopixel _unit0_gate0_leds",
+        "neopixel _unit0_gate1_leds",
+        "neopixel _unit0_gate0_box",
+        "neopixel jw_leds",
+        "neopixel chamber_lights",
+        "output_pin caselight",
+        "fan",
+    ]
+    assert _pick_light_object(voron) == "neopixel chamber_lights"
+    assert _pick_light_object(["output_pin caselight", "neopixel sb_leds"]) == "output_pin caselight"
+    assert _pick_light_object(["neopixel _unit0_gate0_leds", "neopixel jw_leds"]) is None

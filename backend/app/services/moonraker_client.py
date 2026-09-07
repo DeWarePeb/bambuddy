@@ -66,6 +66,38 @@ def map_moonraker_state(raw_state: Any) -> str:
     return _STATE_MAP.get(str(raw_state or "").lower(), "unknown")
 
 
+_LIGHT_KINDS = ("output_pin ", "led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 ")
+# Names Klipper users give the chamber light, best match first.
+_LIGHT_NAME_HINTS = ("chamber_light", "chamber_lights", "caselight", "case_light", "chamber", "light", "lights", "lamp")
+
+
+def _pick_light_object(objects: list[Any]) -> str | None:
+    """Choose the object that most plausibly is the chamber light.
+
+    Klipper has no "chamber light" concept; people name an output_pin or a
+    neopixel strip for it. Prefer names that say chamber/caselight/light,
+    and skip Happy Hare / ERCF internals (``_unit0_gate0_leds`` and friends),
+    which are also neopixels and otherwise win by being listed first.
+    """
+    candidates: list[tuple[int, str]] = []
+    for candidate in objects:
+        full = str(candidate)
+        lower = full.lower()
+        if not lower.startswith(_LIGHT_KINDS):
+            continue
+        name = lower.split(" ", 1)[1] if " " in lower else ""
+        if name.startswith("_") or any(
+            tag in name for tag in ("gate", "mmu", "ercf", "unit", "status", "logo", "nozzle", "sb_")
+        ):
+            continue
+        rank = next((i for i, hint in enumerate(_LIGHT_NAME_HINTS) if hint in name), None)
+        if rank is not None:
+            candidates.append((rank, full))
+    if not candidates:
+        return None
+    return min(candidates)[1]
+
+
 def _f(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -221,15 +253,10 @@ class MoonrakerClient:
         if chamber:
             self._chamber_object = chamber
             polled.append(chamber)
-        # Chamber light: first output_pin or led whose name contains "light" / "led".
-        for candidate in objects:
-            name = str(candidate).lower()
-            if name.startswith(("output_pin ", "led ", "neopixel ", "dotstar ")) and any(
-                key in name for key in ("light", "caselight", "led", "lamp")
-            ):
-                self._light_object = str(candidate)
-                polled.append(str(candidate))
-                break
+        light = _pick_light_object(objects)
+        if light:
+            self._light_object = light
+            polled.append(light)
         self._objects = polled
 
     def _poll_loop(self) -> None:
