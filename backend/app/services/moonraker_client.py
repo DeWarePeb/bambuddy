@@ -1,0 +1,684 @@
+"""Klipper printers over Moonraker, shaped like ``BambuMQTTClient``.
+
+Voron patch series. Every consumer in Bambuddy — printer_manager, the status
+routes, the scheduler, HA sensors, the websocket broadcaster — reads a
+``PrinterState`` off ``client.state`` and calls a handful of methods on the
+client. This class keeps that exact surface so none of them need a provider
+branch: a Klipper printer is just a client whose ``state`` is filled from
+Moonraker's HTTP API instead of MQTT reports.
+
+What maps cleanly: connection, print state, progress, layers, remaining
+time, nozzle/bed/chamber temperatures, part fan, pause/resume/stop, G-code,
+temperature and fan targets, homing/jogging, chamber light (as a Klipper
+``SET_PIN`` / ``LED`` macro), file upload/delete/list and print start.
+
+What does not exist on Klipper and is answered with ``False`` (or an empty
+value) instead of raising: AMS, K-profiles, calibration runs, drying,
+HMS actions, xcam options, timelapse, the Bambu virtual printer, raw MQTT.
+``__getattr__`` catches the long tail of Bambu-only methods so a route that
+was never taught about Klipper fails soft (returns False, the UI shows
+"unsupported") instead of a 500.
+
+Polling: Moonraker has no push channel we want to hold open from a thread,
+so a daemon thread polls ``/printer/objects/query`` every ``poll_interval``
+seconds and fires the same callbacks the MQTT client fires, from a
+non-loop thread — printer_manager already bridges those with
+``_schedule_async``.
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable
+from urllib.parse import quote, urlparse
+
+import httpx
+
+from backend.app.services.bambu_mqtt import MQTTLogEntry, PrinterState
+
+logger = logging.getLogger(__name__)
+
+# Moonraker print_stats.state -> Bambu gcode_state vocabulary the rest of the
+# app is written against (see print_scheduler._ACTIVE_PRINT_STATES).
+_STATE_MAP = {
+    "printing": "RUNNING",
+    "paused": "PAUSE",
+    "complete": "FINISH",
+    "cancelled": "FAILED",
+    "error": "FAILED",
+    "standby": "IDLE",
+    "ready": "IDLE",
+}
+
+# Objects polled every cycle. Chamber sensors and fans are discovered once at
+# connect from /printer/objects/list and appended.
+_BASE_OBJECTS = ["print_stats", "virtual_sdcard", "display_status", "extruder", "heater_bed", "toolhead", "fan"]
+
+_CHAMBER_OBJECT_PREFIXES = ("temperature_sensor chamber", "temperature_fan chamber", "heater_generic chamber")
+
+
+def map_moonraker_state(raw_state: Any) -> str:
+    return _STATE_MAP.get(str(raw_state or "").lower(), "unknown")
+
+
+def _f(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+class MoonrakerClient:
+    """Moonraker-backed printer client with the ``BambuMQTTClient`` surface."""
+
+    STALE_AFTER_SECONDS = 30.0
+
+    def __init__(
+        self,
+        base_url: str,
+        auth_token: str | None = None,
+        *,
+        serial_number: str = "",
+        model: str | None = None,
+        on_state_change: Callable[[PrinterState], None] | None = None,
+        on_print_start: Callable[[dict], None] | None = None,
+        on_print_complete: Callable[[dict], None] | None = None,
+        on_layer_change: Callable[[int], None] | None = None,
+        on_print_progress: Callable[[int], None] | None = None,
+        on_bed_temp_update: Callable[[float], None] | None = None,
+        on_print_running_observed: Callable[[dict], None] | None = None,
+        poll_interval: float = 2.0,
+        timeout: float = 5.0,
+        **_ignored_bambu_callbacks: Any,
+    ) -> None:
+        if not base_url:
+            raise ValueError("Moonraker base URL is required for Klipper printers")
+        if "://" not in base_url:
+            base_url = f"http://{base_url}"
+        self.base_url = base_url.rstrip("/")
+        self.auth_token = auth_token or None
+        self.serial_number = serial_number
+        self.model = model
+        self.ip_address = urlparse(self.base_url).hostname or ""
+        self.access_code = "-"
+        self.poll_interval = poll_interval
+        self.timeout = timeout
+
+        self.on_state_change = on_state_change
+        self.on_print_start = on_print_start
+        self.on_print_complete = on_print_complete
+        self.on_layer_change = on_layer_change
+        self.on_print_progress = on_print_progress
+        self.on_bed_temp_update = on_bed_temp_update
+        self.on_print_running_observed = on_print_running_observed
+
+        self.state = PrinterState()
+        self.last_connect_error: str | None = None
+        self._last_message_time: float = 0.0
+        self._drying_targets: dict[int, dict] = {}  # read by printer_manager.get_drying_targets
+        self._logs: list[MQTTLogEntry] = []
+        self._logging_enabled = False
+
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+        self._objects: list[str] = list(_BASE_OBJECTS)
+        self._chamber_object: str | None = None
+        self._light_object: str | None = None
+        self._has_sample = False
+        self._last_state: str | None = None
+        self._last_percent: int = -1
+        self._last_layer: int = -1
+        self._last_bed_temp: float | None = None
+        self._metadata_for: str | None = None
+        self._metadata: dict[str, Any] = {}
+        self._print_started_at: float | None = None
+        self._last_progress = 0.0
+        self._last_layer_num = 0
+
+    # ------------------------------------------------------------------ HTTP
+
+    def _headers(self) -> dict[str, str]:
+        return {"X-Api-Key": self.auth_token} if self.auth_token else {}
+
+    def _get(self, path: str, timeout: float | None = None) -> dict[str, Any]:
+        response = httpx.get(f"{self.base_url}/{path.lstrip('/')}", headers=self._headers(), timeout=timeout or self.timeout)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("result", data) if isinstance(data, dict) else {}
+
+    def _post(self, path: str, payload: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]:
+        response = httpx.post(
+            f"{self.base_url}/{path.lstrip('/')}",
+            json=payload or {},
+            headers=self._headers(),
+            timeout=timeout or self.timeout,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("result", data) if isinstance(data, dict) else {}
+
+    def _query(self, objects: list[str]) -> dict[str, Any]:
+        query = "&".join(quote(name, safe="") for name in objects)
+        result = self._get(f"printer/objects/query?{query}")
+        status = result.get("status") if isinstance(result, dict) else None
+        return status if isinstance(status, dict) else {}
+
+    def _safe_call(self, description: str, fn: Callable[[], Any]) -> bool:
+        try:
+            fn()
+            self._record_log("sent", description)
+            return True
+        except Exception as exc:  # noqa: BLE001 - any transport error means "command not delivered"
+            logger.warning("[%s] Moonraker %s failed: %s", self.serial_number, description, exc)
+            self._record_log("error", f"{description}: {exc}")
+            return False
+
+    # ---------------------------------------------------------- lifecycle
+
+    def connect(self, loop: Any = None) -> None:  # noqa: ARG002 - signature parity with BambuMQTTClient
+        """Probe Moonraker once, discover optional objects, start the poll thread."""
+        self._stop.clear()
+        try:
+            info = self._get("server/info")
+            self.state.connected = True
+            self.state.firmware_version = str(info.get("moonraker_version") or "") or None
+            self.last_connect_error = None
+            self._discover_objects()
+            self.request_status_update()
+        except Exception as exc:  # noqa: BLE001
+            self.last_connect_error = str(exc)
+            self.state.connected = False
+            logger.warning("[%s] Moonraker connect failed: %s", self.serial_number, exc)
+        if self._thread is None or not self._thread.is_alive():
+            self._thread = threading.Thread(
+                target=self._poll_loop, name=f"moonraker-{self.serial_number or self.ip_address}", daemon=True
+            )
+            self._thread.start()
+
+    def disconnect(self, timeout: float = 0) -> None:
+        self._stop.set()
+        thread = self._thread
+        if thread and thread.is_alive() and timeout > 0:
+            thread.join(timeout)
+        self._thread = None
+        self.state.connected = False
+
+    def _discover_objects(self) -> None:
+        try:
+            objects = self._get("printer/objects/list").get("objects") or []
+        except Exception:  # noqa: BLE001 - optional; polling works without it
+            return
+        chamber = next((o for o in objects if str(o).startswith(_CHAMBER_OBJECT_PREFIXES)), None)
+        polled = list(_BASE_OBJECTS)
+        if chamber:
+            self._chamber_object = chamber
+            polled.append(chamber)
+        # Chamber light: first output_pin or led whose name contains "light" / "led".
+        for candidate in objects:
+            name = str(candidate).lower()
+            if name.startswith(("output_pin ", "led ", "neopixel ", "dotstar ")) and any(
+                key in name for key in ("light", "caselight", "led", "lamp")
+            ):
+                self._light_object = str(candidate)
+                polled.append(str(candidate))
+                break
+        self._objects = polled
+
+    def _poll_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self.request_status_update()
+            except Exception as exc:  # noqa: BLE001 - keep polling through transient errors
+                self._mark_unreachable(str(exc))
+            self._stop.wait(self.poll_interval)
+
+    def _mark_unreachable(self, reason: str) -> None:
+        was_connected = self.state.connected
+        self.state.connected = False
+        self.last_connect_error = reason
+        if was_connected:
+            logger.warning("[%s] Moonraker unreachable: %s", self.serial_number, reason)
+            if self.on_state_change:
+                self.on_state_change(self.state)
+
+    # BambuMQTTClient parity — printer_manager calls these on every status read.
+    @property
+    def is_stale(self) -> bool:
+        return self._last_message_time > 0 and (time.monotonic() - self._last_message_time) > self.STALE_AFTER_SECONDS
+
+    def check_staleness(self) -> bool:
+        if self.state.connected and self.is_stale:
+            self._mark_unreachable("no successful poll for %.0fs" % (time.monotonic() - self._last_message_time))
+        return self.state.connected
+
+    def mark_power_off(self) -> bool:
+        if not self.state.connected:
+            return False
+        self.state.connected = False
+        self.state.state = "unknown"
+        return True
+
+    def force_reconnect_stale_session(self, reason: str) -> None:
+        logger.info("[%s] reconnect requested (%s); next poll re-probes", self.serial_number, reason)
+
+    # ------------------------------------------------------------- status
+
+    def request_status_update(self) -> bool:
+        """Poll Moonraker once and update ``state``; fires the same callbacks as MQTT reports."""
+        with self._lock:
+            status = self._query(self._objects)
+            previous_state = self._last_state if self._has_sample else None
+            was_connected = self.state.connected
+
+            print_stats = status.get("print_stats") or {}
+            virtual_sdcard = status.get("virtual_sdcard") or {}
+            display_status = status.get("display_status") or {}
+            extruder = status.get("extruder") or {}
+            heater_bed = status.get("heater_bed") or {}
+            toolhead = status.get("toolhead") or {}
+
+            self.state.connected = True
+            self.last_connect_error = None
+            self._last_message_time = time.monotonic()
+            self.state.state = map_moonraker_state(print_stats.get("state"))
+
+            filename = str(print_stats.get("filename") or "") or None
+            if filename:
+                base = filename.rsplit("/", 1)[-1]
+                self.state.gcode_file = base
+                self.state.current_print = base
+                self.state.subtask_name = base
+                self._load_metadata(filename)
+            elif self.state.state == "IDLE":
+                self.state.gcode_file = None
+                self.state.current_print = None
+                self.state.subtask_name = None
+
+            info = print_stats.get("info") or {}
+            layer = info.get("current_layer")
+            total = info.get("total_layer") or self._metadata.get("layer_count")
+            self.state.layer_num = int(layer) if isinstance(layer, (int, float)) else 0
+            self.state.total_layers = int(total) if isinstance(total, (int, float)) else 0
+
+            progress = _f(virtual_sdcard.get("progress"), _f(display_status.get("progress")))
+            duration = _f(print_stats.get("print_duration"))
+            if self.state.state == "FINISH":
+                self.state.progress = 100.0
+                self.state.remaining_time = 0
+            elif self.state.state in ("IDLE", "FAILED", "unknown"):
+                self.state.progress = 0.0
+                self.state.remaining_time = 0
+            else:
+                self.state.progress = round(max(0.0, min(progress, 1.0)) * 100, 1)
+                self.state.remaining_time = self._remaining_minutes(duration, self.state.progress)
+
+            temps: dict[str, Any] = {
+                "nozzle": _f(extruder.get("temperature")),
+                "nozzle_target": _f(extruder.get("target")),
+                "bed": _f(heater_bed.get("temperature")),
+                "bed_target": _f(heater_bed.get("target")),
+            }
+            if self._chamber_object and isinstance(status.get(self._chamber_object), dict):
+                chamber = status[self._chamber_object]
+                temps["chamber"] = _f(chamber.get("temperature"))
+                temps["chamber_target"] = _f(chamber.get("target"))
+            self.state.temperatures = temps
+
+            fan = status.get("fan") or {}
+            self.state.cooling_fan_speed = int(round(_f(fan.get("speed")) * 100)) if fan else None
+            if self._light_object and isinstance(status.get(self._light_object), dict):
+                light = status[self._light_object]
+                value = light.get("value")
+                if value is None and isinstance(light.get("color_data"), list) and light["color_data"]:
+                    value = max(light["color_data"][0] or [0])
+                self.state.chamber_light = _f(value) > 0
+
+            self.state.raw_data = {
+                "provider": "klipper",
+                "moonraker": status,
+                "homed_axes": toolhead.get("homed_axes"),
+                "print_duration": duration,
+                "filament_used": _f(print_stats.get("filament_used")),
+                "estimated_time": self._metadata.get("estimated_time"),
+                "message": print_stats.get("message") or display_status.get("message"),
+                "ams": [],
+                "vt_tray": [],
+            }
+
+            self._emit(previous_state, was_connected)
+            self._last_state = self.state.state
+            self._has_sample = True
+        return True
+
+    def _load_metadata(self, filename: str) -> None:
+        if filename == self._metadata_for:
+            return
+        self._metadata_for = filename
+        self._metadata = {}
+        try:
+            meta = self._get(f"server/files/metadata?filename={quote(filename, safe='')}")
+            self._metadata = {
+                "estimated_time": _f(meta.get("estimated_time")) or None,
+                "layer_count": meta.get("layer_count"),
+                "filament_total": meta.get("filament_total"),
+                "thumbnails": meta.get("thumbnails") or [],
+            }
+        except Exception:  # noqa: BLE001 - metadata is a nicety
+            pass
+
+    def _remaining_minutes(self, duration: float, progress_percent: float) -> int:
+        estimated = self._metadata.get("estimated_time")
+        if estimated:
+            return int(max(float(estimated) - duration, 0.0) // 60)
+        if progress_percent <= 0 or duration <= 0:
+            return 0
+        total = duration / min(progress_percent / 100.0, 1.0)
+        return int(max(total - duration, 0.0) // 60)
+
+    def _lifecycle_payload(self) -> dict[str, Any]:
+        return {
+            "filename": self.state.gcode_file,
+            "subtask_name": self.state.subtask_name,
+            "remaining_time": self.state.remaining_time * 60 if self.state.remaining_time > 0 else None,
+            "raw_data": self.state.raw_data,
+            "ams_mapping": None,
+            "timelapse_was_active": False,
+            "hms_errors": [],
+            "last_progress": self._last_progress,
+            "last_layer_num": self._last_layer_num,
+        }
+
+    def _emit(self, previous_state: str | None, was_connected: bool) -> None:
+        active_now = self.state.state in ("RUNNING", "PAUSE")
+        active_before = previous_state in ("RUNNING", "PAUSE")
+
+        if previous_state is None:
+            # First sample after (re)connect. A print already running is the
+            # restart-recovery case: main.py wants on_print_running_observed,
+            # never a synthetic start.
+            if active_now and self.on_print_running_observed:
+                self.on_print_running_observed(self._lifecycle_payload())
+                self._print_started_at = time.monotonic()
+        elif not active_before and active_now:
+            self._print_started_at = time.monotonic()
+            self._last_progress = 0.0
+            self._last_layer_num = 0
+            if self.on_print_start:
+                logger.info("[%s] PRINT START detected - file: %s", self.serial_number, self.state.gcode_file)
+                self.on_print_start(self._lifecycle_payload())
+        elif active_before and not active_now:
+            payload = self._lifecycle_payload()
+            if self.state.state == "FINISH":
+                payload["status"] = "completed"
+            elif self.state.state == "FAILED":
+                payload["status"] = "failed"
+            else:
+                payload["status"] = "aborted"
+            if self._print_started_at is not None:
+                payload["actual_time_seconds"] = max(1, int(time.monotonic() - self._print_started_at))
+                self._print_started_at = None
+            if self.on_print_complete:
+                logger.info("[%s] PRINT %s - file: %s", self.serial_number, payload["status"].upper(), payload["filename"])
+                self.on_print_complete(payload)
+
+        if active_now:
+            self._last_progress = self.state.progress
+            self._last_layer_num = self.state.layer_num
+            percent = int(self.state.progress)
+            if percent != self._last_percent and self.on_print_progress:
+                self.on_print_progress(percent)
+            self._last_percent = percent
+            if self.state.layer_num != self._last_layer and self.on_layer_change:
+                self.on_layer_change(self.state.layer_num)
+            self._last_layer = self.state.layer_num
+        else:
+            self._last_percent = -1
+            self._last_layer = -1
+
+        bed = self.state.temperatures.get("bed")
+        if isinstance(bed, (int, float)) and bed != self._last_bed_temp:
+            self._last_bed_temp = float(bed)
+            if self.on_bed_temp_update:
+                self.on_bed_temp_update(float(bed))
+
+        if self.on_state_change:
+            self.on_state_change(self.state)
+
+    # ------------------------------------------------------------ commands
+
+    def start_print(self, filename: str, plate_id: int = 1, **_bambu_options: Any) -> bool:  # noqa: ARG002
+        """Start ``filename`` (relative to Moonraker's gcodes root). Upload first with ``upload_file``."""
+        target = filename.lstrip("/")
+        return self._safe_call(
+            f"print start {target}",
+            lambda: self._post(f"printer/print/start?filename={quote(target, safe='/')}", timeout=30.0),
+        )
+
+    def stop_print(self) -> bool:
+        return self._safe_call("print cancel", lambda: self._post("printer/print/cancel", timeout=30.0))
+
+    def pause_print(self) -> bool:
+        return self._safe_call("print pause", lambda: self._post("printer/print/pause", timeout=30.0))
+
+    def resume_print(self) -> bool:
+        return self._safe_call("print resume", lambda: self._post("printer/print/resume", timeout=30.0))
+
+    def send_gcode(self, gcode: str) -> bool:
+        return self._safe_call(
+            f"gcode {gcode!r}",
+            lambda: self._post(f"printer/gcode/script?script={quote(gcode, safe='')}", timeout=60.0),
+        )
+
+    def set_bed_temperature(self, target: int) -> bool:
+        return self.send_gcode(f"M140 S{int(target)}")
+
+    def set_nozzle_temperature(self, target: int, nozzle: int = 0) -> bool:
+        return self.send_gcode(f"M104 S{int(target)} T{int(nozzle)}")
+
+    def set_chamber_temperature(self, target: int) -> bool:
+        if not self._chamber_object or not self._chamber_object.startswith("heater_generic"):
+            return False
+        heater = self._chamber_object.split(" ", 1)[1]
+        return self.send_gcode(f"SET_HEATER_TEMPERATURE HEATER={heater} TARGET={int(target)}")
+
+    def set_fan_speed(self, fan: int, speed: int) -> bool:
+        # Bambu fan ids: 1 = part cooling; the rest have no Klipper counterpart.
+        if int(fan) != 1:
+            return False
+        return self.set_part_fan(speed)
+
+    def set_part_fan(self, speed: int) -> bool:
+        pwm = max(0, min(255, int(round(int(speed) * 255 / 100))))
+        return self.send_gcode(f"M106 S{pwm}")
+
+    def set_chamber_light(self, on: bool) -> bool:
+        if not self._light_object:
+            return False
+        kind, _, name = self._light_object.partition(" ")
+        if kind == "output_pin":
+            return self.send_gcode(f"SET_PIN PIN={name} VALUE={1 if on else 0}")
+        level = 1 if on else 0
+        return self.send_gcode(f"SET_LED LED={name} RED={level} GREEN={level} BLUE={level} WHITE={level}")
+
+    def home_axes(self, axes: str = "XYZ") -> bool:
+        axes = "".join(a for a in axes.upper() if a in "XYZ")
+        return self.send_gcode("G28" if axes in ("", "XYZ") else f"G28 {' '.join(axes)}")
+
+    def move_axis(self, axis: str, distance: float, speed: int = 3000) -> bool:
+        axis = axis.upper()
+        if axis not in ("X", "Y", "Z", "E"):
+            return False
+        return self.send_gcode(f"G91\nG1 {axis}{float(distance)} F{int(speed)}\nG90")
+
+    def disable_motors(self) -> bool:
+        return self.send_gcode("M84")
+
+    def enable_motors(self) -> bool:
+        return False
+
+    def set_print_speed(self, mode: int) -> bool:
+        # Bambu levels: 1 silent, 2 standard, 3 sport, 4 ludicrous -> feedrate %.
+        factor = {1: 50, 2: 100, 3: 125, 4: 166}.get(int(mode))
+        if factor is None:
+            return False
+        self.state.speed_level = int(mode)
+        return self.send_gcode(f"M220 S{factor}")
+
+    def send_command(self, command: dict) -> None:  # noqa: ARG002 - raw MQTT has no Moonraker equivalent
+        logger.debug("[%s] raw MQTT command ignored on a Klipper printer", self.serial_number)
+
+    def publish_raw(self, topic: str, payload: Any, qos: int = 1) -> bool:  # noqa: ARG002
+        return False
+
+    def register_raw_message_handler(self, handler: Any) -> None:  # noqa: ARG002
+        return None
+
+    def unregister_raw_message_handler(self, handler: Any) -> None:  # noqa: ARG002
+        return None
+
+    # --------------------------------------------------------------- files
+
+    def upload_file(self, local_path: Path, remote_name: str, *, progress_callback: Any = None) -> bool:  # noqa: ARG002
+        """Upload ``local_path`` into Moonraker's gcodes root as ``remote_name``."""
+        name = remote_name.lstrip("/")
+        directory, _, basename = name.rpartition("/")
+        with open(local_path, "rb") as fh:
+            response = httpx.post(
+                f"{self.base_url}/server/files/upload",
+                data={"root": "gcodes", "path": directory},
+                files={"file": (basename, fh, "application/octet-stream")},
+                headers=self._headers(),
+                timeout=max(self.timeout, 300.0),
+            )
+        response.raise_for_status()
+        self._record_log("sent", f"upload {name}")
+        return True
+
+    def delete_file(self, remote_name: str) -> bool:
+        name = remote_name.lstrip("/")
+        return self._safe_call(
+            f"delete {name}",
+            lambda: httpx.delete(
+                f"{self.base_url}/server/files/gcodes/{quote(name, safe='/')}",
+                headers=self._headers(),
+                timeout=self.timeout,
+            ).raise_for_status(),
+        )
+
+    def list_files(self, path: str = "") -> list[dict[str, Any]]:
+        result = self._get("server/files/list?root=gcodes")
+        entries = result if isinstance(result, list) else result.get("files") or []
+        prefix = path.strip("/")
+        out = []
+        for entry in entries:
+            rel = str(entry.get("path") or "")
+            if prefix and not rel.startswith(prefix + "/"):
+                continue
+            out.append(
+                {
+                    "name": rel.rsplit("/", 1)[-1],
+                    "path": "/" + rel,
+                    "size": int(entry.get("size") or 0),
+                    "modified": entry.get("modified"),
+                    "is_dir": False,
+                }
+            )
+        return out
+
+    # ------------------------------------------------------------- logging
+
+    def _record_log(self, direction: str, text: str) -> None:
+        if not self._logging_enabled:
+            return
+        self._logs.append(
+            MQTTLogEntry(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                topic="moonraker",
+                direction="out" if direction == "sent" else "in",
+                payload={"result": direction, "text": text},
+            )
+        )
+        del self._logs[:-500]
+
+    def enable_logging(self, enabled: bool = True) -> None:
+        self._logging_enabled = enabled
+
+    def get_logs(self) -> list:
+        return list(self._logs)
+
+    def clear_logs(self) -> None:
+        self._logs.clear()
+
+    @property
+    def logging_enabled(self) -> bool:
+        return self._logging_enabled
+
+    # ------------------------------------------------- Bambu-only fallbacks
+
+    def __getattr__(self, name: str):
+        """Bambu-only methods (AMS, K-profiles, calibration, drying, xcam...) fail soft.
+
+        Only reached for attributes not defined above. Private names raise as
+        usual so genuine bugs stay visible.
+        """
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        def _unsupported(*args: Any, **kwargs: Any) -> bool:  # noqa: ARG001
+            logger.debug("[%s] %s() is not available on a Klipper printer", self.serial_number, name)
+            return False
+
+        return _unsupported
+
+
+def probe_moonraker(base_url: str, auth_token: str | None = None, timeout: float = 5.0) -> dict[str, Any]:
+    """One-shot connection test used by the add-printer dialog.
+
+    Returns the same shape as ``printer_manager.test_connection``: ``success``
+    plus a ``message``, and on success the Klipper hostname, Moonraker
+    version, and the webcams Moonraker knows about so the caller can
+    prefill the external camera.
+    """
+    client = MoonrakerClient(base_url, auth_token, timeout=timeout)
+    try:
+        info = client._get("server/info")
+        printer_info = client._get("printer/info")
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code
+        message = "Moonraker rejected the request (401): an API key is required" if code == 401 else f"Moonraker answered HTTP {code}"
+        return {"success": False, "message": message}
+    except Exception as exc:  # noqa: BLE001
+        return {"success": False, "message": f"Could not reach Moonraker at {client.base_url}: {exc}"}
+
+    webcams: list[dict[str, Any]] = []
+    try:
+        for cam in client._get("server/webcams/list").get("webcams") or []:
+            if not cam.get("enabled", True):
+                continue
+            stream = str(cam.get("stream_url") or "")
+            snapshot = str(cam.get("snapshot_url") or "")
+            origin = f"{urlparse(client.base_url).scheme}://{urlparse(client.base_url).hostname}"
+            webcams.append(
+                {
+                    "name": cam.get("name"),
+                    "stream_url": stream if "://" in stream else origin + "/" + stream.lstrip("/"),
+                    "snapshot_url": snapshot if "://" in snapshot else origin + "/" + snapshot.lstrip("/"),
+                }
+            )
+    except Exception:  # noqa: BLE001 - webcams are optional
+        pass
+
+    return {
+        "success": True,
+        "message": "Connected to Moonraker",
+        "hostname": printer_info.get("hostname"),
+        "klippy_state": info.get("klippy_state"),
+        "moonraker_version": info.get("moonraker_version"),
+        "klipper_version": printer_info.get("software_version"),
+        "webcams": webcams,
+    }
