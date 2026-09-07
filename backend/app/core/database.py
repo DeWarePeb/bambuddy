@@ -311,6 +311,7 @@ async def init_db():
         notification_template,
         oidc_provider,
         orca_base_cache,
+        pending_slot_assignment,
         pending_upload,
         pipeline_run,
         print_batch,
@@ -4966,6 +4967,42 @@ async def run_migrations(conn):
     # Migration: drop the AMS slot markers an older Bambuddy wrote into
     # Spoolman and the location sync then imported as storage locations.
     await _migrate_drop_ams_slot_locations(conn)
+
+    # Migration: pending spool-to-slot assignments (voron B8). create_all()
+    # covers fresh installs; this covers restore/upgrade paths that run the
+    # handwritten migrations against a schema that predates the table.
+    await _migrate_create_pending_slot_assignment_table(conn)
+
+
+async def _migrate_create_pending_slot_assignment_table(conn) -> None:
+    """Create ``pending_slot_assignment`` where it is missing (voron B8).
+
+    Mirrors ``backend/app/models/pending_slot_assignment.py``; keep the two in
+    step. Idempotent: every statement is IF NOT EXISTS.
+    """
+    id_column = "INTEGER PRIMARY KEY" if is_sqlite() else "SERIAL PRIMARY KEY"
+    statements = [
+        f"""
+        CREATE TABLE IF NOT EXISTS pending_slot_assignment (
+            id {id_column},
+            spool_id INTEGER NOT NULL REFERENCES spool(id) ON DELETE CASCADE,
+            printer_id INTEGER REFERENCES printers(id) ON DELETE CASCADE,
+            source VARCHAR(20),
+            status VARCHAR(20),
+            timeout_seconds INTEGER,
+            assigned_printer_id INTEGER,
+            assigned_ams_id INTEGER,
+            assigned_tray_id INTEGER,
+            completed_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS ix_pending_slot_assignment_spool_id ON pending_slot_assignment (spool_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pending_slot_assignment_printer_id ON pending_slot_assignment (printer_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pending_slot_assignment_status ON pending_slot_assignment (status)",
+    ]
+    for statement in statements:
+        await _safe_execute(conn, statement)
 
 
 async def _migrate_rename_ha_sensor_alert_template(conn) -> None:

@@ -19,6 +19,7 @@ from backend.app.models.notification_live_activity import NotificationLiveActivi
 from backend.app.models.notification_template import NotificationTemplate
 from backend.app.models.oidc_provider import OIDCProvider, UserOIDCLink
 from backend.app.models.orca_base_cache import OrcaBaseProfile
+from backend.app.models.pending_slot_assignment import PendingSlotAssignment
 from backend.app.models.pending_upload import PendingUpload
 from backend.app.models.pipeline_run import PipelineJob, PipelineRun
 from backend.app.models.print_batch import PrintBatch, PrintBatchPlate
@@ -81,6 +82,7 @@ __all__ = [
     "OIDCProvider",
     "UserOIDCLink",
     "OrcaBaseProfile",
+    "PendingSlotAssignment",
     "PipelineJob",
     "PipelineRun",
     "SlicerPipeline",

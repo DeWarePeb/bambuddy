@@ -30,6 +30,7 @@ from backend.app.models.spool_filament_preset import SpoolFilamentPreset
 from backend.app.models.spool_k_profile import SpoolKProfile
 from backend.app.models.user import User
 from backend.app.schemas.location import LocationCreate, LocationResponse, LocationUpdate
+from backend.app.schemas.pending_slot_assignment import PendingSlotAssignmentCreate, PendingSlotAssignmentResponse
 from backend.app.schemas.spool import (
     SpoolAssignmentCreate,
     SpoolAssignmentResponse,
@@ -45,6 +46,7 @@ from backend.app.schemas.spool import (
     normalize_extra_colors,
 )
 from backend.app.schemas.spool_usage import SpoolUsageHistoryResponse
+from backend.app.services import pending_slot_assignment as pending_slots
 from backend.app.services.location_service import (
     DUPLICATE_LOCATION_NAME,
     assign_location_name,
@@ -2047,6 +2049,67 @@ async def unassign_spool(
     )
 
     return {"status": "deleted"}
+
+
+# ── Pending slot assignments: "assign to the next loaded slot" (voron B8) ─────
+
+
+@router.get("/assignments/pending", response_model=list[PendingSlotAssignmentResponse])
+async def list_pending_slot_assignments(
+    spool_id: int | None = None,
+    printer_id: int | None = None,
+    include_finished: bool = False,
+    db: AsyncSession = Depends(get_db),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_VIEW_ASSIGNMENTS),
+):
+    """Spools waiting for the next loaded AMS slot. Pending rows only unless include_finished."""
+    return await pending_slots.list_assignments(
+        db, spool_id=spool_id, printer_id=printer_id, include_finished=include_finished
+    )
+
+
+@router.post("/assignments/pending", response_model=PendingSlotAssignmentResponse, status_code=202)
+async def create_pending_slot_assignment(
+    data: PendingSlotAssignmentCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_UPDATE),
+):
+    """Mark a spool for the next AMS slot that gets loaded (on one printer, or any)."""
+    try:
+        return await pending_slots.create_pending_assignment(
+            db,
+            spool_id=data.spool_id,
+            printer_id=data.printer_id,
+            timeout_seconds=data.timeout_seconds,
+            source=data.source,
+        )
+    except pending_slots.PendingAssignmentError as e:
+        raise HTTPException(e.status_code, str(e)) from e
+
+
+@router.get("/assignments/pending/{assignment_id}", response_model=PendingSlotAssignmentResponse)
+async def get_pending_slot_assignment(
+    assignment_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_VIEW_ASSIGNMENTS),
+):
+    assignment = await pending_slots.get_assignment(db, assignment_id)
+    if assignment is None:
+        raise HTTPException(404, "Pending assignment not found")
+    return assignment
+
+
+@router.delete("/assignments/pending/{assignment_id}", response_model=PendingSlotAssignmentResponse)
+async def cancel_pending_slot_assignment(
+    assignment_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_UPDATE),
+):
+    """Cancel a request that is still pending."""
+    assignment = await pending_slots.cancel_pending_assignment(db, assignment_id)
+    if assignment is None:
+        raise HTTPException(404, "No pending assignment with that id")
+    return assignment
 
 
 # ── Tag Linking ───────────────────────────────────────────────────────────────

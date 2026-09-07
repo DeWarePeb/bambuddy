@@ -2539,6 +2539,28 @@ async def on_ams_change(printer_id: int, ams_data: list):
                                 )
                             continue
 
+                        # A spool marked "assign to the next loaded slot" claims
+                        # this tray before the RFID path gets to see it (voron B8).
+                        # The service refuses trays whose tag belongs to another
+                        # inventory spool, so RFID auto-assign still wins those.
+                        try:
+                            from backend.app.services.pending_slot_assignment import (
+                                try_complete_pending_assignment,
+                            )
+
+                            if await try_complete_pending_assignment(
+                                db, printer_id=printer_id, ams_id=ams_id, tray_id=tray_id, tray=tray
+                            ):
+                                _clear_unknown_tag_dedup(printer_id, ams_id, tray_id)
+                                continue
+                        except Exception:
+                            logger.exception(
+                                "Pending slot assignment check failed for printer %d AMS%d-T%d",
+                                printer_id,
+                                ams_id,
+                                tray_id,
+                            )
+
                         if is_bambu_tag(tag_uid, tray_uuid, tray_info_idx):
                             # BL spool with RFID tag: auto-match → inventory match → auto-create
                             spool = await get_spool_by_tag(db, tag_uid, tray_uuid)

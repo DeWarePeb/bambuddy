@@ -231,6 +231,7 @@ async def test_engine():
         notification_live_activity,
         notification_template,
         oidc_provider,
+        pending_slot_assignment,  # noqa: F401
         print_log,
         print_queue,
         printer,
