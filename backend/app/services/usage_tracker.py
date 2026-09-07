@@ -768,6 +768,27 @@ async def on_print_complete(
         )
         results.extend(threemf_results)
 
+    # Voron patch series: a Klipper printer has no AMS remain% and its archive
+    # is plain G-code, so neither strategy above books anything. Charge the
+    # slicer's total to the spool on the external slot instead.
+    if not results and archive_id:
+        results.extend(
+            await _track_klipper_external_spool(
+                printer_id,
+                archive_id,
+                status,
+                print_name,
+                handled_trays,
+                printer_manager,
+                db,
+                tray_now_at_start=session.tray_now_at_start if session else -1,
+                last_progress=data.get("last_progress", 0.0),
+                default_filament_cost=default_filament_cost,
+                spool_assignments=session.spool_assignments if session else None,
+                print_started_at=session.started_at if session else None,
+            )
+        )
+
     # --- Path 2 (FALLBACK): AMS remain% delta (only for trays not handled by 3MF) ---
     if session and session.tray_remain_start:
         state = printer_manager.get_status(printer_id)
@@ -1022,6 +1043,111 @@ async def on_print_complete(
 # filename: `plate_1` then matched an unrelated `lid_plate_1.gcode.3mf` and that
 # print's filament figures were read off a different model entirely.
 _GENERIC_PLATE_STEM = re.compile(r"^plate_?\d+$", re.IGNORECASE)
+
+
+async def _track_klipper_external_spool(
+    printer_id: int,
+    archive_id: int,
+    status: str,
+    print_name: str,
+    handled_trays: set[tuple[int, int]],
+    printer_manager,
+    db: AsyncSession,
+    *,
+    tray_now_at_start: int = -1,
+    last_progress: float = 0.0,
+    default_filament_cost: float = 0.0,
+    spool_assignments: dict[tuple[int, int], int] | None = None,
+    print_started_at: datetime | None = None,
+) -> list[dict]:
+    """Book a Klipper print's filament to the spool on its external slot.
+
+    Voron patch series. Only runs for printers driven by ``MoonrakerClient``;
+    uses ``archive.filament_used_grams`` (from the slicer comments) scaled by
+    progress when the print did not finish, and the assignment at AMS 255 /
+    tray 0 — the same key the card's "External" slot uses.
+    """
+    from backend.app.models.archive import PrintArchive
+    from backend.app.services.moonraker_client import MoonrakerClient
+
+    client = printer_manager.get_client(printer_id) if hasattr(printer_manager, "get_client") else None
+    if not isinstance(client, MoonrakerClient):
+        return []
+
+    archive = (await db.execute(select(PrintArchive).where(PrintArchive.id == archive_id))).scalar_one_or_none()
+    used_g = float(getattr(archive, "filament_used_grams", None) or 0.0) if archive else 0.0
+    if used_g <= 0:
+        logger.info(
+            "[UsageTracker] Klipper printer %d: archive %s has no filament estimate — nothing deducted",
+            printer_id,
+            archive_id,
+        )
+        return []
+
+    tray_id = tray_now_at_start - 254 if 254 <= tray_now_at_start <= 255 else 0
+    key = (255, tray_id)
+    if key in handled_trays:
+        return []
+    spool_id = await _resolve_spool_id_for_tray(printer_id, 255, tray_id, db, spool_assignments, print_started_at)
+    if spool_id is None:
+        logger.warning(
+            "[UsageTracker] Klipper printer %d: no spool assigned to the external slot — %.1fg not deducted",
+            printer_id,
+            used_g,
+        )
+        return []
+    spool = (await db.execute(select(Spool).where(Spool.id == spool_id))).scalar_one_or_none()
+    if not spool:
+        return []
+
+    scale = 1.0 if status == "completed" else max(0.0, min(float(last_progress or 0.0), 100.0)) / 100.0
+    weight_grams = used_g * scale
+    if weight_grams <= 0:
+        return []
+
+    spool.weight_used = (spool.weight_used or 0) + weight_grams
+    spool.last_used = datetime.now(timezone.utc)
+    percent = round(weight_grams / (spool.label_weight or 1000) * 100)
+    cost = None
+    cost_per_kg = spool.cost_per_kg if spool.cost_per_kg is not None else default_filament_cost
+    if cost_per_kg > 0:
+        cost = round((weight_grams / 1000.0) * cost_per_kg, 2)
+
+    db.add(
+        SpoolUsageHistory(
+            spool_id=spool.id,
+            printer_id=printer_id,
+            print_name=print_name,
+            weight_used=round(weight_grams, 1),
+            percent_used=percent,
+            status=status,
+            cost=cost,
+            archive_id=archive_id,
+        )
+    )
+    handled_trays.add(key)
+    logger.info(
+        "[UsageTracker] Klipper: spool %d consumed %.1fg (%d%%) on printer %d (%s, scale %.2f)",
+        spool.id,
+        weight_grams,
+        percent,
+        printer_id,
+        status,
+        scale,
+    )
+    return [
+        {
+            "spool_id": spool.id,
+            "weight_used": round(weight_grams, 1),
+            "percent_used": percent,
+            "ams_id": 255,
+            "tray_id": tray_id,
+            "material": spool.material,
+            "cost": cost,
+            "slot_id": 0,
+            "color": _spool_color_to_hex(spool.rgba),
+        }
+    ]
 
 
 def _like_escape(value: str) -> str:

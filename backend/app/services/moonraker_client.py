@@ -98,6 +98,22 @@ def _pick_light_object(objects: list[Any]) -> str | None:
     return min(candidates)[1]
 
 
+_EMPTY_EXTERNAL_TRAY: dict[str, Any] = {
+    "id": 254,
+    "tray_type": "",
+    "tray_sub_brands": "",
+    "tray_color": "",
+    "tray_info_idx": "",
+    "tray_id_name": "",
+    "remain": -1,
+    "tag_uid": "",
+    "tray_uuid": "",
+    "nozzle_temp_min": None,
+    "nozzle_temp_max": None,
+    "state": 10,
+}
+
+
 def _f(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -172,6 +188,9 @@ class MoonrakerClient:
         self._print_started_at: float | None = None
         self._last_progress = 0.0
         self._last_layer_num = 0
+        # The one "external" slot (virtual tray 254). Filled by
+        # ams_set_filament_setting when a spool is assigned in the inventory.
+        self._external_tray: dict[str, Any] = dict(_EMPTY_EXTERNAL_TRAY)
 
     # ------------------------------------------------------------------ HTTP
 
@@ -368,6 +387,13 @@ class MoonrakerClient:
                     value = max(light["color_data"][0] or [0])
                 self.state.chamber_light = _f(value) > 0
 
+            # A Klipper printer feeds from one spool. Report it the way a Bambu
+            # reports its external spool holder (virtual tray 254 = AMS 255 /
+            # tray 0): the card shows an "External" slot with the assign-spool
+            # dialog, and the usage tracker books filament to whatever spool is
+            # assigned there. tray_now points at it while printing so the
+            # tracker's tray_now_at_start lands on the same key.
+            self.state.tray_now = 254 if self.state.state in ("RUNNING", "PAUSE") else 255
             self.state.raw_data = {
                 "provider": "klipper",
                 "moonraker": status,
@@ -377,7 +403,7 @@ class MoonrakerClient:
                 "estimated_time": self._metadata.get("estimated_time"),
                 "message": print_stats.get("message") or display_status.get("message"),
                 "ams": [],
-                "vt_tray": [],
+                "vt_tray": [dict(self._external_tray)],
             }
 
             self._emit(previous_state, was_connected)
@@ -560,6 +586,53 @@ class MoonrakerClient:
             return False
         self.state.speed_level = int(mode)
         return self.send_gcode(f"M220 S{factor}")
+
+    # ---------------------------------------------------- external spool slot
+
+    def ams_set_filament_setting(
+        self,
+        ams_id: int,
+        tray_id: int,
+        tray_info_idx: str,
+        tray_type: str,
+        tray_sub_brands: str,
+        tray_color: str,
+        nozzle_temp_min: int,
+        nozzle_temp_max: int,
+        setting_id: str = "",  # noqa: ARG002
+    ) -> bool:
+        """Record what is loaded on the single external slot (AMS 255 / tray 0).
+
+        Bambu firmware stores this on the printer; Klipper has nowhere to put
+        it, so it lives on the client and is reported back in ``vt_tray`` so the
+        card and the usage tracker see the same slot a Bambu would show.
+        """
+        if int(ams_id) != 255 or int(tray_id) != 0:
+            return False
+        self._external_tray.update(
+            {
+                "tray_info_idx": tray_info_idx or "",
+                "tray_type": tray_type or "",
+                "tray_sub_brands": tray_sub_brands or "",
+                "tray_color": (tray_color or "").lstrip("#").upper(),
+                "nozzle_temp_min": nozzle_temp_min,
+                "nozzle_temp_max": nozzle_temp_max,
+                "state": 11 if tray_type else 10,
+            }
+        )
+        self.state.raw_data["vt_tray"] = [dict(self._external_tray)]
+        if self.on_state_change:
+            self.on_state_change(self.state)
+        return True
+
+    def reset_ams_slot(self, ams_id: int, tray_id: int) -> bool:
+        if int(ams_id) != 255 or int(tray_id) != 0:
+            return False
+        self._external_tray = dict(_EMPTY_EXTERNAL_TRAY)
+        self.state.raw_data["vt_tray"] = [dict(self._external_tray)]
+        if self.on_state_change:
+            self.on_state_change(self.state)
+        return True
 
     def send_command(self, command: dict) -> None:  # noqa: ARG002 - raw MQTT has no Moonraker equivalent
         logger.debug("[%s] raw MQTT command ignored on a Klipper printer", self.serial_number)

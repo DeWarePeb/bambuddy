@@ -263,3 +263,20 @@ def test_pick_light_object_prefers_chamber_light_over_mmu_leds():
     assert _pick_light_object(voron) == "neopixel chamber_lights"
     assert _pick_light_object(["output_pin caselight", "neopixel sb_leds"]) == "output_pin caselight"
     assert _pick_light_object(["neopixel _unit0_gate0_leds", "neopixel jw_leds"]) is None
+
+
+def test_external_slot_is_reported_as_virtual_tray_254():
+    client = _FakeMoonraker([_status(state="printing"), _status(state="standby", filename="")])
+    client.request_status_update()
+    vt = client.state.raw_data["vt_tray"]
+    assert vt and vt[0]["id"] == 254 and vt[0]["tray_type"] == ""
+    assert client.state.tray_now == 254  # printing -> external slot is "in use"
+    client.request_status_update()
+    assert client.state.tray_now == 255  # idle -> nothing loaded into the hotend
+
+    assert client.ams_set_filament_setting(255, 0, "GFB00", "ABS", "ABS", "#FD8700", 240, 270) is True
+    tray = client.state.raw_data["vt_tray"][0]
+    assert tray["tray_type"] == "ABS" and tray["tray_color"] == "FD8700" and tray["state"] == 11
+    assert client.ams_set_filament_setting(0, 1, "", "PLA", "", "", 0, 0) is False  # no AMS on Klipper
+    assert client.reset_ams_slot(255, 0) is True
+    assert client.state.raw_data["vt_tray"][0]["tray_type"] == ""
