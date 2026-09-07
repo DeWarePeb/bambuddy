@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Download,
   Trash2,
+  Play,
   Loader2,
   HardDrive,
   RefreshCw,
@@ -22,7 +23,7 @@ import {
   MinusSquare,
   Box,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, type PrinterProvider } from '../api/client';
 import { parseUTCDate } from '../utils/date';
 import { Button } from './Button';
 import { ConfirmModal } from './ConfirmModal';
@@ -35,6 +36,7 @@ import { formatFileSize } from '../utils/file';
 interface FileManagerModalProps {
   printerId: number;
   printerName: string;
+  provider?: PrinterProvider;  // Voron patch series: Klipper files can be started in place
   onClose: () => void;
 }
 
@@ -279,7 +281,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date-desc', label: 'Date (newest)' },
 ];
 
-export function FileManagerModal({ printerId, printerName, onClose }: FileManagerModalProps) {
+export function FileManagerModal({ printerId, printerName, provider, onClose }: FileManagerModalProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -364,6 +366,18 @@ export function FileManagerModal({ printerId, printerName, onClose }: FileManage
   }, [visibleFiles, listingIsReal]);
 
   useEffect(() => () => downloadAbortRef.current?.abort(), []);
+
+  // Voron patch series: start a G-code file that already sits on a Klipper printer.
+  const printMutation = useMutation({
+    mutationFn: (path: string) => api.printPrinterFile(printerId, path),
+    onSuccess: () => {
+      showToast(t('printerFiles.printStarted'));
+      queryClient.invalidateQueries({ queryKey: ['printer-status', printerId] });
+    },
+    onError: (error: Error) => {
+      showToast(t('printerFiles.printFailed', { error: error.message }), 'error');
+    },
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async (paths: string[]) => {
@@ -678,6 +692,19 @@ export function FileManagerModal({ printerId, printerName, onClose }: FileManage
                             <span className="text-sm text-bambu-gray">
                               {formatFileSize(file.size)}
                             </span>
+                            {provider === 'klipper' && file.name.toLowerCase().endsWith('.gcode') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  printMutation.mutate(file.path);
+                                }}
+                                disabled={printMutation.isPending}
+                                className="p-1 rounded hover:bg-bambu-dark text-bambu-gray hover:text-bambu-green disabled:opacity-50"
+                                title={t('printerFiles.printOnPrinter')}
+                              >
+                                <Play className="w-4 h-4" />
+                              </button>
+                            )}
                             {(file.name.toLowerCase().endsWith('.3mf') || file.name.toLowerCase().endsWith('.gcode') || file.name.toLowerCase().endsWith('.stl')) && (
                               <button
                                 onClick={(e) => {

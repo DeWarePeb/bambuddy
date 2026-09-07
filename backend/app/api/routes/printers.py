@@ -1656,6 +1656,20 @@ async def list_printer_files(
     """List files on the printer at the specified path."""
     printer = await _load_printer_or_404(printer_id)
 
+    if getattr(printer, "provider", "bambu") == "klipper":
+        # Voron patch series: Moonraker's gcodes root instead of FTPS.
+        client = printer_manager.get_client(printer_id)
+        if client is None:
+            return {"path": path, "files": [], "warnings": ["printer_unavailable"]}
+        try:
+            files = await asyncio.to_thread(client.list_files, path)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Moonraker file listing failed for printer %s: %s", printer_id, exc)
+            return {"path": path, "files": [], "warnings": ["printer_unavailable"]}
+        for f in files:
+            f["path"] = f"{path.rstrip('/')}/{f['name']}" if path != "/" else f"/{f['name']}"
+        return {"path": path, "files": files, "warnings": []}
+
     listing = await list_files_result_async(
         printer.ip_address,
         printer.access_code,
@@ -1683,6 +1697,22 @@ async def download_printer_file(
 ):
     """Download a file from the printer."""
     printer = await _load_printer_or_404(printer_id)
+
+    if getattr(printer, "provider", "bambu") == "klipper":
+        # Voron patch series: stream the file straight out of Moonraker.
+        client = printer_manager.get_client(printer_id)
+        if client is None:
+            raise HTTPException(503, "Printer is not connected")
+        try:
+            content = await asyncio.to_thread(client.download_file, path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(404, f"File not found on printer: {path}") from exc
+        filename = path.split("/")[-1]
+        return Response(
+            content=content,
+            media_type="text/plain" if filename.lower().endswith(".gcode") else "application/octet-stream",
+            headers={"Content-Disposition": build_content_disposition(filename)},
+        )
 
     try:
         async with asyncio.timeout(MAX_PRINTER_ZIP_PREPARE_SECONDS):
@@ -2170,6 +2200,13 @@ async def delete_printer_file(
     """Delete a file from the printer."""
     printer = await _load_printer_or_404(printer_id)
 
+    if getattr(printer, "provider", "bambu") == "klipper":
+        # Voron patch series: Moonraker delete instead of FTPS.
+        client = printer_manager.get_client(printer_id)
+        if client is None or not await asyncio.to_thread(client.delete_file, path):
+            raise HTTPException(404, f"File not found on printer: {path}")
+        return {"status": "deleted", "path": path}
+
     from backend.app.services.bambu_ftp import DeleteResult
 
     result = await delete_file_async(printer.ip_address, printer.access_code, path, printer_model=printer.model)
@@ -2181,6 +2218,33 @@ async def delete_printer_file(
     return {"status": "deleted", "path": path}
 
 
+@router.post("/{printer_id}/files/print")
+async def print_printer_file(
+    printer_id: int,
+    path: str,
+    _=RequirePrinterPermissionIfAuthEnabled(Permission.PRINTERS_CONTROL),
+):
+    """Start a file that is already on the printer (Voron patch series, Klipper only).
+
+    Bambu printers keep their SD-card start path (project_file with plate and
+    AMS mapping) in the queue and reprint flows; Moonraker just needs the
+    file name relative to its gcodes root.
+    """
+    printer = await _load_printer_or_404(printer_id)
+    if getattr(printer, "provider", "bambu") != "klipper":
+        raise HTTPException(400, "Starting a file from printer storage is only supported on Klipper printers")
+    if not path.lower().endswith(".gcode"):
+        raise HTTPException(400, "Only .gcode files can be started on a Klipper printer")
+    client = printer_manager.get_client(printer_id)
+    if client is None:
+        raise HTTPException(503, "Printer is not connected")
+    if printer_manager.is_print_active(printer_id):
+        raise HTTPException(409, "Printer is busy")
+    if not await asyncio.to_thread(client.start_print, path.lstrip("/")):
+        raise HTTPException(500, f"Moonraker refused to start {path}")
+    return {"status": "started", "path": path}
+
+
 @router.get("/{printer_id}/storage")
 async def get_printer_storage(
     printer_id: int,
@@ -2188,6 +2252,12 @@ async def get_printer_storage(
 ):
     """Get storage information from the printer."""
     printer = await _load_printer_or_404(printer_id)
+
+    if getattr(printer, "provider", "bambu") == "klipper":
+        client = printer_manager.get_client(printer_id)
+        if client is None:
+            return {"used_bytes": None, "free_bytes": None}
+        return await asyncio.to_thread(client.get_storage_info)
 
     storage_info = await get_storage_info_async(printer.ip_address, printer.access_code, printer_model=printer.model)
 

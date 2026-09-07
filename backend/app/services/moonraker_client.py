@@ -675,25 +675,49 @@ class MoonrakerClient:
             ).raise_for_status(),
         )
 
-    def list_files(self, path: str = "") -> list[dict[str, Any]]:
-        result = self._get("server/files/list?root=gcodes")
-        entries = result if isinstance(result, list) else result.get("files") or []
-        prefix = path.strip("/")
-        out = []
-        for entry in entries:
-            rel = str(entry.get("path") or "")
-            if prefix and not rel.startswith(prefix + "/"):
+    def list_files(self, path: str = "/") -> list[dict[str, Any]]:
+        """Directory listing of Moonraker's ``gcodes`` root, same shape as the Bambu FTP listing."""
+        sub = path.strip("/")
+        target = f"gcodes/{sub}" if sub else "gcodes"
+        result = self._get(f"server/files/directory?path={quote(target, safe='/')}&extended=false")
+        out: list[dict[str, Any]] = []
+        for d in result.get("dirs") or []:
+            name = str(d.get("dirname") or "")
+            if not name or name.startswith("."):
+                continue
+            out.append({"name": name, "is_directory": True, "size": 0, "modified": d.get("modified")})
+        for f in result.get("files") or []:
+            name = str(f.get("filename") or "")
+            if not name:
                 continue
             out.append(
                 {
-                    "name": rel.rsplit("/", 1)[-1],
-                    "path": "/" + rel,
-                    "size": int(entry.get("size") or 0),
-                    "modified": entry.get("modified"),
-                    "is_dir": False,
+                    "name": name,
+                    "is_directory": False,
+                    "size": int(f.get("size") or 0),
+                    "modified": f.get("modified"),
                 }
             )
         return out
+
+    def download_file(self, remote_name: str) -> bytes:
+        name = remote_name.lstrip("/")
+        response = httpx.get(
+            f"{self.base_url}/server/files/gcodes/{quote(name, safe='/')}",
+            headers=self._headers(),
+            timeout=max(self.timeout, 300.0),
+        )
+        response.raise_for_status()
+        return response.content
+
+    def get_storage_info(self) -> dict[str, Any]:
+        """``{used_bytes, free_bytes}`` for the gcodes root, from Moonraker's disk usage."""
+        try:
+            result = self._get("server/files/directory?path=gcodes&extended=false")
+            usage = result.get("disk_usage") or {}
+            return {"used_bytes": usage.get("used"), "free_bytes": usage.get("free")}
+        except Exception:  # noqa: BLE001
+            return {"used_bytes": None, "free_bytes": None}
 
     # ------------------------------------------------------------- logging
 
