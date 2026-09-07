@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" width="520" height="120" role="img" aria-label="Printhok">
+  <title>Printhok</title>
+  <g fill="none" stroke="#1F2933" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 30 H118" />
+    <path d="M30 30 V92 M110 30 V92" />
+    <path d="M22 92 H118" />
+    <rect x="58" y="30" width="24" height="26" rx="4" fill="#1F2933" stroke="none" />
+  </g>
+  <path d="M70 62 c-7 9 -11 15 -11 21 a11 11 0 0 0 22 0 c0 -6 -4 -12 -11 -21z" fill="#FD8700" />
+  <text x="150" y="82" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="68" font-weight="700" letter-spacing="-1" fill="#1F2933">Print<tspan fill="#FD8700">hok</tspan></text>
+</svg>

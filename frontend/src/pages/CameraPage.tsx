@@ -1,3 +1,4 @@
+import { getBrand } from '../brand';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -114,7 +115,7 @@ export function CameraPage() {
       document.title = `${printer.name} - Camera`;
     }
     return () => {
-      document.title = 'Bambuddy';
+      document.title = getBrand().name;
     };
   }, [printer]);
 

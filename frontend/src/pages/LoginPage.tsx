@@ -1,3 +1,4 @@
+import { getBrand } from '../brand';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -706,8 +707,8 @@ export function LoginPage() {
         <div className="text-center">
           <div className="flex items-center justify-center mb-6">
             <img
-              src={mode === 'dark' ? '/img/bambuddy_logo_dark_transparent.png' : '/img/bambuddy_logo_light.png'}
-              alt="Bambuddy"
+              src={mode === 'dark' ? getBrand().logoDark : getBrand().logoLight}
+              alt={getBrand().name}
               className="h-16"
             />
           </div>
