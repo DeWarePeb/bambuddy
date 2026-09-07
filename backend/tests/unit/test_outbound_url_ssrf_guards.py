@@ -622,6 +622,11 @@ KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD = {
     ("PrinterCreate", "external_camera_snapshot_url"),
     ("PrinterUpdate", "external_camera_url"),
     ("PrinterUpdate", "external_camera_snapshot_url"),
+    # Voron patch series: the Moonraker URL of a Klipper printer. Same class as
+    # the camera URLs above (an admin-entered printer address that Bambuddy
+    # fetches over HTTP); tracked in docs/bambuddy-fork-plan.md, not upstream.
+    ("PrinterCreate", "api_url"),
+    ("PrinterUpdate", "api_url"),
 }
 
 
