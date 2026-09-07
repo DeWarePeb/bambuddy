@@ -13,6 +13,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1084,70 +1085,114 @@ async def _track_klipper_external_spool(
         )
         return []
 
-    tray_id = tray_now_at_start - 254 if 254 <= tray_now_at_start <= 255 else 0
-    key = (255, tray_id)
-    if key in handled_trays:
-        return []
-    spool_id = await _resolve_spool_id_for_tray(printer_id, 255, tray_id, db, spool_assignments, print_started_at)
-    if spool_id is None:
-        logger.warning(
-            "[UsageTracker] Klipper printer %d: no spool assigned to the external slot — %.1fg not deducted",
-            printer_id,
-            used_g,
-        )
-        return []
-    spool = (await db.execute(select(Spool).where(Spool.id == spool_id))).scalar_one_or_none()
-    if not spool:
-        return []
-
     scale = 1.0 if status == "completed" else max(0.0, min(float(last_progress or 0.0), 100.0)) / 100.0
-    weight_grams = used_g * scale
-    if weight_grams <= 0:
-        return []
 
-    spool.weight_used = (spool.weight_used or 0) + weight_grams
-    spool.last_used = datetime.now(timezone.utc)
-    percent = round(weight_grams / (spool.label_weight or 1000) * 100)
-    cost = None
-    cost_per_kg = spool.cost_per_kg if spool.cost_per_kg is not None else default_filament_cost
-    if cost_per_kg > 0:
-        cost = round((weight_grams / 1000.0) * cost_per_kg, 2)
+    def _key_for_gate(gate: int) -> tuple[int, int]:
+        # Global tray id -> (ams_id, tray_id): gates are AMS units of four, the
+        # bypass / external spool is tray 254 -> (255, 0).
+        if gate >= 254:
+            return (255, gate - 254)
+        return (gate // 4, gate % 4)
 
-    db.add(
-        SpoolUsageHistory(
-            spool_id=spool.id,
-            printer_id=printer_id,
-            print_name=print_name,
-            weight_used=round(weight_grams, 1),
-            percent_used=percent,
-            status=status,
-            cost=cost,
-            archive_id=archive_id,
+    async def _book(key: tuple[int, int], grams: float, slot_id: int) -> dict | None:
+        if key in handled_trays or grams <= 0:
+            return None
+        spool_id = await _resolve_spool_id_for_tray(printer_id, key[0], key[1], db, spool_assignments, print_started_at)
+        if spool_id is None:
+            logger.warning(
+                "[UsageTracker] Klipper printer %d: no spool assigned at AMS%d-T%d — %.1fg not deducted",
+                printer_id,
+                key[0],
+                key[1],
+                grams,
+            )
+            return None
+        spool = (await db.execute(select(Spool).where(Spool.id == spool_id))).scalar_one_or_none()
+        if not spool:
+            return None
+        spool.weight_used = (spool.weight_used or 0) + grams
+        spool.last_used = datetime.now(timezone.utc)
+        percent = round(grams / (spool.label_weight or 1000) * 100)
+        cost = None
+        cost_per_kg = spool.cost_per_kg if spool.cost_per_kg is not None else default_filament_cost
+        if cost_per_kg > 0:
+            cost = round((grams / 1000.0) * cost_per_kg, 2)
+        db.add(
+            SpoolUsageHistory(
+                spool_id=spool.id,
+                printer_id=printer_id,
+                print_name=print_name,
+                weight_used=round(grams, 1),
+                percent_used=percent,
+                status=status,
+                cost=cost,
+                archive_id=archive_id,
+            )
         )
-    )
-    handled_trays.add(key)
-    logger.info(
-        "[UsageTracker] Klipper: spool %d consumed %.1fg (%d%%) on printer %d (%s, scale %.2f)",
-        spool.id,
-        weight_grams,
-        percent,
-        printer_id,
-        status,
-        scale,
-    )
-    return [
-        {
+        handled_trays.add(key)
+        logger.info(
+            "[UsageTracker] Klipper: spool %d consumed %.1fg (%d%%) on printer %d AMS%d-T%d (%s, scale %.2f)",
+            spool.id,
+            grams,
+            percent,
+            printer_id,
+            key[0],
+            key[1],
+            status,
+            scale,
+        )
+        return {
             "spool_id": spool.id,
-            "weight_used": round(weight_grams, 1),
+            "weight_used": round(grams, 1),
             "percent_used": percent,
-            "ams_id": 255,
-            "tray_id": tray_id,
+            "ams_id": key[0],
+            "tray_id": key[1],
             "material": spool.material,
             "cost": cost,
-            "slot_id": 0,
+            "slot_id": slot_id,
             "color": _spool_color_to_hex(spool.rgba),
         }
-    ]
+
+    # Multi-tool print on a Happy Hare MMU: the slicer lists grams per tool,
+    # the tool-to-gate map sent at dispatch (identity when Bambuddy did not
+    # dispatch it) says which gate — and so which spool — each tool used.
+    per_tool = _per_tool_grams_from_archive(archive)
+    if getattr(client, "_mmu", False) and per_tool and len(per_tool) > 1:
+        ttg = list(getattr(client, "last_ttg_map", None) or range(len(per_tool)))
+        results: list[dict] = []
+        for tool, grams in enumerate(per_tool):
+            gate = ttg[tool] if tool < len(ttg) else tool
+            booked = await _book(_key_for_gate(int(gate)), float(grams) * scale, tool)
+            if booked:
+                results.append(booked)
+        return results
+
+    # Single spool: whatever was in the hotend when the print started — an MMU
+    # gate, or the external / bypass slot.
+    if 0 <= tray_now_at_start < 254 and getattr(client, "_mmu", False):
+        key = _key_for_gate(tray_now_at_start)
+    else:
+        key = (255, tray_now_at_start - 254 if 254 <= tray_now_at_start <= 255 else 0)
+    booked = await _book(key, used_g * scale, 0)
+    return [booked] if booked else []
+
+
+def _per_tool_grams_from_archive(archive) -> list[float] | None:
+    """Per-tool grams from the archive's G-code comments, if it is a G-code archive."""
+    from backend.app.core.config import settings as app_settings
+    from backend.app.services.gcode_metadata import parse_gcode_metadata
+
+    file_path = getattr(archive, "file_path", None) or ""
+    if not str(file_path).lower().endswith(".gcode"):
+        return None
+    path = Path(file_path)
+    if not path.is_absolute():
+        path = Path(app_settings.base_dir) / path
+    try:
+        values = parse_gcode_metadata(path).get("filament_used_grams_per_tool")
+    except Exception:  # noqa: BLE001
+        return None
+    return [float(v) for v in values] if isinstance(values, list) else None
 
 
 def _like_escape(value: str) -> str:

@@ -191,6 +191,13 @@ class MoonrakerClient:
         # The one "external" slot (virtual tray 254). Filled by
         # ams_set_filament_setting when a spool is assigned in the inventory.
         self._external_tray: dict[str, Any] = dict(_EMPTY_EXTERNAL_TRAY)
+        # Happy Hare MMU (discovered at connect). Gates are reported as AMS
+        # units of four trays so global tray id == gate number.
+        self._mmu = False
+        self._mmu_num_gates = 0
+        self._ams_units: list[dict[str, Any]] = []
+        self._mmu_info: dict[str, Any] = {}
+        self.last_ttg_map: list[int] | None = None  # tool -> gate map sent at the last dispatch
 
     # ------------------------------------------------------------------ HTTP
 
@@ -269,6 +276,11 @@ class MoonrakerClient:
             return
         chamber = next((o for o in objects if str(o).startswith(_CHAMBER_OBJECT_PREFIXES)), None)
         polled = list(_BASE_OBJECTS)
+        # Happy Hare MMU: live state on the `mmu` object, the gate map (material,
+        # colour, name, availability) in Klipper's save_variables.
+        self._mmu = "mmu" in objects
+        if self._mmu:
+            polled.extend(["mmu", "mmu_machine", "save_variables"])
         if chamber:
             self._chamber_object = chamber
             polled.append(chamber)
@@ -394,22 +406,159 @@ class MoonrakerClient:
             # assigned there. tray_now points at it while printing so the
             # tracker's tray_now_at_start lands on the same key.
             self.state.tray_now = 254 if self.state.state in ("RUNNING", "PAUSE") else 255
+            if self._mmu:
+                self._apply_mmu(status)
             self.state.raw_data = {
                 "provider": "klipper",
-                "moonraker": status,
+                "moonraker": {k: v for k, v in status.items() if k != "save_variables"},
                 "homed_axes": toolhead.get("homed_axes"),
                 "print_duration": duration,
                 "filament_used": _f(print_stats.get("filament_used")),
                 "estimated_time": self._metadata.get("estimated_time"),
                 "message": print_stats.get("message") or display_status.get("message"),
-                "ams": [],
+                "ams": [dict(u, tray=[dict(t) for t in u["tray"]]) for u in self._ams_units],
                 "vt_tray": [dict(self._external_tray)],
+                "mmu": dict(self._mmu_info),
             }
 
             self._emit(previous_state, was_connected)
             self._last_state = self.state.state
             self._has_sample = True
         return True
+
+    # ------------------------------------------------------ Happy Hare MMU
+
+    def _apply_mmu(self, status: dict[str, Any]) -> None:
+        """Turn Happy Hare's state into AMS units the card and the tracker understand.
+
+        Gate ``g`` becomes AMS unit ``g // 4``, tray ``g % 4`` — so Bambuddy's
+        global tray id equals the gate number and ``ams_mapping`` from the
+        queue can be sent to Happy Hare as a tool-to-gate map unchanged.
+        """
+        mmu = status.get("mmu") or {}
+        variables = (status.get("save_variables") or {}).get("variables") or {}
+        machine = status.get("mmu_machine") or {}
+        if not isinstance(mmu, dict) or not mmu.get("enabled"):
+            self._ams_units = []
+            self._mmu_info = {"enabled": False}
+            return
+
+        num_gates = int(mmu.get("num_gates") or machine.get("num_gates") or 0)
+        self._mmu_num_gates = num_gates
+        colors = variables.get("mmu_state_gate_color") or []
+        materials = variables.get("mmu_state_gate_material") or []
+        names = variables.get("mmu_state_gate_filament_name") or []
+        statuses = variables.get("mmu_state_gate_status") or []
+        temps = variables.get("mmu_state_gate_temperature") or []
+        spool_ids = variables.get("mmu_state_gate_spool_id") or []
+
+        def _at(seq: list, i: int, default: Any = None) -> Any:
+            return seq[i] if i < len(seq) else default
+
+        gate = int(mmu.get("gate", -1) if mmu.get("gate") is not None else -1)
+        loaded = str(mmu.get("filament") or "").lower() == "loaded"
+        version = str(machine.get("happy_hare_version") or "")
+
+        units: list[dict[str, Any]] = []
+        for unit_index in range((num_gates + 3) // 4):
+            trays: list[dict[str, Any]] = []
+            for slot in range(4):
+                g = unit_index * 4 + slot
+                if g >= num_gates:
+                    break
+                gate_status = int(_at(statuses, g, -1) or 0)
+                color = str(_at(colors, g, "") or "").lstrip("#").upper()
+                if len(color) == 6:
+                    color += "FF"
+                temp = _at(temps, g)
+                trays.append(
+                    {
+                        "id": slot,
+                        "tray_type": str(_at(materials, g, "") or ""),
+                        "tray_sub_brands": str(_at(names, g, "") or ""),
+                        "tray_color": color,
+                        "tray_info_idx": "",
+                        "tray_id_name": "",
+                        "remain": -1,
+                        "tag_uid": "",
+                        "tray_uuid": "",
+                        "nozzle_temp_min": int(temp) if isinstance(temp, (int, float)) and temp > 0 else None,
+                        "nozzle_temp_max": int(temp) if isinstance(temp, (int, float)) and temp > 0 else None,
+                        "state": 11 if (loaded and g == gate) else (10 if gate_status > 0 else 9),
+                        "exists": gate_status > 0,
+                        "spoolman_id": _at(spool_ids, g) if (_at(spool_ids, g) or -1) >= 0 else None,
+                    }
+                )
+            units.append(
+                {
+                    "id": unit_index,
+                    "humidity": None,
+                    "temp": None,
+                    "is_ams_ht": False,
+                    "tray": trays,
+                    "serial_number": f"MMU-{self.serial_number}-{unit_index}",
+                    "sw_ver": version,
+                    "dry_time": 0,
+                    "dry_status": 0,
+                    "dry_sub_status": 0,
+                }
+            )
+        self._ams_units = units
+        self._mmu_info = {
+            "enabled": True,
+            "version": version,
+            "num_gates": num_gates,
+            "gate": gate,
+            "tool": mmu.get("tool"),
+            "next_tool": mmu.get("next_tool"),
+            "filament": mmu.get("filament"),
+            "action": mmu.get("action"),
+            "print_state": mmu.get("print_state"),
+            "is_locked": bool(mmu.get("is_locked")),
+            "is_paused": bool(mmu.get("is_paused")),
+            "reason_for_pause": mmu.get("reason_for_pause") or "",
+            "has_bypass": bool(mmu.get("has_bypass")),
+            "ttg_map": list(self.last_ttg_map) if self.last_ttg_map else None,
+        }
+        # A loaded gate is the tray in the hotend; the bypass keeps tray 254.
+        if loaded and 0 <= gate < num_gates:
+            self.state.tray_now = gate
+        elif loaded and gate < 0 and mmu.get("has_bypass"):
+            self.state.tray_now = 254
+        else:
+            self.state.tray_now = 255
+        next_tool = mmu.get("next_tool")
+        self.state.tray_tar = int(next_tool) if isinstance(next_tool, int) and next_tool >= 0 else 255
+
+    def _mmu_gate(self, ams_id: int, tray_id: int) -> int | None:
+        """AMS unit/tray -> Happy Hare gate, or None when that slot is not an MMU gate."""
+        if not self._mmu or int(ams_id) == 255:
+            return None
+        gate = int(ams_id) * 4 + int(tray_id)
+        return gate if 0 <= gate < self._mmu_num_gates else None
+
+    def ams_load_filament(self, tray_id: int, extruder_id: int | None = None) -> bool:  # noqa: ARG002
+        """Select a gate and load it to the nozzle (``tray_id`` is the global tray id = gate)."""
+        if not self._mmu:
+            return False
+        if int(tray_id) >= 254:
+            return self.send_gcode("MMU_SELECT_BYPASS")
+        if not 0 <= int(tray_id) < self._mmu_num_gates:
+            return False
+        return self.send_gcode(f"MMU_SELECT GATE={int(tray_id)}\nMMU_LOAD")
+
+    def ams_unload_filament(self, tray_id: int | None = None) -> bool:  # noqa: ARG002
+        if not self._mmu:
+            return False
+        return self.send_gcode("MMU_UNLOAD")
+
+    def ams_control(self, action: str) -> bool:
+        if not self._mmu:
+            return False
+        command = {"resume": "MMU_UNLOCK", "pause": "MMU_PAUSE", "reset": "MMU_RECOVER", "done": "MMU_UNLOCK"}.get(
+            str(action).lower()
+        )
+        return self.send_gcode(command) if command else False
 
     def _load_metadata(self, filename: str) -> None:
         if filename == self._metadata_for:
@@ -509,9 +658,31 @@ class MoonrakerClient:
 
     # ------------------------------------------------------------ commands
 
-    def start_print(self, filename: str, plate_id: int = 1, **_bambu_options: Any) -> bool:  # noqa: ARG002
-        """Start ``filename`` (relative to Moonraker's gcodes root). Upload first with ``upload_file``."""
+    def start_print(
+        self,
+        filename: str,
+        plate_id: int = 1,  # noqa: ARG002
+        ams_mapping: list[int] | None = None,
+        **_bambu_options: Any,
+    ) -> bool:
+        """Start ``filename`` (relative to Moonraker's gcodes root). Upload first with ``upload_file``.
+
+        With a Happy Hare MMU, ``ams_mapping`` (slicer filament slot -> global
+        tray id, i.e. gate) is pushed as the tool-to-gate map first, so a plate
+        sliced with T0/T1 can print from whichever gates hold the right spools.
+        """
         target = filename.lstrip("/")
+        if self._mmu and ams_mapping:
+            self.last_ttg_map = None
+            gates: list[int] = []
+            for slot, tray in enumerate(ams_mapping):
+                tray = int(tray) if isinstance(tray, (int, float)) else -1
+                gates.append(tray if 0 <= tray < self._mmu_num_gates else slot)
+            # Always sent, also for the identity map: the previous print may
+            # have left a different map behind.
+            if not self.send_gcode("MMU_TTG_MAP MAP=" + ",".join(str(g) for g in gates)):
+                return False
+            self.last_ttg_map = gates
         return self._safe_call(
             f"print start {target}",
             lambda: self._post(f"printer/print/start?filename={quote(target, safe='/')}", timeout=30.0),
@@ -607,6 +778,22 @@ class MoonrakerClient:
         it, so it lives on the client and is reported back in ``vt_tray`` so the
         card and the usage tracker see the same slot a Bambu would show.
         """
+        gate = self._mmu_gate(ams_id, tray_id)
+        if gate is not None:
+            # Happy Hare keeps the gate map itself; MMU_GATE_MAP persists it.
+            temp = None
+            for candidate in (nozzle_temp_max, nozzle_temp_min):
+                if isinstance(candidate, (int, float)) and candidate > 0:
+                    temp = int(candidate)
+                    break
+            parts = [f"MMU_GATE_MAP GATE={gate}"]
+            parts.append(f'MATERIAL="{(tray_type or "").strip()}"')
+            parts.append(f'COLOR="{(tray_color or "").lstrip("#")[:6].lower()}"')
+            parts.append(f'NAME="{(tray_sub_brands or "").strip()}"')
+            if temp:
+                parts.append(f"TEMP={temp}")
+            parts.append("AVAILABLE=1")
+            return self.send_gcode(" ".join(parts))
         if int(ams_id) != 255 or int(tray_id) != 0:
             return False
         self._external_tray.update(
@@ -626,6 +813,9 @@ class MoonrakerClient:
         return True
 
     def reset_ams_slot(self, ams_id: int, tray_id: int) -> bool:
+        gate = self._mmu_gate(ams_id, tray_id)
+        if gate is not None:
+            return self.send_gcode(f'MMU_GATE_MAP GATE={gate} MATERIAL="" COLOR="" NAME="" AVAILABLE=0')
         if int(ams_id) != 255 or int(tray_id) != 0:
             return False
         self._external_tray = dict(_EMPTY_EXTERNAL_TRAY)

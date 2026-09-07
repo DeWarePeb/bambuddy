@@ -83,9 +83,20 @@ def parse_gcode_metadata(path: Path) -> dict[str, Any]:
                 meta["print_time_seconds"] = seconds
                 break
 
-    grams = _first_float([re.compile(r";\s*filament used \[g\]\s*=\s*([0-9.,; ]+)", re.I)], text)
-    if grams is not None:
-        meta["filament_used_grams"] = round(grams, 2)
+    # Orca / Bambu Studio list one value per extruder ("= 1.2, 0, 3.4");
+    # keep the per-tool list for MMU booking and the sum for the card.
+    m = re.search(r";\s*filament used \[g\]\s*=\s*([0-9.,; ]+)", text, re.I)
+    if m:
+        per_tool: list[float] = []
+        for part in re.split(r"[,;]", m.group(1)):
+            try:
+                per_tool.append(round(float(part.strip()), 3))
+            except ValueError:
+                continue
+        if per_tool:
+            meta["filament_used_grams"] = round(sum(per_tool), 2)
+            if len(per_tool) > 1:
+                meta["filament_used_grams_per_tool"] = per_tool
     mm = _first_float([re.compile(r";\s*filament used \[mm\]\s*=\s*([0-9.,; ]+)", re.I)], text)
     if mm is not None:
         meta["filament_used_mm"] = round(mm, 1)
