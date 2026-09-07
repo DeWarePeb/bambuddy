@@ -20,6 +20,7 @@ class ProviderType(StrEnum):
     WEBHOOK = "webhook"
     HOMEASSISTANT = "homeassistant"
     BARK = "bark"
+    NOTIFY = "notify"
 
 
 class NotificationProviderBase(BaseModel):
@@ -346,6 +347,29 @@ class EmailConfig(BaseModel):
     from_email: str = Field(..., description="From email address")
     to_email: str = Field(..., description="Recipient email address")
     use_tls: bool = Field(default=True, description="Use TLS encryption")
+
+
+class NotifyConfig(BaseModel):
+    """Notify (iOS app) push notification configuration."""
+
+    device_id: str = Field(..., description="Notify device ID")
+    device_token: str = Field(..., description="Notify device token")
+    base_url: str = Field(default="https://push.getnotifyapp.com", description="Notify gateway URL")
+    live_activities_enabled: bool = Field(
+        default=False, description="Create and update an iOS Live Activity (Dynamic Island tile) during prints"
+    )
+    live_activity_compact_display: str = Field(
+        default="progress", description="Dynamic Island compact slot: 'progress' (percent/layer) or 'eta'"
+    )
+    live_activity_native_tile_countdown: bool = Field(
+        default=False, description="Let iOS count down the remaining time natively on the tile"
+    )
+    live_activity_update_interval_seconds: int = Field(
+        default=60, ge=15, description="Minimum seconds between routine progress updates of the tile"
+    )
+    live_activity_end_keep_for_seconds: int = Field(
+        default=300, ge=0, description="Seconds to keep the final tile state on screen"
+    )
 
 
 # Notification Log schemas

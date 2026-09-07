@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.models.notification import NotificationDigestQueue, NotificationLog, NotificationProvider
 from backend.app.models.notification_template import NotificationTemplate
+from backend.app.services.notify_live_activity_client import DEFAULT_NOTIFY_BASE_URL
+from backend.app.services.notify_live_activity_service import notify_live_activity_service
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +294,8 @@ class NotificationService:
                 return await self._send_homeassistant(config, title, message, db=db)
             elif provider_type == "bark":
                 return await self._send_bark(config, title, message)
+            elif provider_type == "notify":
+                return await self._send_notify(config, title, message, event_type="test")
             else:
                 return False, f"Unknown provider type: {provider_type}"
         except Exception as e:
@@ -367,6 +371,45 @@ class NotificationService:
                 return False, f"Bark error {body.get('code')} (see server logs at debug level for details)"
             return True, "Message sent successfully"
         return False, _opaque_http_failure(response, label="Bark server")
+
+    async def _send_notify(
+        self,
+        config: dict,
+        title: str,
+        message: str,
+        event_type: str | None = None,
+    ) -> tuple[bool, str]:
+        """Send a normal push notification via Notify (iOS app).
+
+        POSTs JSON to {base_url}/notify-json/{device_id}. The Live Activity
+        tile is handled separately by NotifyLiveActivityService.
+        """
+        device_id = str(config.get("device_id", "")).strip()
+        device_token = str(config.get("device_token", "")).strip()
+        base_url = str(config.get("base_url") or DEFAULT_NOTIFY_BASE_URL).strip().rstrip("/")
+
+        if not device_id or not device_token:
+            return False, "Device ID and device token are required"
+
+        url_error = _assert_safe_provider_url(base_url, label="Notify gateway URL")
+        if url_error:
+            return False, url_error
+
+        url = f"{base_url}/notify-json/{quote(device_id)}?token={quote(device_token)}"
+        payload = {
+            "title": title,
+            "text": message,
+            "groupType": event_type or "bambuddy",
+        }
+
+        client = await self._get_client()
+        response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
+
+        if response.status_code in (200, 201, 202, 204):
+            return True, "Notification sent via Notify"
+        if response.status_code in (401, 403):
+            return False, "Notify authentication failed - check your device ID and token"
+        return False, _opaque_http_failure(response, label="Notify gateway")
 
     async def _send_ntfy(
         self,
@@ -961,6 +1004,8 @@ class NotificationService:
                 return await self._send_homeassistant(config, title, message, db=db)
             elif provider.provider_type == "bark":
                 return await self._send_bark(config, title, message)
+            elif provider.provider_type == "notify":
+                return await self._send_notify(config, title, message, event_type=event_type)
             else:
                 return False, f"Unknown provider type: {provider.provider_type}"
         except Exception as e:
@@ -1136,6 +1181,13 @@ class NotificationService:
             archive_data: Optional archive data with print_time_seconds from 3MF parsing
         """
         logger.info("on_print_start called for printer %s (%s)", printer_id, printer_name)
+        try:
+            await notify_live_activity_service.on_print_start(
+                db, printer_id=printer_id, printer_name=printer_name, data=data, archive_data=archive_data
+            )
+        except Exception:
+            logger.exception("Notify Live Activity start hook failed for printer %s", printer_id)
+
         providers = await self._get_providers_for_event(db, "on_print_start", printer_id)
         if not providers:
             logger.info("No notification providers configured for print_start event on printer %s", printer_id)
@@ -1228,6 +1280,15 @@ class NotificationService:
             logger.warning("Unknown print status '%s', defaulting to on_print_complete", status)
             event_field = "on_print_complete"
             event_type = "print_complete"
+
+        # End the Live Activity tile before the provider check below: a Notify
+        # provider with only Live Activities on has no event toggles enabled.
+        try:
+            await notify_live_activity_service.on_print_end(
+                db, printer_id=printer_id, printer_name=printer_name, status=status, data=data
+            )
+        except Exception:
+            logger.exception("Notify Live Activity end hook failed for printer %s", printer_id)
 
         providers = await self._get_providers_for_event(db, event_field, printer_id)
         if not providers:

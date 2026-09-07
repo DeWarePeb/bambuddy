@@ -626,6 +626,68 @@ describe('AddNotificationModal — Bark provider (#1495)', () => {
   });
 });
 
+describe('AddNotificationModal — Notify provider (voron B9)', () => {
+  it('offers Notify in the provider select and hides Live Activity options until enabled', async () => {
+    render(
+      <AddNotificationModal
+        provider={buildProvider({ provider_type: 'notify', config: { device_id: 'ABCD1234', device_token: 'tok' } })}
+        onClose={() => undefined}
+      />,
+    );
+
+    await screen.findByDisplayValue('My ntfy');
+    expect(screen.getByRole('option', { name: 'Notify' })).toBeInTheDocument();
+    expect(screen.getByText(/^device id/i)).toBeInTheDocument();
+    expect(screen.getByText(/device token/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('https://push.getnotifyapp.com')).toBeInTheDocument();
+    expect(screen.getByText(/live activity \(dynamic island tile\)/i)).toBeInTheDocument();
+    // Tile options only make sense once the Live Activity itself is on.
+    expect(screen.queryByText(/dynamic island display/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/native countdown on tile/i)).not.toBeInTheDocument();
+  });
+
+  it('round-trips Live Activity, display mode and native countdown into config on save', async () => {
+    let captured: { config: Record<string, unknown> } | null = null;
+    server.use(
+      http.patch('*/api/v1/notifications/1', async ({ request }) => {
+        captured = (await request.json()) as { config: Record<string, unknown> };
+        return HttpResponse.json({ id: 1 });
+      }),
+    );
+
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AddNotificationModal
+        provider={buildProvider({ provider_type: 'notify', config: { device_id: 'ABCD1234', device_token: 'tok' } })}
+        onClose={onClose}
+      />,
+    );
+
+    const liveRow = (await screen.findByText(/live activity \(dynamic island tile\)/i)).closest('div')!;
+    await user.selectOptions(within(liveRow).getByRole('combobox'), 'true');
+
+    const displayRow = screen.getByText(/dynamic island display/i).closest('div')!;
+    await user.selectOptions(within(displayRow).getByRole('combobox'), 'eta');
+    const countdownRow = screen.getByText(/native countdown on tile/i).closest('div')!;
+    await user.selectOptions(within(countdownRow).getByRole('combobox'), 'true');
+    await user.type(screen.getByPlaceholderText('60'), '90');
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(captured).not.toBeNull();
+    expect(captured!.config).toMatchObject({
+      device_id: 'ABCD1234',
+      device_token: 'tok',
+      live_activities_enabled: 'true',
+      live_activity_compact_display: 'eta',
+      live_activity_native_tile_countdown: 'true',
+      live_activity_update_interval_seconds: '90',
+    });
+  });
+});
+
 describe('AddNotificationModal — Telegram forum topic (#1518)', () => {
   const telegramProvider = (config: Record<string, unknown> = { bot_token: 'x', chat_id: '-100123' }) =>
     buildProvider({ provider_type: 'telegram', config });

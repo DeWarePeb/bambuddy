@@ -2928,3 +2928,87 @@ class TestEmailProvider:
         # contain BOTH the escaped URL AND the cid img (we swapped, not duplicated).
         # The plain-text part still has the URL; check it's there at least once.
         assert self.PHOTO_URL in raw
+
+
+class TestNotifyProvider:
+    """Normal push messages through the Notify (iOS) gateway (voron B9)."""
+
+    @pytest.fixture
+    def service(self):
+        return NotificationService()
+
+    @staticmethod
+    def _client_returning(status_code: int, text: str = ""):
+        response = MagicMock()
+        response.status_code = status_code
+        response.text = text
+        client = AsyncMock()
+        client.post = AsyncMock(return_value=response)
+        return client
+
+    @pytest.mark.asyncio
+    async def test_send_notify_posts_json_to_device_endpoint(self, service):
+        mock_client = self._client_returning(200)
+        config = {"device_id": "DEV 1", "device_token": "tok en"}
+
+        with patch.object(service, "_get_client", new_callable=AsyncMock) as mock_get_client:
+            mock_get_client.return_value = mock_client
+            success, message = await service._send_notify(config, "Title", "Body", event_type="print_complete")
+
+        assert success is True
+        assert "Notify" in message
+        url = mock_client.post.call_args[0][0]
+        assert url == "https://push.getnotifyapp.com/notify-json/DEV%201?token=tok%20en"
+        assert mock_client.post.call_args.kwargs["json"] == {
+            "title": "Title",
+            "text": "Body",
+            "groupType": "print_complete",
+        }
+
+    @pytest.mark.asyncio
+    async def test_send_notify_custom_gateway_and_default_group(self, service):
+        mock_client = self._client_returning(204)
+        config = {"device_id": "D", "device_token": "t", "base_url": "http://notify.lan:8080/"}
+
+        with patch.object(service, "_get_client", new_callable=AsyncMock) as mock_get_client:
+            mock_get_client.return_value = mock_client
+            success, _ = await service._send_notify(config, "Title", "Body")
+
+        assert success is True
+        assert mock_client.post.call_args[0][0].startswith("http://notify.lan:8080/notify-json/D?")
+        assert mock_client.post.call_args.kwargs["json"]["groupType"] == "bambuddy"
+
+    @pytest.mark.asyncio
+    async def test_send_notify_missing_credentials_and_unsafe_gateway(self, service):
+        success, message = await service._send_notify({"device_id": "D"}, "Title", "Body")
+        assert success is False
+        assert "token" in message.lower()
+
+        success, message = await service._send_notify(
+            {"device_id": "D", "device_token": "t", "base_url": "ftp://x"}, "Title", "Body"
+        )
+        assert success is False
+        assert "http" in message.lower()
+
+    @pytest.mark.asyncio
+    async def test_send_notify_auth_failure_and_opaque_error(self, service):
+        with patch.object(service, "_get_client", new_callable=AsyncMock) as mock_get_client:
+            mock_get_client.return_value = self._client_returning(403, "bad token")
+            success, message = await service._send_notify({"device_id": "D", "device_token": "t"}, "T", "B")
+            assert success is False
+            assert "authentication failed" in message.lower()
+
+            mock_get_client.return_value = self._client_returning(500, "internal secret detail")
+            success, message = await service._send_notify({"device_id": "D", "device_token": "t"}, "T", "B")
+            assert success is False
+            assert "HTTP 500" in message
+            assert "internal secret detail" not in message
+
+    @pytest.mark.asyncio
+    async def test_send_test_notification_dispatches_notify(self, service):
+        with patch.object(service, "_send_notify", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = (True, "ok")
+            success, _ = await service.send_test_notification("notify", {"device_id": "D", "device_token": "t"})
+
+        assert success is True
+        assert mock_send.call_args.kwargs["event_type"] == "test"

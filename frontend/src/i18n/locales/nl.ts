@@ -6172,6 +6172,7 @@ export default {
       webhook: 'Webhook',
       homeassistant: 'Home Assistant',
       bark: 'Bark',
+      notify: 'Notify',
     },
     // Provider descriptions
     providerDescriptions: {
@@ -6184,6 +6185,7 @@ export default {
       webhook: 'Algemene HTTP POST naar elke URL',
       homeassistant: 'Blijvende meldingen in het Home Assistant-dashboard',
       bark: 'iOS-pushmeldingen via Bark (zelf te hosten)',
+      notify: 'iOS-pushmeldingen via de Notify-app, met een live printvoortgangstegel in het Dynamic Island',
     },
     // NotificationProviderCard
     lastSuccess: 'Laatste: {{date}}',

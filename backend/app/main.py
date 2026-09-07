@@ -112,6 +112,7 @@ from backend.app.services.location_ha_sensor_manager import location_ha_sensor_m
 from backend.app.services.mqtt_relay import mqtt_relay
 from backend.app.services.mqtt_smart_plug import mqtt_smart_plug_service
 from backend.app.services.notification_service import notification_service
+from backend.app.services.notify_live_activity_service import notify_live_activity_service
 from backend.app.services.obico_detection import obico_detection_service
 from backend.app.services.print_cost_estimate import plate_scoped_run_estimate as _plate_scoped_run_estimate
 from backend.app.services.print_scheduler import scheduler as print_scheduler
@@ -462,6 +463,42 @@ PRINT_ALMOST_DONE_PROGRESS = 97
 
 # Whether the almost-done notification has been sent for the current print
 _print_almost_done_notified: dict[int, bool] = {}
+
+# Notify (iOS) Live Activity: last time a status frame was handed to the service
+# per printer. Cheap in-memory throttle so the per-provider pacing in the service
+# is not preceded by a DB lookup on every deduplicated MQTT frame.
+_notify_live_last_fed: dict[int, float] = {}
+NOTIFY_LIVE_FEED_INTERVAL_SECONDS = 10
+
+
+async def _update_notify_live_activity(printer_id: int, state: PrinterState) -> None:
+    """Hand the current print state to the Notify Live Activity service (throttled)."""
+    now = time.monotonic()
+    if now - _notify_live_last_fed.get(printer_id, 0.0) < NOTIFY_LIVE_FEED_INTERVAL_SECONDS:
+        return
+    _notify_live_last_fed[printer_id] = now
+    try:
+        from backend.app.services.print_progress import effective_print_progress
+
+        printer_info = printer_manager.get_printer(printer_id)
+        printer_name = printer_info.name if printer_info else f"Printer {printer_id}"
+        async with async_session() as db:
+            await notify_live_activity_service.on_print_progress(
+                db,
+                printer_id=printer_id,
+                printer_name=printer_name,
+                filename=state.subtask_name or state.gcode_file or "Unknown",
+                progress=effective_print_progress(state),
+                # remaining_time is in minutes; the tile wants seconds
+                remaining_time=state.remaining_time * 60 if state.remaining_time else None,
+                subtask_id=state.subtask_id,
+                layer_num=state.layer_num,
+                total_layers=state.total_layers,
+                state=state.state,
+            )
+    except Exception as e:
+        logging.getLogger(__name__).warning("Notify Live Activity progress update failed: %s", e)
+
 
 # Track whether first layer complete notification has been sent for current print
 _first_layer_notified: dict[int, bool] = {}
@@ -1709,6 +1746,11 @@ async def on_printer_status_change(printer_id: int, state: PrinterState):
     # Check for progress milestone notifications (25%, 50%, 75%)
     progress = state.progress or 0
     is_printing = state.state in ("RUNNING", "PRINTING")
+
+    # Notify (iOS) Live Activity tile: feed every deduplicated status frame while
+    # printing or paused; the service paces what actually reaches the phone.
+    if is_printing or state.state in ("PAUSE", "PAUSED"):
+        await _update_notify_live_activity(printer_id, state)
 
     if is_printing and progress > 0:
         # Determine which milestone we've reached
@@ -9211,6 +9253,9 @@ async def lifespan(app: FastAPI):
     # Start the notification digest scheduler
     notification_service.start_digest_scheduler()
 
+    # Start the Notify Live Activity keepalive/reconciliation loop
+    notify_live_activity_service.start_scheduler()
+
     # Start the GitHub backup scheduler
     await github_backup_service.start_scheduler()
 
@@ -9290,6 +9335,7 @@ async def lifespan(app: FastAPI):
     ha_sensor_manager.stop()
     location_ha_sensor_manager.stop()
     notification_service.stop_digest_scheduler()
+    notify_live_activity_service.stop_scheduler()
     github_backup_service.stop_scheduler()
     local_backup_service.stop_scheduler()
     library_trash_service.stop_scheduler()

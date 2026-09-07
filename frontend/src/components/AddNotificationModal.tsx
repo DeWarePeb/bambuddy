@@ -12,7 +12,7 @@ interface AddNotificationModalProps {
   onClose: () => void;
 }
 
-const PROVIDER_VALUES: ProviderType[] = ['email', 'telegram', 'discord', 'ntfy', 'pushover', 'bark', 'callmebot', 'webhook', 'homeassistant'];
+const PROVIDER_VALUES: ProviderType[] = ['email', 'telegram', 'discord', 'ntfy', 'pushover', 'bark', 'notify', 'callmebot', 'webhook', 'homeassistant'];
 
 export function AddNotificationModal({ provider, onClose }: AddNotificationModalProps) {
   const { t } = useTranslation();
@@ -333,6 +333,26 @@ export function AddNotificationModal({ provider, onClose }: AddNotificationModal
             { value: 'critical', label: 'Critical (bypasses Silent/Focus)' },
             { value: 'passive', label: 'Passive (no sound)' },
           ]},
+        ];
+      case 'notify':
+        return [
+          { key: 'device_id', label: 'Device ID', placeholder: 'ABCD1234', type: 'text', required: true },
+          { key: 'device_token', label: 'Device Token', placeholder: 'Your Notify device token', type: 'password', required: true },
+          { key: 'base_url', label: 'Gateway URL', placeholder: 'https://push.getnotifyapp.com', type: 'text', required: false },
+          { key: 'live_activities_enabled', label: 'Live Activity (Dynamic Island tile)', type: 'select', required: false, help: 'Shows a live print-progress tile on the lock screen and in the Dynamic Island while a print runs.', options: [
+            { value: 'false', label: 'Disabled' },
+            { value: 'true', label: 'Enabled' },
+          ]},
+          { key: 'live_activity_compact_display', label: 'Dynamic Island Display', type: 'select', required: false, showIf: (cfg: Record<string, string>) => cfg.live_activities_enabled === 'true', options: [
+            { value: 'progress', label: 'Percent / layer' },
+            { value: 'eta', label: 'Time remaining' },
+          ]},
+          { key: 'live_activity_native_tile_countdown', label: 'Native countdown on tile', type: 'select', required: false, showIf: (cfg: Record<string, string>) => cfg.live_activities_enabled === 'true', help: 'Lets iOS count the remaining time down itself. Can look messy in the Dynamic Island on long prints.', options: [
+            { value: 'false', label: 'Disabled' },
+            { value: 'true', label: 'Enabled' },
+          ]},
+          { key: 'live_activity_update_interval_seconds', label: 'Tile Update Interval (seconds)', placeholder: '60', type: 'number', required: false, showIf: (cfg: Record<string, string>) => cfg.live_activities_enabled === 'true', help: 'Minimum time between routine progress updates (15 or more). Print start, first layer and completion always update immediately.' },
+          { key: 'live_activity_end_keep_for_seconds', label: 'Keep Final Tile (seconds)', placeholder: '300', type: 'number', required: false, showIf: (cfg: Record<string, string>) => cfg.live_activities_enabled === 'true' },
         ];
       default:
         return [];
