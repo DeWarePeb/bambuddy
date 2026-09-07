@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, String, func
+from sqlalchemy import Boolean, DateTime, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.database import Base
@@ -14,6 +14,13 @@ class Printer(Base):
     serial_number: Mapped[str] = mapped_column(String(50), unique=True)
     ip_address: Mapped[str] = mapped_column(String(253))
     access_code: Mapped[str] = mapped_column(String(20))
+    # Printer backend. "bambu" = the MQTT/FTPS client every printer used before
+    # the Klipper patch series; "klipper" = Moonraker over HTTP (see
+    # services/moonraker_client.py). Bambu rows never carry api_url/auth_token.
+    provider: Mapped[str] = mapped_column(String(20), default="bambu", server_default="bambu")
+    api_url: Mapped[str | None] = mapped_column(String(500), nullable=True)  # Moonraker base URL
+    auth_token: Mapped[str | None] = mapped_column(String(500), nullable=True)  # Moonraker API key
+    provider_options: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON, provider-specific
     model: Mapped[str | None] = mapped_column(String(50))
     location: Mapped[str | None] = mapped_column(String(100))  # Group/location name
     nozzle_count: Mapped[int] = mapped_column(default=1)  # 1 or 2, auto-detected from MQTT

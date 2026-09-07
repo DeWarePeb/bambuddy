@@ -2561,6 +2561,13 @@ async def run_migrations(conn):
     except (OperationalError, ProgrammingError):
         pass  # Already applied
 
+    # Migration (voron patch series): provider columns on printers. Existing
+    # rows default to "bambu" so nothing changes for a Bambu-only install.
+    await _safe_execute(conn, "ALTER TABLE printers ADD COLUMN provider VARCHAR(20) DEFAULT 'bambu'")
+    await _safe_execute(conn, "ALTER TABLE printers ADD COLUMN api_url VARCHAR(500)")
+    await _safe_execute(conn, "ALTER TABLE printers ADD COLUMN auth_token VARCHAR(500)")
+    await _safe_execute(conn, "ALTER TABLE printers ADD COLUMN provider_options TEXT")
+
     # Migration: Add external camera columns to printers
     await _safe_execute(conn, "ALTER TABLE printers ADD COLUMN external_camera_url VARCHAR(500)")
     await _safe_execute(conn, "ALTER TABLE printers ADD COLUMN external_camera_type VARCHAR(20)")

@@ -1,4 +1,7 @@
+import re
 from datetime import datetime
+from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -39,6 +42,25 @@ class PrinterBase(BaseModel):
     external_camera_enabled: bool = False
     external_camera_snapshot_url: str | None = None  # Optional single-frame override; #1177
     camera_rotation: int = 0  # 0, 90, 180, 270 degrees
+    # Voron patch series: which backend drives this printer. "bambu" is the
+    # MQTT/FTPS client, "klipper" talks to Moonraker over HTTP at api_url.
+    provider: Literal["bambu", "klipper"] = "bambu"
+    api_url: str | None = Field(default=None, max_length=500)
+
+
+def klipper_identity_from_url(api_url: str) -> tuple[str, str]:
+    """Derive (serial_number, ip_address) for a Klipper printer from its Moonraker URL.
+
+    Bambu rows key everything on a serial number and an IP: the unique
+    constraint, the MQTT topic, the discovery cache. A Klipper printer has
+    neither, so both are derived from the host part of the Moonraker URL —
+    stable, unique per printer, and never typed by the user.
+    """
+    host = urlparse(api_url if "://" in api_url else f"http://{api_url}").hostname or ""
+    if not host:
+        raise ValueError("api_url must contain a host")
+    serial = "KLIPPER-" + re.sub(r"[^A-Za-z0-9]+", "-", host).strip("-").upper()
+    return serial[:50], host
 
 
 class PrinterCreate(PrinterBase):
@@ -46,6 +68,30 @@ class PrinterCreate(PrinterBase):
     # PrinterResponse. Direct exposure on PRINTERS_READ would let a Viewer
     # connect to the printer's MQTT and bypass Bambuddy's RBAC.
     access_code: str = Field(..., min_length=1, max_length=20)
+    # Moonraker API key (Klipper only). Same secrecy rules as access_code.
+    auth_token: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_klipper_identity(cls, data):
+        """Klipper printers only need a Moonraker URL; serial/IP/access code are derived."""
+        if not isinstance(data, dict) or data.get("provider") != "klipper":
+            return data
+        api_url = (data.get("api_url") or "").strip()
+        if not api_url:
+            raise ValueError("api_url is required for Klipper printers")
+        if "://" not in api_url:
+            api_url = f"http://{api_url}"
+        serial, host = klipper_identity_from_url(api_url)
+        filled = dict(data)
+        filled["api_url"] = api_url.rstrip("/")
+        if not filled.get("serial_number"):
+            filled["serial_number"] = serial
+        if not filled.get("ip_address"):
+            filled["ip_address"] = host
+        if not filled.get("access_code"):
+            filled["access_code"] = "-"
+        return filled
 
 
 class PlateDetectionROI(BaseModel):
@@ -65,6 +111,8 @@ class PrinterUpdate(BaseModel):
         pattern=r"^(\d{1,3}(\.\d{1,3}){3}|[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*)$",
     )
     access_code: str | None = None
+    api_url: str | None = Field(default=None, max_length=500)  # Klipper: Moonraker base URL
+    auth_token: str | None = Field(default=None, max_length=500)  # Klipper: Moonraker API key
     model: str | None = None
     location: str | None = None
     is_active: bool | None = None
@@ -118,6 +166,8 @@ class PrinterResponse(PrinterBase):
             "external_camera_enabled": printer.external_camera_enabled,
             "external_camera_snapshot_url": printer.external_camera_snapshot_url,
             "camera_rotation": printer.camera_rotation,
+            "provider": getattr(printer, "provider", None) or "bambu",
+            "api_url": getattr(printer, "api_url", None),
             "is_active": printer.is_active,
             "nozzle_count": printer.nozzle_count,
             "supports_nozzle_flow_type": supports_nozzle_flow_type(printer.model),
