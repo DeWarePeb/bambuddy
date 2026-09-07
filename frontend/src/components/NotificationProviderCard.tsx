@@ -28,7 +28,13 @@ export function NotificationProviderCard({ provider, onEdit }: NotificationProvi
     queryFn: api.getPrinters,
   });
 
-  const linkedPrinter = printers?.find(p => p.id === provider.printer_id);
+  // Voron patch series: printer_ids (several) wins over the legacy single printer_id.
+  const scopedPrinterIds = provider.printer_ids?.length
+    ? provider.printer_ids
+    : provider.printer_id
+      ? [provider.printer_id]
+      : [];
+  const scopedPrinterNames = scopedPrinterIds.map((id) => printers?.find((p) => p.id === id)?.name ?? `#${id}`);
 
   // Update mutation
   const updateMutation = useMutation({
@@ -100,13 +106,12 @@ export function NotificationProviderCard({ provider, onEdit }: NotificationProvi
 
           {provider.enabled && (<>
           {/* Linked Printer */}
-          {linkedPrinter && (
+          {scopedPrinterIds.length > 0 ? (
             <div className="mb-3 px-2 py-1.5 bg-bambu-dark rounded-lg">
               <span className="text-xs text-bambu-gray">{t('notifications.printer')} </span>
-              <span className="text-sm text-white">{linkedPrinter.name}</span>
+              <span className="text-sm text-white">{scopedPrinterNames.join(', ')}</span>
             </div>
-          )}
-          {!linkedPrinter && !provider.printer_id && (
+          ) : (
             <div className="mb-3 px-2 py-1.5 bg-bambu-dark rounded-lg">
               <span className="text-xs text-bambu-gray">{t('notifications.allPrinters')}</span>
             </div>

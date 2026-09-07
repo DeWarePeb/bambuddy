@@ -6269,7 +6269,7 @@ export default {
     configuration: 'Configuratie',
     testConfiguration: 'Configuratie testen',
     printerFilter: 'Printerfilter',
-    onlyFromPrinter: 'Alleen meldingen verzenden voor gebeurtenissen van deze printer',
+    onlyFromPrinter: 'Alleen meldingen verzenden voor gebeurtenissen van de aangevinkte printers. Niets aangevinkt betekent alle printers.',
     quietHoursDnd: 'Stille uren (Niet storen)',
     quietStart: 'Start',
     quietEnd: 'Einde',

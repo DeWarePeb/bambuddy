@@ -12,6 +12,7 @@ from backend.app.core.auth import RequirePermissionIfAuthEnabled
 from backend.app.core.database import get_db
 from backend.app.core.permissions import Permission
 from backend.app.models.notification import NotificationLog, NotificationProvider
+from backend.app.models.printer import Printer
 from backend.app.models.user import User
 from backend.app.schemas.notification import (
     NotificationLogResponse,
@@ -93,6 +94,7 @@ def _provider_to_dict(provider: NotificationProvider) -> dict:
         "daily_digest_time": provider.daily_digest_time,
         # Printer filter
         "printer_id": provider.printer_id,
+        "printer_ids": provider.scoped_printer_ids(),
         # Status tracking
         "last_success": provider.last_success,
         "last_error": provider.last_error,
@@ -106,6 +108,23 @@ def _provider_to_dict(provider: NotificationProvider) -> dict:
 # ============================================================================
 # Provider List/Create Routes (no path parameters)
 # ============================================================================
+
+
+async def _validated_printer_ids(db: AsyncSession, printer_ids: list[int]) -> list[int]:
+    """Dedupe and check that every selected printer exists (400 otherwise)."""
+    unique_ids = sorted(set(printer_ids))
+    if not unique_ids:
+        return []
+    result = await db.execute(select(Printer.id).where(Printer.id.in_(unique_ids)))
+    known = set(result.scalars().all())
+    missing = [pid for pid in unique_ids if pid not in known]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Unknown printer id(s): {', '.join(map(str, missing))}")
+    return unique_ids
+
+
+def _dump_printer_ids(printer_ids: list[int]) -> str | None:
+    return json.dumps(printer_ids) if printer_ids else None
 
 
 @router.get("/", response_model=list[NotificationProviderResponse])
@@ -127,6 +146,8 @@ async def create_notification_provider(
     _: User | None = RequirePermissionIfAuthEnabled(Permission.NOTIFICATIONS_CREATE),
 ):
     """Create a new notification provider."""
+    scoped_printer_ids = await _validated_printer_ids(db, provider_data.printer_ids)
+
     provider = NotificationProvider(
         name=provider_data.name,
         provider_type=provider_data.provider_type.value,
@@ -183,7 +204,9 @@ async def create_notification_provider(
         daily_digest_enabled=provider_data.daily_digest_enabled,
         daily_digest_time=provider_data.daily_digest_time,
         # Printer filter
-        printer_id=provider_data.printer_id,
+        # A printer list wins over the legacy single printer_id; never store both.
+        printer_id=None if scoped_printer_ids else provider_data.printer_id,
+        printer_ids=_dump_printer_ids(scoped_printer_ids),
     )
 
     db.add(provider)
@@ -433,7 +456,16 @@ async def update_notification_provider(
     update_dict = update_data.model_dump(exclude_unset=True)
 
     for key, value in update_dict.items():
-        if key == "config" and value is not None:
+        if key == "printer_ids":
+            scoped_printer_ids = await _validated_printer_ids(db, value or [])
+            provider.printer_ids = _dump_printer_ids(scoped_printer_ids)
+            if scoped_printer_ids:
+                provider.printer_id = None
+        elif key == "printer_id":
+            provider.printer_id = value
+            if value is not None:
+                provider.printer_ids = None
+        elif key == "config" and value is not None:
             setattr(provider, key, json.dumps(value))
         elif key == "provider_type" and value is not None:
             setattr(provider, key, value.value)

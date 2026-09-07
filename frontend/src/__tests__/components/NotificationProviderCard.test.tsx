@@ -83,6 +83,7 @@ const createMockProvider = (
   daily_digest_enabled: false,
   daily_digest_time: null,
   printer_id: null,
+  printer_ids: [],
   last_success: null,
   last_error: null,
   last_error_at: null,

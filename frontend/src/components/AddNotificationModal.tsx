@@ -21,7 +21,13 @@ export function AddNotificationModal({ provider, onClose }: AddNotificationModal
 
   const [name, setName] = useState(provider?.name || '');
   const [providerType, setProviderType] = useState<ProviderType>(provider?.provider_type || 'email');
-  const [printerId, setPrinterId] = useState<number | null>(provider?.printer_id || null);
+  // Voron patch series: a provider can be narrowed to several printers. An
+  // empty list means all printers; a legacy single printer_id is shown ticked.
+  const [printerIds, setPrinterIds] = useState<number[]>(
+    provider?.printer_ids?.length ? provider.printer_ids : provider?.printer_id ? [provider.printer_id] : []
+  );
+  const togglePrinter = (id: number) =>
+    setPrinterIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(provider?.quiet_hours_enabled || false);
   const [quietHoursStart, setQuietHoursStart] = useState(provider?.quiet_hours_start || '22:00');
   const [quietHoursEnd, setQuietHoursEnd] = useState(provider?.quiet_hours_end || '07:00');
@@ -184,7 +190,8 @@ export function AddNotificationModal({ provider, onClose }: AddNotificationModal
       name: name.trim(),
       provider_type: providerType,
       config: finalConfig,
-      printer_id: printerId,
+      printer_id: null,
+      printer_ids: printerIds,
       quiet_hours_enabled: quietHoursEnabled,
       quiet_hours_start: quietHoursEnabled ? quietHoursStart : null,
       quiet_hours_end: quietHoursEnabled ? quietHoursEnd : null,
@@ -504,18 +511,28 @@ export function AddNotificationModal({ provider, onClose }: AddNotificationModal
           {/* Link to Printer */}
           <div>
             <label className="block text-sm text-bambu-gray mb-1">{t('notifications.printerFilter')}</label>
-            <select
-              value={printerId ?? ''}
-              onChange={(e) => setPrinterId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
-            >
-              <option value="">{t('notifications.allPrinters')}</option>
+            <div className="space-y-1 px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg">
+              <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printerIds.length === 0}
+                  onChange={() => setPrinterIds([])}
+                  className="accent-bambu-green"
+                />
+                {t('notifications.allPrinters')}
+              </label>
               {printers?.map((p) => (
-                <option key={p.id} value={p.id}>
+                <label key={p.id} className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printerIds.includes(p.id)}
+                    onChange={() => togglePrinter(p.id)}
+                    className="accent-bambu-green"
+                  />
                   {p.name}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
             <p className="text-xs text-bambu-gray mt-1">
               {t('notifications.onlyFromPrinter')}
             </p>

@@ -903,6 +903,7 @@ export interface FailureAnalysis {
     failure_reason: string | null;
     filament_type: string | null;
     printer_id: number | null;
+   printer_ids: number[];
     created_at: string | null;
   }>;
   trend: Array<{
@@ -3036,6 +3037,7 @@ export interface NotificationProviderCreate {
 }
 
 export interface NotificationProviderUpdate {
+  printer_ids?: number[];
   name?: string;
   provider_type?: ProviderType;
   enabled?: boolean;
@@ -5047,6 +5049,7 @@ export const api = {
     ),
   updateArchive: (id: number, data: {
     printer_id?: number | null;
+   printer_ids?: number[];
     project_id?: number | null;
     print_name?: string;
     is_favorite?: boolean;

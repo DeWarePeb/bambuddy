@@ -6269,7 +6269,7 @@ export default {
     configuration: 'Configuration',
     testConfiguration: 'Test Configuration',
     printerFilter: 'Printer Filter',
-    onlyFromPrinter: 'Only send notifications for events from this printer',
+    onlyFromPrinter: 'Only send notifications for events from the ticked printers. Nothing ticked means all printers.',
     quietHoursDnd: 'Quiet Hours (Do Not Disturb)',
     quietStart: 'Start',
     quietEnd: 'End',

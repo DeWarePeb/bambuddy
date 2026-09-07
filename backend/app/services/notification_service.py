@@ -1013,7 +1013,13 @@ class NotificationService:
 
         with db.no_autoflush:
             result = await db.execute(query)
-        return list(result.scalars().all())
+        providers = list(result.scalars().all())
+        if printer_id is not None:
+            # printer_ids (a JSON list) is checked here rather than in SQL so it
+            # works the same on SQLite and Postgres; the SQL filter above already
+            # dropped providers pinned to another single printer_id.
+            providers = [p for p in providers if p.covers_printer(printer_id)]
+        return providers
 
     async def _log_notification(
         self,

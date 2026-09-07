@@ -160,6 +160,49 @@ class TestNotificationsAPI:
         result = response.json()
         assert result["printer_id"] == printer.id
 
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_create_provider_with_printer_list(self, async_client: AsyncClient, printer_factory, db_session):
+        """Voron patch series: a provider can be narrowed to several printers at once."""
+        p1 = await printer_factory(name="P2S")
+        p2 = await printer_factory(name="Voron")
+
+        data = {
+            "name": "Shop Ntfy",
+            "provider_type": "ntfy",
+            "config": {"server": "https://ntfy.sh", "topic": "test-topic"},
+            "printer_ids": [p2.id, p1.id, p1.id],
+        }
+
+        response = await async_client.post("/api/v1/notifications/", json=data)
+
+        assert response.status_code == 200
+        result = response.json()
+        assert result["printer_ids"] == sorted([p1.id, p2.id])
+        assert result["printer_id"] is None
+
+        # Narrow it to one, then widen back to everything.
+        response = await async_client.patch(f"/api/v1/notifications/{result['id']}", json={"printer_ids": [p2.id]})
+        assert response.status_code == 200
+        assert response.json()["printer_ids"] == [p2.id]
+
+        response = await async_client.patch(f"/api/v1/notifications/{result['id']}", json={"printer_ids": []})
+        assert response.status_code == 200
+        assert response.json()["printer_ids"] == []
+        assert response.json()["printer_id"] is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_create_provider_with_unknown_printer_is_rejected(self, async_client: AsyncClient):
+        data = {
+            "name": "Broken Ntfy",
+            "provider_type": "ntfy",
+            "config": {"server": "https://ntfy.sh", "topic": "test-topic"},
+            "printer_ids": [999999],
+        }
+        response = await async_client.post("/api/v1/notifications/", json=data)
+        assert response.status_code == 400
+
     # ========================================================================
     # Get single endpoint
     # ========================================================================

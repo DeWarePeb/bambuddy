@@ -36,7 +36,9 @@ class NotificationProviderBase(BaseModel):
     on_print_failed: bool = Field(default=True, description="Notify on print failed")
     on_print_stopped: bool = Field(default=True, description="Notify when print is stopped/cancelled")
     on_print_progress: bool = Field(default=False, description="Notify at 25%, 50%, 75% progress")
-    on_print_almost_done: bool = Field(default=False, description="Notify shortly before the end with a camera snapshot")
+    on_print_almost_done: bool = Field(
+        default=False, description="Notify shortly before the end with a camera snapshot"
+    )
     on_print_missing_spool_assignment: bool = Field(
         default=False,
         description="Notify when a print starts with required trays missing spool assignments",
@@ -122,6 +124,10 @@ class NotificationProviderBase(BaseModel):
 
     # Printer filter
     printer_id: int | None = Field(default=None, description="Specific printer ID or null for all")
+    printer_ids: list[int] = Field(
+        default_factory=list,
+        description="Printer IDs this provider is narrowed to. Empty = all printers (unless printer_id is set).",
+    )
 
     @field_validator("quiet_hours_start", "quiet_hours_end", "daily_digest_time")
     @classmethod
@@ -220,6 +226,7 @@ class NotificationProviderUpdate(BaseModel):
 
     # Printer filter
     printer_id: int | None = None
+    printer_ids: list[int] | None = None
 
 
 class NotificationProviderResponse(NotificationProviderBase):

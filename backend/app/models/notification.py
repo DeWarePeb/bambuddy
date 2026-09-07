@@ -1,5 +1,6 @@
 """Notification provider and log models for push notifications."""
 
+import json
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
@@ -130,6 +131,36 @@ class NotificationProvider(Base):
 
     # Optional: Link to specific printer (NULL = all printers)
     printer_id = Column(Integer, ForeignKey("printers.id", ondelete="SET NULL"), nullable=True)
+    # Voron patch series: JSON list of printer ids this provider is narrowed to.
+    # NULL or [] = not narrowed here (the legacy single printer_id above still
+    # applies); a non-empty list wins over printer_id.
+    printer_ids = Column(Text, nullable=True)
+
+    def scoped_printer_ids(self) -> list[int]:
+        """The printer ids from ``printer_ids``; [] when unset or unreadable."""
+        raw = self.printer_ids
+        if not raw:
+            return []
+        try:
+            ids = json.loads(raw)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(ids, list):
+            return []
+        return [int(i) for i in ids if isinstance(i, int | float | str) and str(i).lstrip("-").isdigit()]
+
+    def covers_printer(self, printer_id: int | None) -> bool:
+        """Whether an event from ``printer_id`` should reach this provider.
+
+        ``None`` means the event has no printer (a location alert) and every
+        provider is eligible, as before.
+        """
+        if printer_id is None:
+            return True
+        scoped = self.scoped_printer_ids()
+        if scoped:
+            return printer_id in scoped
+        return self.printer_id is None or self.printer_id == printer_id
 
     # Status tracking
     last_success = Column(DateTime, nullable=True)
