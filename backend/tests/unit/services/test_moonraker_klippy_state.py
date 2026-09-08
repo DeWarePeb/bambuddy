@@ -67,11 +67,10 @@ def test_state_change_fires_once_per_distinct_reason():
 
 def test_a_good_poll_clears_the_fault():
     class _Recovered(_Klippy):
+        """Same printer, but its next status query succeeds."""
+
         def _query(self, objects):  # noqa: ARG002
             return {"print_stats": {"state": "standby"}}
-
-        def _get(self, path, timeout=None):  # noqa: ARG002
-            return {}
 
     client = _Recovered({"state": "shutdown", "state_message": _SHUTDOWN})
     client._mark_unreachable("HTTP 503")
