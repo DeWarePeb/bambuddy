@@ -36,11 +36,19 @@ _TIMEOUT = 5.0
 
 
 async def list_devices(base_url: str, auth_token: str | None = None) -> list[dict[str, Any]]:
-    """The printer's configured ``[power]`` devices, for the plug dialog's picker."""
+    """The printer's configured ``[power]`` devices, for the plug dialog's picker.
+
+    A printer with no ``[power]`` section at all answers 404 — Moonraker does
+    not load the component, so the endpoint does not exist. That is not a
+    failure to report; it is an empty list, and the dialog says "no devices
+    configured" rather than "could not read them".
+    """
     url = f"{base_url.rstrip('/')}/machine/device_power/devices"
     headers = {"X-Api-Key": auth_token} if auth_token else {}
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.get(url, headers=headers)
+        if response.status_code == 404:
+            return []
         response.raise_for_status()
         payload = response.json()
     devices = (payload.get("result") or payload).get("devices") or []

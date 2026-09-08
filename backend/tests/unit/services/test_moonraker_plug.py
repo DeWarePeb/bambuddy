@@ -64,6 +64,23 @@ async def test_energy_is_never_claimed():
     assert await MoonrakerPlugService().get_energy(_Plug()) is None
 
 
+async def test_a_printer_without_a_power_section_lists_nothing(monkeypatch):
+    """No [power] in printer.cfg means no endpoint — an empty list, not an error."""
+    import httpx
+
+    from backend.app.services import moonraker_plug
+
+    original = moonraker_plug.httpx.AsyncClient
+
+    def factory(*args, **kwargs):
+        kwargs.pop("timeout", None)
+        return original(transport=httpx.MockTransport(lambda r: httpx.Response(404)), **kwargs)
+
+    monkeypatch.setattr(moonraker_plug.httpx, "AsyncClient", factory)
+
+    assert await moonraker_plug.list_devices("http://voron.test", "key") == []
+
+
 async def test_a_half_configured_plug_does_not_call_moonraker():
     service = MoonrakerPlugService()
 
