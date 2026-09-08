@@ -59,6 +59,7 @@ from backend.app.api.routes import (
     pipeline_runs,
     print_log,
     print_queue,
+    printer_fleet_groups,
     printer_sensor_history,
     printers,
     projects,
@@ -9869,6 +9870,7 @@ app.include_router(updates.router, prefix=app_settings.api_prefix)
 app.include_router(sponsor_prompt.router, prefix=app_settings.api_prefix)
 app.include_router(maintenance.router, prefix=app_settings.api_prefix)
 app.include_router(alerts.router, prefix=app_settings.api_prefix)  # voron B5
+app.include_router(printer_fleet_groups.router, prefix=app_settings.api_prefix)  # voron B11
 app.include_router(camera.router, prefix=app_settings.api_prefix)
 app.include_router(camwall.router, prefix=app_settings.api_prefix)
 app.include_router(tv.router, prefix=app_settings.api_prefix)

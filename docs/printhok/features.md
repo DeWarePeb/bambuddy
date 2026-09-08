@@ -243,15 +243,56 @@ images, `&refresh=10` sets the poll cadence).
 that mint a TV token *are* in all fourteen, so the admin side is fully translated and the wall itself
 is not.
 
+### B11 · Farm command center at `/farm` ✅
+
+A single screen for the whole operation: fleet tiles bucketed by group, fleet
+utilization, parts completed today, active projects, a roll-up of everything that
+wants a hand, and the shortcuts out to inventory and maintenance.
+
+**Backend (new):** `models/printer_fleet_group.py`, `schemas/printer_fleet_group.py`,
+`api/routes/printer_fleet_groups.py`, `tests/integration/test_printer_fleet_groups_api.py`.
+A fleet group is a name plus a set of printers — deliberately *not* upstream's
+`models/group.py`, which is a user permission group. Grouping is presentation only:
+nothing schedules or restricts against it. Reads need `printers:read`, writes
+`printers:update`. Two deliberate differences from Printbuddy: a duplicate name
+answers 400 rather than letting the unique constraint surface as a 500, and unknown
+printer ids are rejected before the table is touched.
+
+**Frontend (new):** `pages/FarmCommandCenterPage.tsx`, `utils/farmFleet.ts` and tests
+for both. Every calculation lives in the util so it is testable without rendering.
+
+`classifyFleetState` mirrors `classifyPrinterStatus` in `PrintersPage.tsx` instead of
+importing it: that function is module-private there, and exporting it would mean
+editing the file upstream changes most, on every release, forever. The buckets have to
+stay in step — FAILED with no attached HMS code is terminal like FINISH, not an alert,
+and a disconnected printer is offline whatever its last state said.
+`PrintersPageBucketing.test.ts` mirrors the same rules for the same reason.
+
+**Touched upstream:** `main.py` and `core/database.py` (router, model registry, idempotent
+migration), `models/__init__.py`, `api/client.ts`, `App.tsx` (route), `Layout.tsx`
+(sidebar entry), `en`/`nl` locales.
+
+Ported from Printbuddy's `FarmCommandCenterPage`, with three changes: it is translated
+rather than hardcoded English, "TV mode" points at this fork's `/tv` rather than
+Printbuddy's `/farm-monitor`, and the alert builder returns i18n keys instead of
+sentences. Printbuddy's *Dispatch Suggestions* panel is not included — it only ever
+restated queued and failed counts that B4 already puts on the Projects page.
+
+**Gap:** `farm.*` exists in `en` and `nl` only; the other twelve locales fall back to
+English.
+
 ---
 
 ## Part C — deliberately not ported
 
 Other printer brands (Prusa Link/Connect, Elegoo SDCP, Creality CFS, Snapmaker U1) — every extra
 provider doubles the conflict surface, and the fork's whole design is one non-Bambu transport. Panda
-Breath. Printbuddy's Farm Command Center as a whole, staging, batch review, production plans and alert
-groups — all aimed at twenty-plus printers. The Docker self-update sidecar, which upstream already
-covers with in-app updates.
+Breath. Printbuddy's staging, batch review, production plans and alert groups — all aimed at
+twenty-plus printers. Its Dispatch Suggestions panel, which only restated counts B4 already shows.
+The Docker self-update sidecar, which upstream already covers with in-app updates.
+
+The Farm Command Center itself *was* skipped on these grounds and later ported anyway, on request —
+see B11. Three of its seven panels already existed in smaller form as B4, B5 and B10.
 
 Also not ported because **upstream already has it**: print progress in the browser tab, camera view
 mode on the card, quantity when creating a spool, empty-spool weight from the catalogue, go2rtc
@@ -270,3 +311,4 @@ photo, automatic archive and file cleanup, the trash bin, and fourteen languages
 | B9 | Notify payloads unverified against the real iOS app |
 | B10 | `printers.tv.*` page strings in `en` and `nl` only; the `cameraTokens` strings are in all fourteen |
 | A6 | Chamber temperature waits on `[temperature_sensor chamber]` in `printer.cfg` |
+| B11 | `farm.*` page strings in `en` and `nl` only |

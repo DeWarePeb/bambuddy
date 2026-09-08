@@ -318,6 +318,7 @@ async def init_db():
         print_log,
         print_queue,
         printer,
+        printer_fleet_group,
         printer_ha_sensor,
         printer_sensor_history,
         project,
@@ -4972,6 +4973,47 @@ async def run_migrations(conn):
     # covers fresh installs; this covers restore/upgrade paths that run the
     # handwritten migrations against a schema that predates the table.
     await _migrate_create_pending_slot_assignment_table(conn)
+
+    # Migration: printer fleet groups for the farm command center (voron B11).
+    # create_all() covers fresh installs; this covers restore/upgrade paths
+    # that run the handwritten migrations against an older schema.
+    await _migrate_create_printer_fleet_group_tables(conn)
+
+
+async def _migrate_create_printer_fleet_group_tables(conn) -> None:
+    """Create the fleet group tables where they are missing (voron B11).
+
+    Mirrors ``backend/app/models/printer_fleet_group.py``; keep the two in
+    step. Idempotent: every statement is IF NOT EXISTS.
+    """
+    id_column = "INTEGER PRIMARY KEY" if is_sqlite() else "SERIAL PRIMARY KEY"
+    statements = [
+        f"""
+        CREATE TABLE IF NOT EXISTS printer_fleet_groups (
+            id {id_column},
+            name VARCHAR(100) NOT NULL UNIQUE,
+            color VARCHAR(20),
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS printer_fleet_group_members (
+            id {id_column},
+            group_id INTEGER NOT NULL REFERENCES printer_fleet_groups(id) ON DELETE CASCADE,
+            printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_printer_fleet_group_member UNIQUE (group_id, printer_id)
+        )
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_printer_fleet_groups_name ON printer_fleet_groups (name)",
+        "CREATE INDEX IF NOT EXISTS ix_printer_fleet_group_members_group_id ON printer_fleet_group_members (group_id)",
+        "CREATE INDEX IF NOT EXISTS ix_printer_fleet_group_members_printer_id "
+        "ON printer_fleet_group_members (printer_id)",
+    ]
+    for statement in statements:
+        await _safe_execute(conn, statement)
 
 
 async def _migrate_create_pending_slot_assignment_table(conn) -> None:

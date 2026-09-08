@@ -3385,6 +3385,25 @@ export interface GitHubBackupTriggerResponse {
   files_changed: number;
 }
 
+// Voron patch series (B11): named printer groups for the farm command center.
+// Unrelated to Group/`groups:*`, which are upstream's user permission groups.
+export interface PrinterFleetGroup {
+  id: number;
+  name: string;
+  color: string | null;
+  sort_order: number;
+  printer_ids: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrinterFleetGroupPayload {
+  name: string;
+  color?: string | null;
+  sort_order?: number;
+  printer_ids: number[];
+}
+
 // Voron patch series (B5): one summary of everything that needs a hand
 export interface AlertsMaintenanceItem {
   item_id: number;
@@ -6999,6 +7018,21 @@ export const api = {
   getMaintenanceSummary: () => request<MaintenanceSummary>('/maintenance/summary'),
   // Voron patch series (B5): maintenance due + low stock in one call, for the layout banner
   getAlertsSummary: () => request<AlertsSummary>('/alerts/summary'),
+
+  // Voron patch series (B11): printer fleet groups for the farm command center
+  getPrinterFleetGroups: () => request<PrinterFleetGroup[]>('/printer-fleet-groups/'),
+  createPrinterFleetGroup: (data: PrinterFleetGroupPayload) =>
+    request<PrinterFleetGroup>('/printer-fleet-groups/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePrinterFleetGroup: (groupId: number, data: PrinterFleetGroupPayload) =>
+    request<PrinterFleetGroup>(`/printer-fleet-groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deletePrinterFleetGroup: (groupId: number) =>
+    request<void>(`/printer-fleet-groups/${groupId}`, { method: 'DELETE' }),
   setPrinterHours: (printerId: number, totalHours: number) =>
     request<{ printer_id: number; total_hours: number; archive_hours: number; offset_hours: number }>(
       `/maintenance/printers/${printerId}/hours?total_hours=${totalHours}`,
