@@ -1,36 +1,41 @@
-# Updating Bambuddy
+# Updating Printhok
 
-> **0.2.3 note:** the in-app **Update** button is unreliable when upgrading from
-> older releases. Use the commands below instead — they cover every supported
-> install path and are safe to run repeatedly.
+> **This is the fork's copy.** Printhok is a rebased patch series on
+> [maziggy/bambuddy](https://github.com/maziggy/bambuddy) — see [`README.md`](README.md).
+> The commands below point at `DeWarePeb/bambuddy`, not upstream. Everything else
+> about updating is upstream's, unchanged.
 
-Pick the section that matches how Bambuddy was installed.
+> **In-app updates:** the **Update** button follows whichever `origin` and branch
+> the install tree is on, which for a Printhok install is this fork. It has been
+> unreliable across large version jumps since 0.2.3; the commands below are the
+> safe path and can be run repeatedly.
+
+Pick the section that matches how Printhok was installed.
 
 ---
 
 ## Docker
 
-```bash
-# 1. Make sure your compose file isn't pinned to an old version.
-#    The image line should read one of:
-#      image: ghcr.io/maziggy/bambuddy:latest
-#      image: ghcr.io/maziggy/bambuddy:0.2.3
-#    If it pins an older tag (e.g. :0.2.2.2), edit it first.
+**There is no published Printhok image.** `docker-compose.yml` still names
+`ghcr.io/maziggy/bambuddy:latest`, which is upstream. A `docker compose pull`
+against an unedited compose file will therefore replace Printhok with Bambuddy
+and lose the Klipper support. Rebuild from source instead:
 
-# 2. Pull and restart
-docker compose pull
-docker compose up -d
+```bash
+cd /path/to/your/printhok/checkout
+git pull
+docker compose up -d --build
 ```
 
-**If your `docker-compose.yml` is older than 0.2.3,** also refresh it from the
-repo — recent releases added `cap_add: NET_BIND_SERVICE`, extra virtual-printer
-ports for bridge mode, and an optional Postgres block:
+**If your `docker-compose.yml` predates 0.2.3,** also refresh it from the repo —
+recent releases added `cap_add: NET_BIND_SERVICE`, extra virtual-printer ports
+for bridge mode, and an optional Postgres block:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/docker-compose.yml \
+curl -fsSL https://raw.githubusercontent.com/DeWarePeb/bambuddy/main/docker-compose.yml \
   -o docker-compose.yml.new
 # Diff against yours, merge by hand, then:
-docker compose up -d
+docker compose up -d --build
 ```
 
 ---
@@ -45,9 +50,14 @@ sudo /opt/bambuddy/install/update.sh
 ```
 
 `update.sh` stops the service, snapshots the database via the built-in backup
-API, fast-forwards to `origin/main`, installs Python deps, rebuilds the
-frontend, and restarts the service. It rolls back automatically if any step
-fails.
+API, resets to `origin/<branch>`, installs Python deps, rebuilds the frontend,
+and restarts the service. It rolls back automatically if any step fails. It is
+branch- and remote-agnostic, so upstream's script needs no fork changes: it
+follows whichever `origin` your tree has, which for a Printhok install is
+`DeWarePeb/bambuddy`.
+
+> On a machine with 2 GB of RAM the frontend build needs a heap cap, or Node is
+> killed mid-build: `NODE_OPTIONS=--max-old-space-size=1400`.
 
 ### Manual equivalent
 
@@ -70,7 +80,11 @@ migrations run automatically on startup — no Alembic step is required.
 ## Installed from a GitHub ZIP or tarball download
 
 These installs have no `.git` directory, so neither `update.sh` nor a plain
-`git pull` will work. Reinstall cleanly:
+`git pull` will work. Reinstall cleanly.
+
+> Do **not** curl upstream's `install.sh` and run it against an empty directory:
+> it clones `maziggy/bambuddy` and you get Bambuddy, not Printhok. Clone the
+> fork first, then point the installer at the tree it created.
 
 ```bash
 # 1. Back up your stateful data
@@ -79,10 +93,10 @@ sudo tar czf ~/bambuddy-backup.tgz -C /opt/bambuddy \
   data bambuddy.db bambuddy.db-shm bambuddy.db-wal \
   virtual_printer archive projects icons .env 2>/dev/null || true
 
-# 2. Remove the old install and reinstall via install.sh
+# 2. Remove the old install, clone the fork, and run its installer
 sudo rm -rf /opt/bambuddy
-curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/install.sh \
-  -o /tmp/install.sh && sudo bash /tmp/install.sh --path /opt/bambuddy
+sudo git clone https://github.com/DeWarePeb/bambuddy.git /opt/bambuddy
+sudo bash /opt/bambuddy/install/install.sh --path /opt/bambuddy
 
 # 3. Restore your data
 sudo systemctl stop bambuddy

@@ -1,4 +1,28 @@
-# Contributing to Bambuddy
+# Contributing
+
+> ## Read this first: you are in the fork
+>
+> This repository is **Printhok**, a rebased patch series on
+> [maziggy/bambuddy](https://github.com/maziggy/bambuddy). See [`README.md`](README.md).
+>
+> **Send it upstream if it belongs upstream.** Anything that is not Klipper/Moonraker, one of the
+> ported features in [`docs/printhok/features.md`](docs/printhok/features.md), or the branding is
+> upstream's to fix — and a fix landing upstream reaches far more people and *shrinks* this fork.
+> Bugs in Bambuddy itself go to [upstream issues](https://github.com/maziggy/bambuddy/issues).
+>
+> **Fork-only contributions** — the Klipper path, the ported features, the docs — are welcome here,
+> with three extra rules on top of everything below:
+>
+> 1. **One commit per subject, rebased. Never a merge from upstream.** The series has to stay a
+>    readable stack on a clean upstream base; see
+>    [`docs/printhok/upstream-sync.md`](docs/printhok/upstream-sync.md)
+> 2. **New files over edits to upstream files**, wherever the change allows it. Every line inside an
+>    upstream file is a conflict you pay for on every future release
+> 3. **Update [`docs/printhok/features.md`](docs/printhok/features.md) in the same commit.** The
+>    register is the contract that survives the next rebase
+>
+> No support is promised for this fork. The rest of this document is upstream's and applies as
+> written.
 
 Thank you for your interest in contributing to Bambuddy! This document provides guidelines and instructions for contributing.
 
