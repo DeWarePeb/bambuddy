@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5): "ilgi bekliyor" bandı
+  alerts: {
+    title: 'İlgi bekliyor',
+    maintenanceDue_one: '{{count}} bakım işi bekliyor',
+    maintenanceDue_other: '{{count}} bakım işi bekliyor',
+    lowStock_one: '{{count}} makara azalıyor',
+    lowStock_other: '{{count}} makara azalıyor',
+    printerFaults_one: '{{count}} yazıcı arıza bildiriyor',
+    printerFaults_other: '{{count}} yazıcı arıza bildiriyor',
+    more: '+{{count}} daha',
+    openMaintenance: 'Bakımı aç',
+    openInventory: 'Filamenti aç',
+    openPrinters: 'Yazıcıları aç',
+    dismiss: 'Bir şey değişene kadar gizle',
+  },
   // Navigasyon
   nav: {
     farm: 'Komuta merkezi',
@@ -521,6 +536,10 @@ export default {
     },
     // Bağlantı durumu
     connection: {
+      klippyShutdown: 'Klipper kapandı',
+      klippyError: 'Klipper hatası',
+      klippyStartup: 'Klipper başlıyor',
+      klippyDisconnected: 'Klipper çalışmıyor',
       connected: 'Bağlı',
       offline: 'Çevrimdışı',
     },

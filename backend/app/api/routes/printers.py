@@ -503,6 +503,17 @@ async def delete_printer(
     return {"status": "deleted", "archives_deleted": delete_archives}
 
 
+def _klippy_field(state, key: str) -> str | None:
+    """Read ``raw_data["klippy"][key]`` (Voron patch series). None for anything else."""
+    if state is None:
+        return None
+    klippy = (state.raw_data or {}).get("klippy")
+    if not isinstance(klippy, dict):
+        return None
+    value = klippy.get(key)
+    return str(value) if value else None
+
+
 @router.get("/{printer_id}/status", response_model=PrinterStatus)
 async def get_printer_status(
     printer_id: int,
@@ -881,6 +892,9 @@ async def get_printer_status(
         exhaust_fan_present=state.exhaust_fan_present,
         firmware_version=state.firmware_version,
         developer_mode=state.developer_mode if state else None,
+        # Voron patch series: Klipper's own reason for going quiet.
+        klippy_state=_klippy_field(state, "state"),
+        klippy_message=_klippy_field(state, "message"),
         ams_filament_backup=state.ams_filament_backup if state else None,
         awaiting_plate_clear=printer_manager.is_awaiting_plate_clear(printer_id),
         supports_drying=supports_drying(printer.model, state.firmware_version),

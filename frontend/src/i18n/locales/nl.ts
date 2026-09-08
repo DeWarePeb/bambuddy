@@ -6,6 +6,9 @@ export default {
     maintenanceDue_other: '{{count}} onderhoudstaken open',
     lowStock_one: '{{count}} spoel bijna op',
     lowStock_other: '{{count}} spoelen bijna op',
+    printerFaults_one: '{{count}} printer meldt een storing',
+    printerFaults_other: '{{count}} printers melden een storing',
+    openPrinters: 'Printers openen',
     more: '+{{count}} meer',
     openMaintenance: 'Onderhoud openen',
     openInventory: 'Voorraad openen',
@@ -537,6 +540,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper afgesloten',
+      klippyError: 'Klipper-fout',
+      klippyStartup: 'Klipper start op',
+      klippyDisconnected: 'Klipper draait niet',
       connected: 'Verbonden',
       offline: 'Offline',
     },

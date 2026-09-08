@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5): das "braucht Aufmerksamkeit"-Banner
+  alerts: {
+    title: 'Braucht Aufmerksamkeit',
+    maintenanceDue_one: '{{count}} Wartung fällig',
+    maintenanceDue_other: '{{count}} Wartungen fällig',
+    lowStock_one: '{{count}} Spule geht zur Neige',
+    lowStock_other: '{{count}} Spulen gehen zur Neige',
+    printerFaults_one: '{{count}} Drucker meldet eine Störung',
+    printerFaults_other: '{{count}} Drucker melden eine Störung',
+    more: '+{{count}} weitere',
+    openMaintenance: 'Wartung öffnen',
+    openInventory: 'Filament öffnen',
+    openPrinters: 'Drucker öffnen',
+    dismiss: 'Ausblenden, bis sich etwas ändert',
+  },
   // Navigation
   nav: {
     farm: 'Kommandozentrale',
@@ -521,6 +536,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper heruntergefahren',
+      klippyError: 'Klipper-Fehler',
+      klippyStartup: 'Klipper startet',
+      klippyDisconnected: 'Klipper läuft nicht',
       connected: 'Verbunden',
       offline: 'Offline',
     },

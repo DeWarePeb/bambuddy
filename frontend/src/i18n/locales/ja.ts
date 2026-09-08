@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5): 「対応が必要」バナー
+  alerts: {
+    title: '対応が必要',
+    maintenanceDue_one: 'メンテナンス {{count}} 件',
+    maintenanceDue_other: 'メンテナンス {{count}} 件',
+    lowStock_one: 'スプール {{count}} 本が残りわずか',
+    lowStock_other: 'スプール {{count}} 本が残りわずか',
+    printerFaults_one: 'プリンター {{count}} 台がエラーを報告',
+    printerFaults_other: 'プリンター {{count}} 台がエラーを報告',
+    more: 'ほか {{count}} 件',
+    openMaintenance: 'メンテナンスを開く',
+    openInventory: 'フィラメントを開く',
+    openPrinters: 'プリンターを開く',
+    dismiss: '変化があるまで非表示',
+  },
   // Navigation
   nav: {
     farm: 'コマンドセンター',
@@ -520,6 +535,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper シャットダウン',
+      klippyError: 'Klipper エラー',
+      klippyStartup: 'Klipper 起動中',
+      klippyDisconnected: 'Klipper 未起動',
       connected: '接続中',
       offline: 'オフライン',
     },

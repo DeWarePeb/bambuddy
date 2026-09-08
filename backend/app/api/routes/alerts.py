@@ -5,6 +5,10 @@ page, so a full walk-through of Maintenance and Inventory was needed to know
 whether anything wanted attention today. This endpoint gathers both into one
 summary that the layout shows as a banner. Read-only; it reuses the same
 calculations as the two pages, so the numbers always agree.
+
+C2 added a third kind: a printer whose firmware is reporting a fault. That one
+has no page of its own to walk through — the card says "offline", the same as
+a printer someone switched off at the wall.
 """
 
 from fastapi import APIRouter, Depends
@@ -19,6 +23,7 @@ from backend.app.core.permissions import Permission
 from backend.app.models.printer import Printer
 from backend.app.models.spool import Spool
 from backend.app.models.user import User
+from backend.app.services.printer_manager import printer_manager
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -51,7 +56,7 @@ async def get_alerts_summary(
     _m: User | None = RequirePermissionIfAuthEnabled(Permission.MAINTENANCE_READ),
     _i: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_READ),
 ):
-    """Maintenance that is due (or nearly), and spools below their low-stock threshold."""
+    """Maintenance due (or nearly), spools below their threshold, printers reporting a fault."""
     await ensure_default_types(db)
 
     maintenance_due: list[dict] = []
@@ -71,6 +76,27 @@ async def get_alerts_summary(
                 "days_until_due": item.days_until_due,
             }
             (maintenance_due if item.is_due else maintenance_warning).append(entry)
+
+    # Voron patch series (C2): a Klipper printer sitting in shutdown is the most
+    # urgent thing this banner can carry, and it is invisible everywhere else —
+    # the card says "offline" like a printer that is merely switched off.
+    # Only faults, never "unreachable": a powered-down printer is not an alert.
+    printer_faults: list[dict] = []
+    for printer in printers:
+        state = printer_manager.get_status(printer.id)
+        if state is None or state.connected:
+            continue
+        klippy = (state.raw_data or {}).get("klippy")
+        if not isinstance(klippy, dict) or klippy.get("state") not in ("shutdown", "error"):
+            continue
+        printer_faults.append(
+            {
+                "printer_id": printer.id,
+                "printer_name": printer.name,
+                "state": klippy.get("state"),
+                "message": klippy.get("message"),
+            }
+        )
 
     threshold = await _low_stock_threshold(db)
     low_stock: list[dict] = []
@@ -93,8 +119,9 @@ async def get_alerts_summary(
 
     return {
         "maintenance_due": maintenance_due,
+        "printer_faults": printer_faults,
         "maintenance_warning": maintenance_warning,
         "low_stock": low_stock,
         "low_stock_threshold_pct": threshold,
-        "total": len(maintenance_due) + len(low_stock),
+        "total": len(maintenance_due) + len(low_stock) + len(printer_faults),
     }

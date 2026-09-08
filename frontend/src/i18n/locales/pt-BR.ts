@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5): o aviso "precisa de atenção"
+  alerts: {
+    title: 'Precisa de atenção',
+    maintenanceDue_one: '{{count}} manutenção pendente',
+    maintenanceDue_other: '{{count}} manutenções pendentes',
+    lowStock_one: '{{count}} bobina acabando',
+    lowStock_other: '{{count}} bobinas acabando',
+    printerFaults_one: '{{count}} impressora com falha',
+    printerFaults_other: '{{count}} impressoras com falha',
+    more: '+{{count}} outros',
+    openMaintenance: 'Abrir Manutenção',
+    openInventory: 'Abrir Filamento',
+    openPrinters: 'Abrir Impressoras',
+    dismiss: 'Ocultar até algo mudar',
+  },
   // Navigation
   nav: {
     farm: 'Centro de comando',
@@ -521,6 +536,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper desligado',
+      klippyError: 'Erro do Klipper',
+      klippyStartup: 'Klipper iniciando',
+      klippyDisconnected: 'Klipper não está em execução',
       connected: 'Conectado',
       offline: 'Offline',
     },

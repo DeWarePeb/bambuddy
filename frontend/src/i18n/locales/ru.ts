@@ -1,4 +1,25 @@
 export default {
+  // Voron patch series (B5): полоса «требует внимания»
+  alerts: {
+    title: 'Требует внимания',
+    maintenanceDue_one: '{{count}} работа по обслуживанию',
+    maintenanceDue_few: '{{count}} работы по обслуживанию',
+    maintenanceDue_many: '{{count}} работ по обслуживанию',
+    maintenanceDue_other: '{{count}} работ по обслуживанию',
+    lowStock_one: '{{count}} катушка заканчивается',
+    lowStock_few: '{{count}} катушки заканчиваются',
+    lowStock_many: '{{count}} катушек заканчиваются',
+    lowStock_other: '{{count}} катушек заканчиваются',
+    printerFaults_one: '{{count}} принтер сообщает об ошибке',
+    printerFaults_few: '{{count}} принтера сообщают об ошибке',
+    printerFaults_many: '{{count}} принтеров сообщают об ошибке',
+    printerFaults_other: '{{count}} принтеров сообщают об ошибке',
+    more: '+{{count}} ещё',
+    openMaintenance: 'Открыть обслуживание',
+    openInventory: 'Открыть филамент',
+    openPrinters: 'Открыть принтеры',
+    dismiss: 'Скрыть до следующего изменения',
+  },
   nav: {
     farm: 'Центр управления',
     printers: "Принтеры",
@@ -501,6 +522,10 @@ export default {
       failedToUnload: "Не удалось выгрузить филамент",
     },
     connection: {
+      klippyShutdown: 'Klipper остановлен',
+      klippyError: 'Ошибка Klipper',
+      klippyStartup: 'Klipper запускается',
+      klippyDisconnected: 'Klipper не запущен',
       connected: "Подключён",
       offline: "Не в сети",
     },

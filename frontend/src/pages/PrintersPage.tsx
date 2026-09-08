@@ -2523,6 +2523,17 @@ function PrinterCard({
     }
   }, [status?.ams]);
   const amsData = (status?.ams && status.ams.length > 0) ? status.ams : cachedAmsData.current;
+  // Voron patch series: a Klipper printer that is not answering is usually a
+  // printer that is very much there with Klipper in shutdown. "ready" is not a
+  // fault, and an unknown state falls back to plain "offline" rather than
+  // printing a raw protocol word at the user.
+  const KLIPPY_FAULT_KEYS: Record<string, string> = {
+    shutdown: 'klippyShutdown',
+    error: 'klippyError',
+    startup: 'klippyStartup',
+    disconnected: 'klippyDisconnected',
+  };
+  const klippyFault = !status?.connected && status?.klippy_state ? KLIPPY_FAULT_KEYS[status.klippy_state] ?? null : null;
   // #2532: the K-profile line only exists on slots the printer has actually
   // calibrated. The AMS units and the external-spool group are flex siblings in
   // one row, so on a card that shows a value anywhere, the slots without one
@@ -3992,8 +4003,22 @@ function PrinterCard({
                   ) : (
                     <Unlink className="w-[var(--pc-i3,0.75rem)] h-[var(--pc-i3,0.75rem)]" />
                   )}
-                  {status?.connected ? t('printers.connection.connected') : t('printers.connection.offline')}
+                  {status?.connected
+                    ? t('printers.connection.connected')
+                    : klippyFault
+                      ? t(`printers.connection.${klippyFault}`, t('printers.connection.offline'))
+                      : t('printers.connection.offline')}
                 </span>
+              )}
+              {/* Voron patch series: Klipper's own reason for going quiet. A
+                  shutdown reads as a plain "offline" everywhere else, and the
+                  one sentence that says why ("MCU 'mcu' shutdown: Lost
+                  communication with MCU") is sitting on printer/info. w-full so
+                  it takes its own line in the wrapping badge row. */}
+              {!status?.connected && status?.klippy_message && (
+                <p className="w-full text-xs text-status-error/90 break-words" title={status.klippy_message}>
+                  {status.klippy_message}
+                </p>
               )}
               {/* Run connection diagnostic — offered when the printer is offline, NOT in maintenance */}
               {printer.is_active !== false && !status?.connected && printer.provider !== 'klipper' && (

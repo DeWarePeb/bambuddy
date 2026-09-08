@@ -1,4 +1,25 @@
 export default {
+  // Voron patch series (B5): смуга «потребує уваги»
+  alerts: {
+    title: 'Потребує уваги',
+    maintenanceDue_one: '{{count}} робота з обслуговування',
+    maintenanceDue_few: '{{count}} роботи з обслуговування',
+    maintenanceDue_many: '{{count}} робіт з обслуговування',
+    maintenanceDue_other: '{{count}} робіт з обслуговування',
+    lowStock_one: '{{count}} котушка закінчується',
+    lowStock_few: '{{count}} котушки закінчуються',
+    lowStock_many: '{{count}} котушок закінчуються',
+    lowStock_other: '{{count}} котушок закінчуються',
+    printerFaults_one: '{{count}} принтер повідомляє про помилку',
+    printerFaults_few: '{{count}} принтери повідомляють про помилку',
+    printerFaults_many: '{{count}} принтерів повідомляють про помилку',
+    printerFaults_other: '{{count}} принтерів повідомляють про помилку',
+    more: '+{{count}} ще',
+    openMaintenance: 'Відкрити обслуговування',
+    openInventory: 'Відкрити філамент',
+    openPrinters: 'Відкрити принтери',
+    dismiss: 'Сховати до наступної зміни',
+  },
   // Navigation
   nav: {
     farm: 'Центр керування',
@@ -526,6 +547,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper зупинено',
+      klippyError: 'Помилка Klipper',
+      klippyStartup: 'Klipper запускається',
+      klippyDisconnected: 'Klipper не запущено',
       connected: "Підключено",
       offline: "Не в мережі",
     },

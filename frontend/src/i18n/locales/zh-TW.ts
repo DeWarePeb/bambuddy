@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5)：「需要處理」提示列
+  alerts: {
+    title: '需要處理',
+    maintenanceDue_one: '{{count}} 項維護待辦',
+    maintenanceDue_other: '{{count}} 項維護待辦',
+    lowStock_one: '{{count}} 捲料快用完',
+    lowStock_other: '{{count}} 捲料快用完',
+    printerFaults_one: '{{count}} 台印表機回報錯誤',
+    printerFaults_other: '{{count}} 台印表機回報錯誤',
+    more: '還有 {{count}} 項',
+    openMaintenance: '開啟維護',
+    openInventory: '開啟耗材',
+    openPrinters: '開啟印表機',
+    dismiss: '在情況改變前隱藏',
+  },
   // Navigation
   nav: {
     farm: '指揮中心',
@@ -521,6 +536,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper 已關閉',
+      klippyError: 'Klipper 錯誤',
+      klippyStartup: 'Klipper 啟動中',
+      klippyDisconnected: 'Klipper 未執行',
       connected: '已連線',
       offline: '離線',
     },

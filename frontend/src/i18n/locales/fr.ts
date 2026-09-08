@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5) : la bannière « demande votre attention »
+  alerts: {
+    title: 'Demande votre attention',
+    maintenanceDue_one: '{{count}} entretien à faire',
+    maintenanceDue_other: '{{count}} entretiens à faire',
+    lowStock_one: '{{count}} bobine bientôt vide',
+    lowStock_other: '{{count}} bobines bientôt vides',
+    printerFaults_one: '{{count}} imprimante en défaut',
+    printerFaults_other: '{{count}} imprimantes en défaut',
+    more: '+{{count}} autres',
+    openMaintenance: 'Ouvrir Entretien',
+    openInventory: 'Ouvrir Filament',
+    openPrinters: 'Ouvrir Imprimantes',
+    dismiss: "Masquer jusqu'au prochain changement",
+  },
   // Navigation
   nav: {
     farm: 'Centre de commande',
@@ -521,6 +536,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper arrêté',
+      klippyError: 'Erreur Klipper',
+      klippyStartup: 'Klipper démarre',
+      klippyDisconnected: 'Klipper ne tourne pas',
       connected: 'Connecté',
       offline: 'Hors ligne',
     },

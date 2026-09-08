@@ -104,6 +104,9 @@ export function Layout() {
     ? [
         ...alertsSummary.maintenance_due.map((m) => `m${m.item_id}`),
         ...alertsSummary.low_stock.map((s) => `s${s.spool_id}`),
+        // Voron patch series: the state too, so a printer that goes from
+        // shutdown to error re-raises a banner the user already dismissed.
+        ...(alertsSummary.printer_faults ?? []).map((p) => `p${p.printer_id}:${p.state}`),
       ].join(',')
     : '';
   const [dismissedAlerts, setDismissedAlerts] = useState<string>(() => {
@@ -961,6 +964,20 @@ export function Layout() {
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 {t('alerts.title')}
               </span>
+              {/* Voron patch series (C2): first in the row — a printer standing
+                  in shutdown outranks a spool that will run out next week. */}
+              {(alertsSummary.printer_faults ?? []).length > 0 && (
+                <button
+                  onClick={() => navigate('/printers')}
+                  className="text-left hover:underline"
+                  title={t('alerts.openPrinters')}
+                >
+                  {t('alerts.printerFaults', { count: alertsSummary.printer_faults.length })}:{' '}
+                  {summarize(
+                    alertsSummary.printer_faults.map((p) => `${p.printer_name}: ${p.message || p.state}`)
+                  )}
+                </button>
+              )}
               {alertsSummary.maintenance_due.length > 0 && (
                 <button
                   onClick={() => navigate('/maintenance')}

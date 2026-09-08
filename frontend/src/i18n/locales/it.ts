@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5): il banner "richiede attenzione"
+  alerts: {
+    title: 'Richiede attenzione',
+    maintenanceDue_one: '{{count}} manutenzione da fare',
+    maintenanceDue_other: '{{count}} manutenzioni da fare',
+    lowStock_one: '{{count}} bobina quasi finita',
+    lowStock_other: '{{count}} bobine quasi finite',
+    printerFaults_one: '{{count}} stampante in errore',
+    printerFaults_other: '{{count}} stampanti in errore',
+    more: '+{{count}} altri',
+    openMaintenance: 'Apri Manutenzione',
+    openInventory: 'Apri Filamento',
+    openPrinters: 'Apri Stampanti',
+    dismiss: 'Nascondi finché non cambia qualcosa',
+  },
   // Navigation
   nav: {
     farm: 'Centro di comando',
@@ -521,6 +536,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper spento',
+      klippyError: 'Errore Klipper',
+      klippyStartup: 'Klipper in avvio',
+      klippyDisconnected: 'Klipper non in esecuzione',
       connected: 'Connesso',
       offline: 'Offline',
     },

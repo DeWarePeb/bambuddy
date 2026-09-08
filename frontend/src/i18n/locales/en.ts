@@ -6,6 +6,9 @@ export default {
     maintenanceDue_other: '{{count}} maintenance tasks due',
     lowStock_one: '{{count}} spool running low',
     lowStock_other: '{{count}} spools running low',
+    printerFaults_one: '{{count}} printer reporting a fault',
+    printerFaults_other: '{{count}} printers reporting a fault',
+    openPrinters: 'Open Printers',
     more: '+{{count}} more',
     openMaintenance: 'Open Maintenance',
     openInventory: 'Open Inventory',
@@ -537,6 +540,10 @@ export default {
     },
     // Connection status
     connection: {
+      klippyShutdown: 'Klipper shutdown',
+      klippyError: 'Klipper error',
+      klippyStartup: 'Klipper starting',
+      klippyDisconnected: 'Klipper not running',
       connected: 'Connected',
       offline: 'Offline',
     },

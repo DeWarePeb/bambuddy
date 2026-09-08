@@ -1,4 +1,19 @@
 export default {
+  // Voron patch series (B5): "확인 필요" 배너
+  alerts: {
+    title: '확인 필요',
+    maintenanceDue_one: '유지보수 {{count}}건',
+    maintenanceDue_other: '유지보수 {{count}}건',
+    lowStock_one: '스풀 {{count}}개 잔량 부족',
+    lowStock_other: '스풀 {{count}}개 잔량 부족',
+    printerFaults_one: '프린터 {{count}}대 오류 보고',
+    printerFaults_other: '프린터 {{count}}대 오류 보고',
+    more: '외 {{count}}건',
+    openMaintenance: '유지보수 열기',
+    openInventory: '필라멘트 열기',
+    openPrinters: '프린터 열기',
+    dismiss: '변경될 때까지 숨기기',
+  },
   nav: {
     farm: '커맨드 센터',
     printers: '프린터',
@@ -494,6 +509,10 @@ export default {
       historyImportFailed: '출력 기록을 가져오지 못했습니다',
     },
     connection: {
+      klippyShutdown: 'Klipper 종료됨',
+      klippyError: 'Klipper 오류',
+      klippyStartup: 'Klipper 시작 중',
+      klippyDisconnected: 'Klipper 실행 중 아님',
       connected: '연결됨',
       offline: '오프라인'
     },

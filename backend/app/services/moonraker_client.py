@@ -193,6 +193,9 @@ class MoonrakerClient:
         self._external_tray: dict[str, Any] = dict(_EMPTY_EXTERNAL_TRAY)
         # Happy Hare MMU (discovered at connect). Gates are reported as AMS
         # units of four trays so global tray id == gate number.
+        # Why the printer is not answering, when it is not answering: Klipper's
+        # own state and message from ``printer/info``. Empty while all is well.
+        self._klippy: dict[str, Any] = {}
         self._mmu = False
         self._mmu_num_gates = 0
         self._ams_units: list[dict[str, Any]] = []
@@ -254,6 +257,10 @@ class MoonrakerClient:
         except Exception as exc:  # noqa: BLE001
             self.last_connect_error = str(exc)
             self.state.connected = False
+            # Usually this is a printer that is up but whose Klipper is in
+            # shutdown — connect on a machine with an error on its screen should
+            # say what the error is, not wait for the first poll to fail too.
+            self._refresh_klippy()
             logger.warning("[%s] Moonraker connect failed: %s", self.serial_number, exc)
         if self._thread is None or not self._thread.is_alive():
             self._thread = threading.Thread(
@@ -302,10 +309,46 @@ class MoonrakerClient:
         was_connected = self.state.connected
         self.state.connected = False
         self.last_connect_error = reason
+        previous_klippy = self._klippy
+        self._refresh_klippy()
         if was_connected:
             logger.warning("[%s] Moonraker unreachable: %s", self.serial_number, reason)
-            if self.on_state_change:
-                self.on_state_change(self.state)
+            if self._klippy.get("state"):
+                logger.warning("[%s] Klipper reports %s: %s", self.serial_number, *self._klippy_pair())
+        # A repeat failure is only worth broadcasting when the reason changed:
+        # Klipper can take a few rounds to settle on "shutdown", and a card that
+        # already says "offline" would otherwise never pick the message up.
+        if (was_connected or self._klippy != previous_klippy) and self.on_state_change:
+            self.on_state_change(self.state)
+
+    def _klippy_pair(self) -> tuple[str, str]:
+        return str(self._klippy.get("state") or "unknown"), str(self._klippy.get("message") or "no message")
+
+    def _refresh_klippy(self) -> None:
+        """Ask Moonraker *why* the printer is not answering, and remember it.
+
+        A failed object query is not evidence of an unreachable printer. The
+        common case is the opposite: Moonraker is up and answering, and says
+        Klipper is in shutdown or error — at which point ``objects/query``
+        returns 503 and everything above this reads it as "offline". The reason
+        ("MCU 'mcu' shutdown: Lost communication with MCU") is one request away
+        on ``printer/info``, which Moonraker answers precisely when Klipper
+        cannot. Without this the card shows a bare "Offline" for a printer
+        standing right there with an error on its screen.
+        """
+        klippy: dict[str, Any] = {}
+        try:
+            info = self._get("printer/info", timeout=self.timeout)
+            state = str(info.get("state") or "").lower() or None
+            if state:
+                klippy = {"state": state, "message": str(info.get("state_message") or "").strip() or None}
+        except Exception:  # noqa: BLE001 - Moonraker itself is down; we know nothing more
+            klippy = {}
+        self._klippy = klippy
+        raw = dict(self.state.raw_data or {})
+        raw["provider"] = "klipper"
+        raw["klippy"] = klippy
+        self.state.raw_data = raw
 
     # BambuMQTTClient parity — printer_manager calls these on every status read.
     @property
@@ -345,6 +388,7 @@ class MoonrakerClient:
 
             self.state.connected = True
             self.last_connect_error = None
+            self._klippy = {}  # Klipper answered; whatever it was complaining about is over.
             self._last_message_time = time.monotonic()
             self.state.state = map_moonraker_state(print_stats.get("state"))
 
@@ -410,6 +454,7 @@ class MoonrakerClient:
                 self._apply_mmu(status)
             self.state.raw_data = {
                 "provider": "klipper",
+                "klippy": {},
                 "moonraker": {k: v for k, v in status.items() if k != "save_variables"},
                 "homed_axes": toolhead.get("homed_axes"),
                 "print_duration": duration,

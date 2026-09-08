@@ -465,6 +465,12 @@ class PrinterStatus(BaseModel):
     firmware_version: str | None = None
     # Developer LAN mode: True = enabled, False = disabled (MQTT encryption), None = unknown
     developer_mode: bool | None = None
+    # Voron patch series: why a Klipper printer is not answering. Klipper's own
+    # state ("shutdown", "error", "startup") and its message, read off
+    # printer/info — which Moonraker answers precisely when objects/query
+    # cannot. None for Bambu printers and for a Klipper printer that is fine.
+    klippy_state: str | None = None
+    klippy_message: str | None = None
     # AMS Filament Backup ("auto-switch" to a second spool when one runs out).
     # True = ON, False = OFF, None = unknown / unsupported (A1 family — protocol field
     # not yet identified). UI treats None as "status unavailable", not as a hard disable.

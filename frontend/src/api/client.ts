@@ -692,6 +692,12 @@ export interface PrinterStatus {
   drying_screen_only?: boolean;
   // Active chamber heater (responds to M141). True only for H2C/H2D/H2DPro/H2S/X2D.
   supports_chamber_heater?: boolean;
+  // Voron patch series: why a Klipper printer went quiet. Klipper's own state
+  // ("shutdown", "error", "startup") and message, read from printer/info —
+  // which Moonraker answers precisely when a status query cannot. Null for
+  // Bambu printers and for a Klipper printer that is answering normally.
+  klippy_state?: string | null;
+  klippy_message?: string | null;
 }
 
 export interface PrinterCreate {
@@ -3423,10 +3429,21 @@ export interface AlertsLowStockSpool {
   remaining_pct: number;
 }
 
+// Voron patch series: a printer whose firmware reports a fault (Klipper in
+// shutdown or error). Not the same as unreachable — a printer switched off at
+// the wall is not an alert.
+export interface AlertsPrinterFault {
+  printer_id: number;
+  printer_name: string;
+  state: string;
+  message: string | null;
+}
+
 export interface AlertsSummary {
   maintenance_due: AlertsMaintenanceItem[];
   maintenance_warning: AlertsMaintenanceItem[];
   low_stock: AlertsLowStockSpool[];
+  printer_faults: AlertsPrinterFault[];
   low_stock_threshold_pct: number;
   total: number;
 }
