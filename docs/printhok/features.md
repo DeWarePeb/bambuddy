@@ -9,6 +9,9 @@ rewrites the SHAs but not the order or the subjects.
 
 **Legend:** ✅ done and in use · ⚠️ done with a known gap · ⬜ deliberately not done
 
+**Parts:** A — Klipper and Moonraker, built here · B — reimplemented from Printbuddy · C — Klipper
+parity, built here · D — deliberately not ported.
+
 ---
 
 ## Part A — Klipper and Moonraker (fork-original)
@@ -280,7 +283,114 @@ Translated in all fourteen locales in `d63f8954`, which also corrected the five 
 
 ---
 
-## Part C — deliberately not ported
+## Part C — Klipper parity (fork-original)
+
+Six places where a Klipper printer was still a second-class citizen next to a Bambu on the same
+dashboard. Each one is Moonraker already exposing something this fork ignored. Nothing here is ported
+from Printbuddy — it does not have any of it either.
+
+### C1 · Import past jobs from Moonraker's history ✅ `7cd26066`
+
+`POST /printers/{id}/klipper/import-history` walks `server/history/list` and writes the archive rows
+Bambuddy never saw, so a machine that has been printing for a year does not arrive with an empty
+history next to a Bambu showing months. Identity is `subtask_id = "moonraker:<job_id>"` — an existing
+indexed column that already answers "is this the same print", and one no Klipper client sets
+otherwise, so a re-run is a set difference rather than a scan of every archive's JSON.
+
+Two deliberate limits. Rows carry no file, marked the way upstream marks a print whose 3MF could not
+be fetched: pulling hundreds of multi-megabyte G-codes to fill a history view is not a trade anyone
+asked for. And grams are booked only where the slicer wrote a weight — Moonraker reports millimetres,
+converting those needs a diameter and a density this code cannot know, and a guess would land in the
+cost column of every report. The millimetres go to `extra_data`.
+
+New file `services/klipper_history.py`. Button in the printer's edit dialog: a setup-time action, run
+once per printer.
+
+### C2 · Klipper's own shutdown and error message ✅ `3b7136d9`
+
+A Klipper shutdown makes `printer/objects/query` answer 503, so the card said "Offline" — the word a
+printer switched off at the wall gets — for a machine standing there with "MCU 'mcu' shutdown: Lost
+communication with MCU" on its screen. The Klipper badge hides the connection diagnostic too, so
+there was nothing left to click.
+
+Moonraker answers `printer/info` precisely when it cannot answer a status query. The client asks on
+every failed poll, keeps the answer in `raw_data["klippy"]`, and clears it when Klipper replies
+normally. A repeat failure only re-broadcasts when the reason changed, so an offline printer does not
+push a websocket frame every two seconds. Surfaced as `klippy_state` / `klippy_message` on
+`PrinterStatus`, on the connection pill, and as a `printer_faults` group in B5's banner — faults
+only, because a printer switched off overnight is not an alert.
+
+Also closed a gap B5 left: its banner block existed in `en` and `nl` only. All fourteen now have it.
+
+### C3 · Moonraker `[power]` devices as a plug type ✅ `e7a79413`
+
+Klipper users wire a relay into Moonraker's `[power]` section rather than bolting a Tasmota on the
+wall, and none of the plug automation could see those — a Klipper printer had its socket configured
+twice or had no automation at all.
+
+A plug of type `moonraker` carries no address: it points at a printer, which already holds the URL
+and API key. The device is picked from `machine/device_power/devices`, not typed, because Moonraker
+matches names exactly and a typo would fail silently at print start. `get_energy` returns None, which
+is honest — that API answers on/off and nothing else — and every energy consumer already handles a
+plug without a meter. Unreachable stays distinct from off: an auto-off that believed a silent host
+was already off would leave a printer powered all night.
+
+New file `services/moonraker_plug.py`, one new nullable column `smart_plugs.moonraker_device`, and
+three lines at each of the two service-dispatch points.
+
+### C4 · Timelapses from moonraker-timelapse ✅ `57a8c6cc`
+
+`timelapse_was_active` was hardcoded False and upstream's whole timelapse flow is gated on it, so a
+Klipper print got neither the video nor the finish photo taken from its last frame.
+
+The flow itself needed nothing: snapshot the directory at print start, diff at completion, download,
+attach, delete, is transport-agnostic. This adds the four I/O calls spoken to Moonraker's `timelapse`
+file root — four branches in `main.py`, no restructuring — and asks whether the plugin is installed
+(`server/info` components) and switched on (`machine/timelapse/settings`, read per print, because
+that toggle gets flipped between prints).
+
+Both safety gates carry over: a short download returns None so the printer keeps its copy, and
+`settled` re-lists before the delete, because ffmpeg renders after the print ends and a file listed
+mid-render serves its own short length.
+
+New file `services/klipper_timelapse.py`.
+
+### C5 · `exclude_object` drives the skip-objects UI ✅ `08ca81c3`
+
+Cancelling one failed part is a Klipper feature every recent slicer emits, and Bambuddy already had
+the whole UI for it — modal, list, pick-on-camera overlay — built for Bambu's `skip_objects` and
+unreachable from Klipper.
+
+The route and the modal are already provider-agnostic, so this fills `printable_objects` and
+`skipped_objects` from Klipper's `exclude_object` and implements `skip_objects` on the client.
+Klipper names objects rather than numbering them, so the id is the index in the list Klipper reports
+and the client keeps the mapping — stable for the print, being the `EXCLUDE_OBJECT_DEFINE` lines the
+slicer wrote. Polygons become the bounding box the camera-pick maps clicks through, and only polygons
+do: a centre alone gives a box with no area.
+
+The objects route's two fallbacks reach for the print's 3MF over FTPS, which a Klipper printer
+neither has nor serves; both are skipped for Klipper, whose list is refreshed on every poll.
+
+### C6 · Klipper and Moonraker versions from `update_manager` ✅ `32159ee7`
+
+The Firmware page checks each printer against Bambu Lab's download page, where a Voron has no entry,
+so the row stayed blank for a machine whose Klipper might be a year behind its Moonraker.
+
+`machine/update/status` already knows. Klipper's version becomes the badge; every component rides
+along in a new `components` list, because "Klipper is behind" and "the OS has 14 packages waiting"
+are different jobs. `refresh=false` — Moonraker refreshes on its own timer and forcing one per page
+load would spend a GitHub rate limit per printer. A component Moonraker could not check reports `?`,
+which is not treated as a difference.
+
+Read-only on purpose: updating Klipper restarts it, and that belongs to whoever is standing next to
+the printer, in Mainsail. So the Klipper badge is not a button, and both firmware-upload routes
+refuse a Klipper printer rather than starting an FTPS transfer that cannot land.
+
+New file `services/klipper_update.py`.
+
+---
+
+## Part D — deliberately not ported
 
 Other printer brands (Prusa Link/Connect, Elegoo SDCP, Creality CFS, Snapmaker U1) — every extra
 provider doubles the conflict surface, and the fork's whole design is one non-Bambu transport. Panda
@@ -308,3 +418,4 @@ photo, automatic archive and file cleanup, the trash bin, and fourteen languages
 | B9 | Notify payloads unverified against the real iOS app |
 | A6 | Chamber temperature waits on `[temperature_sensor chamber]` in `printer.cfg` |
 | i18n | Russian and Ukrainian use the repository's two-form `_one`/`_other` convention throughout. Slavic plurals want `_few` and `_many`; no key anywhere in the repo has them, so this is pre-existing and affects roughly thirteen keys per locale file, not only the fork's. |
+| i18n | `npm run check:i18n` is **red**, and was before the C series: B6's and B8's blocks (`inventory.nextSlot.*`, `inventory.openFilamentDatabase.*`, the `notify` provider) shipped `en`/`nl` only, so twelve locales are 54 keys short. C2 cut that from 63 by giving the alerts banner all fourteen. `npm run test:run` runs this after vitest, so the frontend suite fails on the last step until the rest is translated. |
