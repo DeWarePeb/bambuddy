@@ -1187,7 +1187,9 @@ def _per_tool_grams_from_archive(archive) -> list[float] | None:
         return None
     path = Path(file_path)
     if not path.is_absolute():
-        path = Path(app_settings.base_dir) / path  # SEC-PATH-OK: path is archive.file_path — DB-stored, written by the archive pipeline as dest.relative_to(base_dir); same guard as spoolman_tracking
+        path = (
+            Path(app_settings.base_dir) / path
+        )  # SEC-PATH-OK: path is archive.file_path — DB-stored, written by the archive pipeline as dest.relative_to(base_dir); same guard as spoolman_tracking
     try:
         values = parse_gcode_metadata(path).get("filament_used_grams_per_tool")
     except Exception:  # noqa: BLE001

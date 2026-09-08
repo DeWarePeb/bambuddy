@@ -54,7 +54,9 @@ async def attach_gcode_to_archive(printer_manager, printer_id: int, archive_id: 
     stem = base[:-6] if base.lower().endswith(".gcode") else base
     archive_dir = settings.archive_dir / str(printer_id) / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{stem}"
     archive_dir.mkdir(parents=True, exist_ok=True)
-    dest: Path = archive_dir / base  # SEC-PATH-OK: base is filename.rsplit("/", 1)[-1] with everything outside [A-Za-z0-9._ -] replaced and dot-only names rejected above — no separator and no ".." survives
+    dest: Path = (
+        archive_dir / base
+    )  # SEC-PATH-OK: base is filename.rsplit("/", 1)[-1] with everything outside [A-Za-z0-9._ -] replaced and dot-only names rejected above — no separator and no ".." survives
     await asyncio.to_thread(dest.write_bytes, content)
     meta = await asyncio.to_thread(parse_gcode_metadata, dest)
 
