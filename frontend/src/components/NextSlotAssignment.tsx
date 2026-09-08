@@ -23,8 +23,8 @@ import { api, type InventorySpool, type PendingSlotAssignment } from '../api/cli
 import { Button } from './Button';
 import { Card, CardContent } from './Card';
 import { useToast } from '../contexts/ToastContext';
+import { PENDING_SLOT_QUERY_KEY } from '../hooks/usePendingSlotAssignments';
 
-export const PENDING_SLOT_QUERY_KEY = ['pending-slot-assignments'] as const;
 
 const TIMEOUT_OPTIONS: Array<{ seconds: number; labelKey: string }> = [
   { seconds: 900, labelKey: 'inventory.nextSlot.timeoutOptions.m15' },
@@ -34,15 +34,6 @@ const TIMEOUT_OPTIONS: Array<{ seconds: number; labelKey: string }> = [
 ];
 const DEFAULT_TIMEOUT = 1800;
 const ANY_PRINTER = 'any';
-
-export function usePendingSlotAssignments(enabled = true) {
-  return useQuery({
-    queryKey: PENDING_SLOT_QUERY_KEY,
-    queryFn: () => api.getPendingSlotAssignments(),
-    enabled,
-    refetchInterval: 30000,
-  });
-}
 
 function spoolLabel(spool: InventorySpool): string {
   return [spool.brand, spool.material, spool.subtype, spool.color_name].filter(Boolean).join(' ') || `#${spool.id}`;

@@ -23,7 +23,8 @@ import { LabelTemplatePickerModal } from '../components/LabelTemplatePickerModal
 import { SpoolCsvImportModal } from '../components/SpoolCsvImportModal';
 import { LocationsModal } from '../components/LocationsModal';
 import { BulkEditSpoolsModal } from '../components/BulkEditSpoolsModal';
-import { NextSlotBadge, NextSlotButton, usePendingSlotAssignments } from '../components/NextSlotAssignment';
+import { NextSlotBadge, NextSlotButton } from '../components/NextSlotAssignment';
+import { usePendingSlotAssignments } from '../hooks/usePendingSlotAssignments';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { colorSortKey, resolveSpoolColorName } from '../utils/colors';
