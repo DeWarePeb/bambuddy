@@ -46,11 +46,15 @@ async def attach_gcode_to_archive(printer_manager, printer_id: int, archive_id: 
         logger.warning("Klipper archive: could not fetch %s from printer %s: %s", filename, printer_id, exc)
         return False
 
-    base = _SAFE.sub("_", filename.rsplit("/", 1)[-1]).strip() or "print.gcode"
+    base = _SAFE.sub("_", filename.rsplit("/", 1)[-1]).strip()
+    if not base or base.strip(".") == "":
+        # "." and ".." survive the character filter (dots are legal in a name)
+        # and would make the join climb out of the archive directory.
+        base = "print.gcode"
     stem = base[:-6] if base.lower().endswith(".gcode") else base
     archive_dir = settings.archive_dir / str(printer_id) / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{stem}"
     archive_dir.mkdir(parents=True, exist_ok=True)
-    dest: Path = archive_dir / base
+    dest: Path = archive_dir / base  # SEC-PATH-OK: base is filename.rsplit("/", 1)[-1] with everything outside [A-Za-z0-9._ -] replaced and dot-only names rejected above — no separator and no ".." survives
     await asyncio.to_thread(dest.write_bytes, content)
     meta = await asyncio.to_thread(parse_gcode_metadata, dest)
 
