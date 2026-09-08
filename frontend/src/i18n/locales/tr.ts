@@ -1,6 +1,7 @@
 export default {
   // Navigasyon
   nav: {
+    farm: 'Komuta merkezi',
     printers: 'Yazıcılar',
     archives: 'Arşivler',
     queue: 'Baskı Kuyruğu',
@@ -221,6 +222,26 @@ export default {
 
   // Yazıcılar sayfası
   printers: {
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: 'Baskı çiftliği',
+      backToApp: 'Bambuddy\'ye dön',
+      tokenRejected: 'Bu TV bağlantısı artık geçerli değil. Token süresi dolmuş veya iptal edilmiş olabilir.',
+      refreshInterval: 'Yenileme',
+      everySeconds: '{{seconds}}s’de bir',
+      cameras: 'Kameralar',
+      total: '{{count}} yazıcı',
+      currentJob: 'Geçerli iş',
+      unnamedJob: 'Aktif baskı',
+      progress: 'Baskı ilerlemesi',
+      eta: 'Bitiş {{time}}',
+      idleHint: {
+        idle: 'Basmaya hazır',
+        finished: 'Baskı bitti, tabla henüz boşaltılmadı',
+        error: 'İlgi bekliyor',
+        offline: 'Bağlantı yok',
+      },
+    },
     title: 'Yazıcılar',
     addPrinter: 'Yazıcı Ekle',
     addPreflight: {
@@ -4038,6 +4059,79 @@ export default {
   },
 
   // Projeler
+  // Voron patch series (B11): farm command center
+  farm: {
+    title: 'Komuta merkezi',
+    subtitle: 'Baskı işletmenizin gerçek zamanlı görünümü',
+    utilization: 'Kullanım',
+    tvMode: 'TV modu',
+    fleetStatus: 'Filo durumu',
+    searchPrinters: 'Yazıcı ara...',
+    groupFilter: 'Gruba göre filtrele',
+    allGroups: 'Tüm gruplar',
+    createGroup: 'Grup oluştur',
+    ungrouped: 'Grupsuz',
+    noPrintersMatch: 'Filtrelere uyan yazıcı yok.',
+    activeProjects: 'Aktif projeler',
+    viewAllProjects: 'Tüm projeler',
+    noActiveProjects: 'Şu anda takip edilen aktif proje yok.',
+    totalCount: 'toplam {{count}}',
+    onlineCount: '{{count}} çevrimiçi',
+    offlineCount: '{{count}} çevrimdışı',
+    allOperational: 'Her şey çalışıyor',
+    needAttention_one: '{{count}} öğe ilgi bekliyor',
+    needAttention_other: '{{count}} öğe ilgi bekliyor',
+    noIssues: 'Aktif sorun yok',
+    openAlerts: 'Uyarı listesini aç',
+    filamentStock: 'Filament stoku',
+    spoolsLow_one: '{{count}} makara azaldı',
+    spoolsLow_other: '{{count}} makara azaldı',
+    maintenance: 'Bakım',
+    maintenanceDue_one: '{{count}} bakım işi ilgi bekliyor',
+    maintenanceDue_other: '{{count}} bakım işi ilgi bekliyor',
+    state: {
+      printing: 'Basıyor',
+      paused: 'Duraklatıldı',
+      idle: 'Boşta',
+      alert: 'Uyarı',
+      offline: 'Çevrimdışı',
+    },
+    stats: {
+      printing: 'Basıyor',
+      idle: 'Boşta',
+      paused: 'Duraklatıldı',
+      alerts: 'Uyarılar',
+      partsToday: 'Bugünkü parçalar',
+      ofFleet: 'filonun %{{percent}}’i',
+      alertsSub: 'Yazıcılar, stok, bakım',
+      queueTracked_one: 'kuyrukta {{count}} öğe',
+      queueTracked_other: 'kuyrukta {{count}} öğe',
+    },
+    project: {
+      queued: '{{count}} kuyrukta',
+      failed: '{{count}} başarısız',
+      complete: 'Tamamlandı',
+    },
+    alerts: {
+      title: 'Uyarılar',
+      subtitle: 'İlgi bekleyen yazıcı, filament ve bakım maddeleri.',
+      empty: 'Şu anda ilgi bekleyen bir şey yok.',
+      printerError: 'Yazıcı bir hata bildirdi',
+      printerPaused: 'Duraklatıldı - müdahale gerekebilir',
+      printerOffline: 'Çevrimdışı veya erişilemiyor',
+      spoolLow: '%{{percent}} filament kaldı',
+      maintenance: '{{item}}',
+    },
+    groups: {
+      title: 'Yazıcı grupları',
+      subtitle: 'Komuta merkezinde toplamak için yazıcıları gruplayın.',
+      nameLabel: 'Grup adı',
+      current: 'Mevcut gruplar',
+      printerCount_one: '{{count}} yazıcı',
+      printerCount_other: '{{count}} yazıcı',
+      save: 'Grubu kaydet',
+    },
+  },
   projects: {
     parentLabel: 'Üst proje',
     parentNone: 'Yok (üst düzey proje)',

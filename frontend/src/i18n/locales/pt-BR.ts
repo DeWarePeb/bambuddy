@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    farm: 'Centro de comando',
     printers: 'Impressoras',
     archives: 'Arquivos',
     queue: 'Fila de impressão',
@@ -221,6 +222,26 @@ export default {
 
   // Printers page
   printers: {
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: 'Oficina de impressão',
+      backToApp: 'Voltar ao Bambuddy',
+      tokenRejected: 'Este link de TV não é mais válido. O token expirou ou foi revogado.',
+      refreshInterval: 'Atualizar',
+      everySeconds: 'a cada {{seconds}}s',
+      cameras: 'Câmeras',
+      total: '{{count}} impressoras',
+      currentJob: 'Trabalho atual',
+      unnamedJob: 'Impressão ativa',
+      progress: 'Progresso da impressão',
+      eta: 'Fim {{time}}',
+      idleHint: {
+        idle: 'Pronta para imprimir',
+        finished: 'Impressão concluída, mesa ainda não liberada',
+        error: 'Precisa de atenção',
+        offline: 'Sem conexão',
+      },
+    },
     addPreflight: {
       checking: 'Verificando a conexão...',
       warning: 'Algumas verificações de conexão falharam. Esta impressora pode aparecer como offline. Revise as verificações abaixo, corrija o que puder ou salve mesmo assim.',
@@ -4031,6 +4052,79 @@ export default {
   },
 
   // Projects
+  // Voron patch series (B11): farm command center
+  farm: {
+    title: 'Centro de comando',
+    subtitle: 'Visão em tempo real da sua oficina de impressão',
+    utilization: 'Utilização',
+    tvMode: 'Modo TV',
+    fleetStatus: 'Estado da frota',
+    searchPrinters: 'Buscar impressoras...',
+    groupFilter: 'Filtrar por grupo',
+    allGroups: 'Todos os grupos',
+    createGroup: 'Criar grupo',
+    ungrouped: 'Sem grupo',
+    noPrintersMatch: 'Nenhuma impressora corresponde aos filtros.',
+    activeProjects: 'Projetos ativos',
+    viewAllProjects: 'Ver todos os projetos',
+    noActiveProjects: 'Nenhum projeto ativo sendo acompanhado.',
+    totalCount: '{{count}} no total',
+    onlineCount: '{{count}} online',
+    offlineCount: '{{count}} offline',
+    allOperational: 'Tudo funcionando',
+    needAttention_one: '{{count}} item precisa de atenção',
+    needAttention_other: '{{count}} itens precisam de atenção',
+    noIssues: 'Nenhum problema ativo',
+    openAlerts: 'Abrir a lista de alertas',
+    filamentStock: 'Estoque de filamento',
+    spoolsLow_one: '{{count}} carretel quase vazio',
+    spoolsLow_other: '{{count}} carretéis quase vazios',
+    maintenance: 'Manutenção',
+    maintenanceDue_one: '{{count}} item de manutenção precisa de atenção',
+    maintenanceDue_other: '{{count}} itens de manutenção precisam de atenção',
+    state: {
+      printing: 'Imprimindo',
+      paused: 'Pausada',
+      idle: 'Ociosa',
+      alert: 'Alerta',
+      offline: 'Offline',
+    },
+    stats: {
+      printing: 'Imprimindo',
+      idle: 'Ociosas',
+      paused: 'Pausadas',
+      alerts: 'Alertas',
+      partsToday: 'Peças hoje',
+      ofFleet: '{{percent}}% da frota',
+      alertsSub: 'Impressoras, estoque, manutenção',
+      queueTracked_one: '{{count}} item na fila',
+      queueTracked_other: '{{count}} itens na fila',
+    },
+    project: {
+      queued: '{{count}} na fila',
+      failed: '{{count}} com falha',
+      complete: 'Concluído',
+    },
+    alerts: {
+      title: 'Alertas',
+      subtitle: 'Impressoras, filamento e manutenção que precisam de atenção.',
+      empty: 'Nada precisa de atenção agora.',
+      printerError: 'A impressora reportou um erro',
+      printerPaused: 'Pausada - pode precisar de ajuda',
+      printerOffline: 'Offline ou inacessível',
+      spoolLow: '{{percent}}% de filamento restante',
+      maintenance: '{{item}}',
+    },
+    groups: {
+      title: 'Grupos de impressoras',
+      subtitle: 'Agrupe impressoras para organizá-las no centro de comando.',
+      nameLabel: 'Nome do grupo',
+      current: 'Grupos atuais',
+      printerCount_one: '{{count}} impressora',
+      printerCount_other: '{{count}} impressoras',
+      save: 'Salvar grupo',
+    },
+  },
   projects: {
     parentLabel: 'Projeto principal',
     parentNone: 'Nenhum (projeto de nível superior)',

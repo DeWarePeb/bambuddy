@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    farm: 'Центр керування',
     printers: "Принтери",
     archives: "Архіви",
     queue: "Черга друку",
@@ -221,6 +222,26 @@ export default {
 
   // Printers page
   printers: {
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: 'Друкарська ферма',
+      backToApp: 'Назад до Bambuddy',
+      tokenRejected: 'Це ТБ-посилання більше не дійсне. Токен минув або був відкликаний.',
+      refreshInterval: 'Оновлення',
+      everySeconds: 'кожні {{seconds}} с',
+      cameras: 'Камери',
+      total: '{{count}} принтерів',
+      currentJob: 'Поточне завдання',
+      unnamedJob: 'Активний друк',
+      progress: 'Хід друку',
+      eta: 'Готово {{time}}',
+      idleHint: {
+        idle: 'Готовий до друку',
+        finished: 'Друк завершено, стіл ще не звільнено',
+        error: 'Потребує уваги',
+        offline: 'Немає звʼязку',
+      },
+    },
     title: "Принтери",
     addPrinter: "Додати принтер",
     addPreflight: {
@@ -4071,6 +4092,79 @@ export default {
   },
 
   // Projects
+  // Voron patch series (B11): farm command center
+  farm: {
+    title: 'Центр керування фермою',
+    subtitle: 'Огляд друкарського виробництва в реальному часі',
+    utilization: 'Завантаження',
+    tvMode: 'Режим ТБ',
+    fleetStatus: 'Стан парку',
+    searchPrinters: 'Пошук принтерів...',
+    groupFilter: 'Фільтр за групою',
+    allGroups: 'Усі групи',
+    createGroup: 'Створити групу',
+    ungrouped: 'Без групи',
+    noPrintersMatch: 'Немає принтерів, що відповідають фільтрам.',
+    activeProjects: 'Активні проєкти',
+    viewAllProjects: 'Усі проєкти',
+    noActiveProjects: 'Зараз немає активних проєктів у роботі.',
+    totalCount: 'усього {{count}}',
+    onlineCount: '{{count}} на звʼязку',
+    offlineCount: '{{count}} не в мережі',
+    allOperational: 'Усе працює',
+    needAttention_one: '{{count}} пункт потребує уваги',
+    needAttention_other: '{{count}} пунктів потребують уваги',
+    noIssues: 'Активних проблем немає',
+    openAlerts: 'Відкрити список сповіщень',
+    filamentStock: 'Запас філаменту',
+    spoolsLow_one: '{{count}} котушка закінчується',
+    spoolsLow_other: '{{count}} котушок закінчуються',
+    maintenance: 'Обслуговування',
+    maintenanceDue_one: '{{count}} робота з обслуговування потребує уваги',
+    maintenanceDue_other: '{{count}} робіт з обслуговування потребують уваги',
+    state: {
+      printing: 'Друкує',
+      paused: 'Пауза',
+      idle: 'Очікує',
+      alert: 'Помилка',
+      offline: 'Не в мережі',
+    },
+    stats: {
+      printing: 'Друкує',
+      idle: 'Очікує',
+      paused: 'Пауза',
+      alerts: 'Сповіщення',
+      partsToday: 'Деталей сьогодні',
+      ofFleet: '{{percent}}% парку',
+      alertsSub: 'Принтери, запаси, обслуговування',
+      queueTracked_one: '{{count}} завдання в черзі',
+      queueTracked_other: '{{count}} завдань у черзі',
+    },
+    project: {
+      queued: '{{count}} у черзі',
+      failed: '{{count}} з помилкою',
+      complete: 'Готово',
+    },
+    alerts: {
+      title: 'Сповіщення',
+      subtitle: 'Принтери, філамент та обслуговування, що потребують уваги.',
+      empty: 'Зараз ніщо не потребує уваги.',
+      printerError: 'Принтер повідомляє про помилку',
+      printerPaused: 'Пауза - можливо, потрібна допомога',
+      printerOffline: 'Не в мережі або недоступний',
+      spoolLow: 'залишилось {{percent}}% філаменту',
+      maintenance: '{{item}}',
+    },
+    groups: {
+      title: 'Групи принтерів',
+      subtitle: 'Обʼєднайте принтери у групи для центру керування.',
+      nameLabel: 'Назва групи',
+      current: 'Поточні групи',
+      printerCount_one: '{{count}} принтер',
+      printerCount_other: '{{count}} принтерів',
+      save: 'Зберегти групу',
+    },
+  },
   projects: {
     parentLabel: "Батьківський проєкт",
     parentNone: "Немає (проєкт верхнього рівня)",

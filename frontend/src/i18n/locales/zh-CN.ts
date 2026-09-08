@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    farm: '指挥中心',
     printers: '打印机',
     archives: '归档',
     queue: '打印队列',
@@ -221,6 +222,26 @@ export default {
 
   // Printers page
   printers: {
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: '打印农场',
+      backToApp: '返回 Bambuddy',
+      tokenRejected: '此电视链接已失效。令牌可能已过期或被撤销。',
+      refreshInterval: '刷新',
+      everySeconds: '每 {{seconds}} 秒',
+      cameras: '摄像头',
+      total: '{{count}} 台打印机',
+      currentJob: '当前作业',
+      unnamedJob: '正在打印',
+      progress: '打印进度',
+      eta: '预计 {{time}}',
+      idleHint: {
+        idle: '可以开始打印',
+        finished: '打印完成，热床尚未清理',
+        error: '需要处理',
+        offline: '无连接',
+      },
+    },
     addPreflight: {
       checking: '正在检查连接...',
       warning: '部分连接检查未通过。此打印机可能显示为离线。请查看下方的检查项，尽量修复，或仍然保存。',
@@ -4031,6 +4052,79 @@ export default {
   },
 
   // Projects
+  // Voron patch series (B11): farm command center
+  farm: {
+    title: '打印农场指挥中心',
+    subtitle: '打印业务实时总览',
+    utilization: '利用率',
+    tvMode: '电视模式',
+    fleetStatus: '设备状态',
+    searchPrinters: '搜索打印机...',
+    groupFilter: '按分组筛选',
+    allGroups: '所有分组',
+    createGroup: '创建分组',
+    ungrouped: '未分组',
+    noPrintersMatch: '没有符合筛选条件的打印机。',
+    activeProjects: '进行中的项目',
+    viewAllProjects: '查看所有项目',
+    noActiveProjects: '当前没有跟踪中的项目。',
+    totalCount: '共 {{count}} 台',
+    onlineCount: '在线 {{count}} 台',
+    offlineCount: '离线 {{count}} 台',
+    allOperational: '一切正常',
+    needAttention_one: '{{count}} 项需要处理',
+    needAttention_other: '{{count}} 项需要处理',
+    noIssues: '没有待处理的问题',
+    openAlerts: '打开警报列表',
+    filamentStock: '耗材库存',
+    spoolsLow_one: '{{count}} 卷耗材不足',
+    spoolsLow_other: '{{count}} 卷耗材不足',
+    maintenance: '维护',
+    maintenanceDue_one: '{{count}} 项维护需要处理',
+    maintenanceDue_other: '{{count}} 项维护需要处理',
+    state: {
+      printing: '打印中',
+      paused: '已暂停',
+      idle: '空闲',
+      alert: '警报',
+      offline: '离线',
+    },
+    stats: {
+      printing: '打印中',
+      idle: '空闲',
+      paused: '已暂停',
+      alerts: '警报',
+      partsToday: '今日零件',
+      ofFleet: '占 {{percent}}%',
+      alertsSub: '打印机、库存、维护',
+      queueTracked_one: '队列中 {{count}} 项',
+      queueTracked_other: '队列中 {{count}} 项',
+    },
+    project: {
+      queued: '排队 {{count}}',
+      failed: '失败 {{count}}',
+      complete: '完成',
+    },
+    alerts: {
+      title: '警报',
+      subtitle: '需要处理的打印机、耗材和维护项目。',
+      empty: '当前没有需要处理的事项。',
+      printerError: '打印机报告了错误',
+      printerPaused: '已暂停 - 可能需要人工处理',
+      printerOffline: '离线或无法访问',
+      spoolLow: '剩余耗材 {{percent}}%',
+      maintenance: '{{item}}',
+    },
+    groups: {
+      title: '打印机分组',
+      subtitle: '将打印机分组，以便在指挥中心中归类显示。',
+      nameLabel: '分组名称',
+      current: '当前分组',
+      printerCount_one: '{{count}} 台打印机',
+      printerCount_other: '{{count}} 台打印机',
+      save: '保存分组',
+    },
+  },
   projects: {
     parentLabel: '父项目',
     parentNone: '无（顶级项目）',

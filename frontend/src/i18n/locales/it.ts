@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    farm: 'Centro di comando',
     printers: 'Stampanti',
     archives: 'Archivi',
     queue: 'Coda di stampa',
@@ -221,6 +222,26 @@ export default {
 
   // Printers page
   printers: {
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: 'Stamperia',
+      backToApp: 'Torna a Bambuddy',
+      tokenRejected: 'Questo link TV non è più valido. Il token è scaduto o è stato revocato.',
+      refreshInterval: 'Aggiornamento',
+      everySeconds: 'ogni {{seconds}}s',
+      cameras: 'Telecamere',
+      total: '{{count}} stampanti',
+      currentJob: 'Lavoro corrente',
+      unnamedJob: 'Stampa in corso',
+      progress: 'Avanzamento stampa',
+      eta: 'Fine {{time}}',
+      idleHint: {
+        idle: 'Pronta a stampare',
+        finished: 'Stampa finita, piatto non ancora liberato',
+        error: 'Richiede attenzione',
+        offline: 'Nessuna connessione',
+      },
+    },
     addPreflight: {
       checking: 'Verifica della connessione...',
       warning: 'Alcuni controlli di connessione non sono riusciti. Questa stampante potrebbe risultare offline. Controlla le verifiche qui sotto, risolvi ciò che puoi oppure salva comunque.',
@@ -4031,6 +4052,79 @@ export default {
   },
 
   // Projects
+  // Voron patch series (B11): farm command center
+  farm: {
+    title: 'Centro di comando',
+    subtitle: 'Panoramica in tempo reale della tua stamperia',
+    utilization: 'Utilizzo',
+    tvMode: 'Modalità TV',
+    fleetStatus: 'Stato della flotta',
+    searchPrinters: 'Cerca stampanti...',
+    groupFilter: 'Filtra per gruppo',
+    allGroups: 'Tutti i gruppi',
+    createGroup: 'Crea gruppo',
+    ungrouped: 'Senza gruppo',
+    noPrintersMatch: 'Nessuna stampante corrisponde ai filtri.',
+    activeProjects: 'Progetti attivi',
+    viewAllProjects: 'Tutti i progetti',
+    noActiveProjects: 'Nessun progetto attivo al momento.',
+    totalCount: '{{count}} in totale',
+    onlineCount: '{{count}} online',
+    offlineCount: '{{count}} offline',
+    allOperational: 'Tutto funziona',
+    needAttention_one: '{{count}} elemento richiede attenzione',
+    needAttention_other: '{{count}} elementi richiedono attenzione',
+    noIssues: 'Nessun problema attivo',
+    openAlerts: 'Apri l’elenco degli avvisi',
+    filamentStock: 'Scorte di filamento',
+    spoolsLow_one: '{{count}} bobina quasi esaurita',
+    spoolsLow_other: '{{count}} bobine quasi esaurite',
+    maintenance: 'Manutenzione',
+    maintenanceDue_one: '{{count}} intervento di manutenzione richiede attenzione',
+    maintenanceDue_other: '{{count}} interventi di manutenzione richiedono attenzione',
+    state: {
+      printing: 'In stampa',
+      paused: 'In pausa',
+      idle: 'Inattiva',
+      alert: 'Allarme',
+      offline: 'Offline',
+    },
+    stats: {
+      printing: 'In stampa',
+      idle: 'Inattive',
+      paused: 'In pausa',
+      alerts: 'Avvisi',
+      partsToday: 'Pezzi oggi',
+      ofFleet: '{{percent}}% della flotta',
+      alertsSub: 'Stampanti, scorte, manutenzione',
+      queueTracked_one: '{{count}} elemento in coda',
+      queueTracked_other: '{{count}} elementi in coda',
+    },
+    project: {
+      queued: '{{count}} in coda',
+      failed: '{{count}} fallite',
+      complete: 'Completato',
+    },
+    alerts: {
+      title: 'Avvisi',
+      subtitle: 'Stampanti, filamento e manutenzione che richiedono attenzione.',
+      empty: 'Al momento non serve fare nulla.',
+      printerError: 'La stampante segnala un errore',
+      printerPaused: 'In pausa - potrebbe servire un intervento',
+      printerOffline: 'Offline o non raggiungibile',
+      spoolLow: '{{percent}}% di filamento rimasto',
+      maintenance: '{{item}}',
+    },
+    groups: {
+      title: 'Gruppi di stampanti',
+      subtitle: 'Raggruppa le stampanti per organizzarle nel centro di comando.',
+      nameLabel: 'Nome del gruppo',
+      current: 'Gruppi attuali',
+      printerCount_one: '{{count}} stampante',
+      printerCount_other: '{{count}} stampanti',
+      save: 'Salva gruppo',
+    },
+  },
   projects: {
     parentLabel: 'Progetto principale',
     parentNone: 'Nessuno (progetto di primo livello)',

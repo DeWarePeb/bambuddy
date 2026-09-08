@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    farm: '指揮中心',
     printers: '印表機',
     archives: '歸檔',
     queue: '列印佇列',
@@ -221,6 +222,26 @@ export default {
 
   // Printers page
   printers: {
+    // TV / kiosk mode (voron B10)
+    tv: {
+      title: '列印農場',
+      backToApp: '返回 Bambuddy',
+      tokenRejected: '此電視連結已失效。權杖可能已過期或被撤銷。',
+      refreshInterval: '重新整理',
+      everySeconds: '每 {{seconds}} 秒',
+      cameras: '攝影機',
+      total: '{{count}} 台印表機',
+      currentJob: '目前作業',
+      unnamedJob: '列印中',
+      progress: '列印進度',
+      eta: '預計 {{time}}',
+      idleHint: {
+        idle: '可以開始列印',
+        finished: '列印完成，熱床尚未清理',
+        error: '需要處理',
+        offline: '無連線',
+      },
+    },
     addPreflight: {
       checking: '正在檢查連線...',
       warning: '部分連線檢查未通過。此印表機可能顯示為離線。請查看下方的檢查項目，盡量修復，或仍然儲存。',
@@ -4031,6 +4052,79 @@ export default {
   },
 
   // Projects
+  // Voron patch series (B11): farm command center
+  farm: {
+    title: '列印農場指揮中心',
+    subtitle: '列印作業即時總覽',
+    utilization: '使用率',
+    tvMode: '電視模式',
+    fleetStatus: '設備狀態',
+    searchPrinters: '搜尋印表機...',
+    groupFilter: '依群組篩選',
+    allGroups: '所有群組',
+    createGroup: '建立群組',
+    ungrouped: '未分組',
+    noPrintersMatch: '沒有符合篩選條件的印表機。',
+    activeProjects: '進行中的專案',
+    viewAllProjects: '檢視所有專案',
+    noActiveProjects: '目前沒有追蹤中的專案。',
+    totalCount: '共 {{count}} 台',
+    onlineCount: '線上 {{count}} 台',
+    offlineCount: '離線 {{count}} 台',
+    allOperational: '一切正常',
+    needAttention_one: '{{count}} 項需要處理',
+    needAttention_other: '{{count}} 項需要處理',
+    noIssues: '沒有待處理的問題',
+    openAlerts: '開啟警報清單',
+    filamentStock: '耗材庫存',
+    spoolsLow_one: '{{count}} 捲耗材不足',
+    spoolsLow_other: '{{count}} 捲耗材不足',
+    maintenance: '維護',
+    maintenanceDue_one: '{{count}} 項維護需要處理',
+    maintenanceDue_other: '{{count}} 項維護需要處理',
+    state: {
+      printing: '列印中',
+      paused: '已暫停',
+      idle: '閒置',
+      alert: '警報',
+      offline: '離線',
+    },
+    stats: {
+      printing: '列印中',
+      idle: '閒置',
+      paused: '已暫停',
+      alerts: '警報',
+      partsToday: '今日零件',
+      ofFleet: '佔 {{percent}}%',
+      alertsSub: '印表機、庫存、維護',
+      queueTracked_one: '佇列中 {{count}} 項',
+      queueTracked_other: '佇列中 {{count}} 項',
+    },
+    project: {
+      queued: '排隊 {{count}}',
+      failed: '失敗 {{count}}',
+      complete: '完成',
+    },
+    alerts: {
+      title: '警報',
+      subtitle: '需要處理的印表機、耗材與維護項目。',
+      empty: '目前沒有需要處理的事項。',
+      printerError: '印表機回報了錯誤',
+      printerPaused: '已暫停 - 可能需要人工處理',
+      printerOffline: '離線或無法連線',
+      spoolLow: '剩餘耗材 {{percent}}%',
+      maintenance: '{{item}}',
+    },
+    groups: {
+      title: '印表機群組',
+      subtitle: '將印表機分組，以便在指揮中心中歸類顯示。',
+      nameLabel: '群組名稱',
+      current: '目前群組',
+      printerCount_one: '{{count}} 台印表機',
+      printerCount_other: '{{count}} 台印表機',
+      save: '儲存群組',
+    },
+  },
   projects: {
     parentLabel: '父專案',
     parentNone: '無（頂層專案）',
