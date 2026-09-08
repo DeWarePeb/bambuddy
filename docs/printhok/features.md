@@ -224,7 +224,7 @@ free grouping string), and `iconUrl` is omitted because Printbuddy points at its
 and there is no public URL for the Printhok logo, so pushes show the app's default icon.
 **Gap:** never tested against the paid app. Whether Notify accepts the payloads is unverified.
 
-### B10 · `/tv` kiosk wall ⚠️ `9adb27eb` + `b3312677`
+### B10 · `/tv` kiosk wall ✅ `9adb27eb` + `b3312677`
 
 A wall of tiles for a screen in the workshop, with a refresh interval.
 
@@ -238,10 +238,7 @@ keeps a single render path — both modes collapse into `TvTileData` via `tileFr
 `tileFromFeed` — so the kiosk wall and the logged-in wall cannot drift apart. Tokens are minted on the
 existing Camera API Tokens page, which hands back a ready `/tv?token=…` URL (`&cams=0` hides the camera
 images, `&refresh=10` sets the poll cadence).
-**Gap:** the `printers.tv.*` block — the page's own strings, including `tokenRejected` — exists in
-`en` and `nl` only; the other twelve locales fall back to English. The four `cameraTokens` strings
-that mint a TV token *are* in all fourteen, so the admin side is fully translated and the wall itself
-is not.
+Translated in all fourteen locales since `d63f8954`; it shipped `en`/`nl` only.
 
 ### B11 · Farm command center at `/farm` ✅
 
@@ -278,8 +275,8 @@ Printbuddy's `/farm-monitor`, and the alert builder returns i18n keys instead of
 sentences. Printbuddy's *Dispatch Suggestions* panel is not included — it only ever
 restated queued and failed counts that B4 already puts on the Projects page.
 
-**Gap:** `farm.*` exists in `en` and `nl` only; the other twelve locales fall back to
-English.
+Translated in all fourteen locales in `d63f8954`, which also corrected the five count-bearing
+`farm` keys from a bare base key to the `_one`/`_other` pairs the rest of the codebase uses.
 
 ---
 
@@ -309,6 +306,5 @@ photo, automatic archive and file cleanup, the trash bin, and fourteen languages
 | | |
 |---|---|
 | B9 | Notify payloads unverified against the real iOS app |
-| B10 | `printers.tv.*` page strings in `en` and `nl` only; the `cameraTokens` strings are in all fourteen |
 | A6 | Chamber temperature waits on `[temperature_sensor chamber]` in `printer.cfg` |
-| B11 | `farm.*` page strings in `en` and `nl` only |
+| i18n | Russian and Ukrainian use the repository's two-form `_one`/`_other` convention throughout. Slavic plurals want `_few` and `_many`; no key anywhere in the repo has them, so this is pre-existing and affects roughly thirteen keys per locale file, not only the fork's. |
