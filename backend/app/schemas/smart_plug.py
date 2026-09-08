@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class SmartPlugBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    plug_type: Literal["tasmota", "homeassistant", "mqtt", "rest"] = "tasmota"
+    plug_type: Literal["tasmota", "homeassistant", "mqtt", "rest", "moonraker"] = "tasmota"
 
     # Tasmota fields (required when plug_type="tasmota")
     ip_address: str | None = Field(default=None, pattern=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
@@ -65,6 +65,10 @@ class SmartPlugBase(BaseModel):
     rest_energy_total_path: str | None = Field(default=None, max_length=200)
     rest_energy_total_multiplier: float = Field(default=1.0, ge=0.0001, le=10000)
 
+    # Voron patch series (C3): Moonraker [power] device name; the URL and API
+    # key come from the linked printer.
+    moonraker_device: str | None = Field(default=None, max_length=100)
+
     printer_id: int | None = None
     # #2629: only a plug that really feeds the printer may mark it offline when
     # it switches off. Accessory plugs (filter fan, lights) are linked to a
@@ -114,6 +118,13 @@ class SmartPlugBase(BaseModel):
         if self.plug_type == "rest":
             if not self.rest_on_url and not self.rest_off_url:
                 raise ValueError("At least one of ON URL or OFF URL is required for REST plugs")
+        # Voron patch series (C3): a Moonraker plug is a printer plus a device
+        # name; the Moonraker URL and API key come from the printer.
+        if self.plug_type == "moonraker":
+            if not self.printer_id:
+                raise ValueError("A Klipper printer must be selected for Moonraker power devices")
+            if not self.moonraker_device:
+                raise ValueError("moonraker_device is required for Moonraker power devices")
         return self
 
 
@@ -123,7 +134,7 @@ class SmartPlugCreate(SmartPlugBase):
 
 class SmartPlugUpdate(BaseModel):
     name: str | None = None
-    plug_type: Literal["tasmota", "homeassistant", "mqtt", "rest"] | None = None
+    plug_type: Literal["tasmota", "homeassistant", "mqtt", "rest", "moonraker"] | None = None
     ip_address: str | None = None
     ha_entity_id: str | None = None
     # Home Assistant energy sensor entities (optional)
@@ -163,6 +174,7 @@ class SmartPlugUpdate(BaseModel):
     rest_energy_multiplier: float | None = Field(default=None, ge=0.0001, le=10000)
     rest_energy_total_path: str | None = None
     rest_energy_total_multiplier: float | None = Field(default=None, ge=0.0001, le=10000)
+    moonraker_device: str | None = None
     printer_id: int | None = None
     # #2629: see SmartPlugBase.controls_printer_power.
     controls_printer_power: bool | None = None

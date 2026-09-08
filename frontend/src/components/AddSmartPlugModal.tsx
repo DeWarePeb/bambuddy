@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { X, Save, Loader2, Wifi, WifiOff, CheckCircle, Bell, Clock, LayoutGrid, Search, Plug, Power, Home, Radio, Eye, Globe } from 'lucide-react';
+import { X, Save, Loader2, Wifi, WifiOff, CheckCircle, Bell, Clock, LayoutGrid, Search, Plug, Power, Home, Radio, Eye, Globe, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import type { SmartPlug, SmartPlugCreate, SmartPlugUpdate, DiscoveredTasmotaDevice } from '../api/client';
@@ -17,7 +17,9 @@ export function AddSmartPlugModal({ plug, onClose }: AddSmartPlugModalProps) {
   const isEditing = !!plug;
 
   // Plug type selection
-  const [plugType, setPlugType] = useState<'tasmota' | 'homeassistant' | 'mqtt' | 'rest'>(plug?.plug_type || 'tasmota');
+  const [plugType, setPlugType] = useState<'tasmota' | 'homeassistant' | 'mqtt' | 'rest' | 'moonraker'>(plug?.plug_type || 'tasmota');
+  // Voron patch series (C3): a Moonraker [power] device on the linked printer.
+  const [moonrakerDevice, setMoonrakerDevice] = useState<string>(plug?.moonraker_device || '');
 
   const [name, setName] = useState(plug?.name || '');
   // Tasmota fields
@@ -311,6 +313,19 @@ export function AddSmartPlugModal({ plug, onClose }: AddSmartPlugModalProps) {
     return true;
   });
 
+  // Voron patch series (C3): a Moonraker power device belongs to a Klipper
+  // printer — that printer holds the URL and API key the plug switches through.
+  const klipperPrinterId =
+    plugType === 'moonraker' && printerId !== null && printers?.some((p) => p.id === printerId && p.provider === 'klipper')
+      ? printerId
+      : null;
+  const moonrakerDevicesQuery = useQuery({
+    queryKey: ['moonraker-power-devices', klipperPrinterId],
+    queryFn: () => api.listMoonrakerPowerDevices(klipperPrinterId as number),
+    enabled: klipperPrinterId !== null,
+    retry: false,
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -345,6 +360,19 @@ export function AddSmartPlugModal({ plug, onClose }: AddSmartPlugModalProps) {
     if (plugType === 'rest') {
       if (!restOnUrl.trim() && !restOffUrl.trim()) {
         setError(t('smartPlugs.restUrlRequired'));
+        return;
+      }
+    }
+
+    // Voron patch series (C3): both halves are required — the printer supplies
+    // the connection, the device name says which relay to switch.
+    if (plugType === 'moonraker') {
+      if (klipperPrinterId === null) {
+        setError(t('smartPlugs.moonrakerPrinterRequired'));
+        return;
+      }
+      if (!moonrakerDevice) {
+        setError(t('smartPlugs.moonrakerDeviceRequired'));
         return;
       }
     }
@@ -390,6 +418,7 @@ export function AddSmartPlugModal({ plug, onClose }: AddSmartPlugModalProps) {
       rest_energy_total_multiplier: plugType === 'rest' ? (parseFloat(restEnergyTotalMultiplier) || 1) : 1,
       username: plugType === 'tasmota' ? (username.trim() || null) : null,
       password: plugType === 'tasmota' ? (password.trim() || null) : null,
+      moonraker_device: plugType === 'moonraker' ? (moonrakerDevice || null) : null,
       printer_id: printerId,
       controls_printer_power: controlsPrinterPower,
       // Power alerts
@@ -511,6 +540,59 @@ export function AddSmartPlugModal({ plug, onClose }: AddSmartPlugModalProps) {
                 <Globe className="w-4 h-4" />
                 REST
               </button>
+              {/* Voron patch series (C3): only offered when there is a Klipper
+                  printer to attach it to — the device list lives on Moonraker. */}
+              {(availablePrinters ?? []).some((p) => p.provider === 'klipper') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlugType('moonraker');
+                    setTestResult(null);
+                    setError(null);
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                    plugType === 'moonraker'
+                      ? 'bg-bambu-green text-white'
+                      : 'bg-bambu-dark text-bambu-gray hover:text-white border border-bambu-dark-tertiary'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  Moonraker
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Voron patch series (C3): pick the [power] device off the printer's
+              own Moonraker. Named, not typed: Moonraker matches device names
+              exactly, and a typo would fail silently at print start. */}
+          {plugType === 'moonraker' && (
+            <div>
+              <label className="block text-sm text-bambu-gray mb-1">{t('smartPlugs.moonrakerDevice')}</label>
+              {!klipperPrinterId ? (
+                <p className="text-xs text-bambu-gray">{t('smartPlugs.moonrakerPickPrinter')}</p>
+              ) : moonrakerDevicesQuery.isLoading ? (
+                <p className="text-xs text-bambu-gray">{t('common.loading')}</p>
+              ) : moonrakerDevicesQuery.isError ? (
+                <p className="text-xs text-status-error">{t('smartPlugs.moonrakerDevicesFailed')}</p>
+              ) : (moonrakerDevicesQuery.data ?? []).length === 0 ? (
+                <p className="text-xs text-bambu-gray">{t('smartPlugs.moonrakerNoDevices')}</p>
+              ) : (
+                <select
+                  value={moonrakerDevice}
+                  onChange={(e) => setMoonrakerDevice(e.target.value)}
+                  className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                >
+                  <option value="">{t('smartPlugs.moonrakerSelectDevice')}</option>
+                  {moonrakerDevicesQuery.data?.map((d) => (
+                    <option key={d.device} value={d.device}>
+                      {d.device}
+                      {d.type ? ` (${d.type})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-xs text-bambu-gray mt-1">{t('smartPlugs.moonrakerDeviceHelp')}</p>
             </div>
           )}
 

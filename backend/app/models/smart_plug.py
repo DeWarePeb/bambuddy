@@ -80,6 +80,12 @@ class SmartPlug(Base):
     rest_energy_total_path: Mapped[str | None] = mapped_column(String(200), nullable=True)
     rest_energy_total_multiplier: Mapped[float] = mapped_column(Float, server_default="1.0")
 
+    # Voron patch series (C3): a Moonraker `[power]` device, named as Moonraker
+    # names it. Plugs of type "moonraker" carry no address of their own — the
+    # linked printer already holds the Moonraker URL and API key, so editing
+    # either in one place keeps the plug working.
+    moonraker_device: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # Link to printer (multiple plugs/scripts can be linked to one printer)
     printer_id: Mapped[int | None] = mapped_column(ForeignKey("printers.id", ondelete="SET NULL"), nullable=True)
 

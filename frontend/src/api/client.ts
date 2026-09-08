@@ -2142,7 +2142,7 @@ export interface CloudDevice {
 export interface SmartPlug {
   id: number;
   name: string;
-  plug_type: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
+  plug_type: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest' | 'moonraker';
   ip_address: string | null;  // Required for Tasmota
   ha_entity_id: string | null;  // Required for Home Assistant (e.g., "switch.printer_plug", "script.turn_on_printer")
   // Home Assistant energy sensor entities (optional)
@@ -2185,6 +2185,8 @@ export interface SmartPlug {
   // this; Today and Yesterday are derived from its hourly snapshots.
   rest_energy_total_path: string | null;
   rest_energy_total_multiplier: number;
+  // Voron patch series (C3): Moonraker [power] device name for plug_type "moonraker".
+  moonraker_device: string | null;
   printer_id: number | null;
   // #2629: only a plug that really feeds the printer may mark it offline when
   // switched off. Accessory plugs follow the print cycle without powering it.
@@ -2223,7 +2225,7 @@ export interface SmartPlug {
 
 export interface SmartPlugCreate {
   name: string;
-  plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
+  plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest' | 'moonraker';
   ip_address?: string | null;  // Required for Tasmota
   ha_entity_id?: string | null;  // Required for Home Assistant
   // Home Assistant energy sensor entities (optional)
@@ -2264,6 +2266,7 @@ export interface SmartPlugCreate {
   rest_energy_multiplier?: number;
   rest_energy_total_path?: string | null;
   rest_energy_total_multiplier?: number;
+  moonraker_device?: string | null;
   printer_id?: number | null;
   // #2629
   controls_printer_power?: boolean;
@@ -2294,7 +2297,7 @@ export interface SmartPlugCreate {
 
 export interface SmartPlugUpdate {
   name?: string;
-  plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
+  plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest' | 'moonraker';
   ip_address?: string | null;
   ha_entity_id?: string | null;
   // Home Assistant energy sensor entities (optional)
@@ -2334,6 +2337,7 @@ export interface SmartPlugUpdate {
   rest_energy_multiplier?: number;
   rest_energy_total_path?: string | null;
   rest_energy_total_multiplier?: number;
+  moonraker_device?: string | null;
   printer_id?: number | null;
   // #2629
   controls_printer_power?: boolean;
@@ -6096,6 +6100,11 @@ export const api = {
   getSmartPlug: (id: number) => request<SmartPlug>(`/smart-plugs/${id}`),
   getSmartPlugByPrinter: (printerId: number) => request<SmartPlug | null>(`/smart-plugs/by-printer/${printerId}`),
   getScriptPlugsByPrinter: (printerId: number) => request<SmartPlug[]>(`/smart-plugs/by-printer/${printerId}/scripts`),
+  // Voron patch series (C3): the [power] devices a Klipper printer's Moonraker knows.
+  listMoonrakerPowerDevices: (printerId: number) =>
+    request<{ device: string; status: string | null; type: string | null }[]>(
+      `/smart-plugs/moonraker/devices/${printerId}`,
+    ),
   createSmartPlug: (data: SmartPlugCreate) =>
     request<SmartPlug>('/smart-plugs/', {
       method: 'POST',

@@ -33,6 +33,8 @@ from backend.app.schemas.smart_plug import (
 )
 from backend.app.services.discovery import tasmota_scanner
 from backend.app.services.homeassistant import homeassistant_service
+from backend.app.services.moonraker_plug import list_devices as list_moonraker_power_devices
+from backend.app.services.moonraker_plug import moonraker_plug_service
 from backend.app.services.mqtt_relay import mqtt_relay
 from backend.app.services.mqtt_smart_plug import subscribe_plug_to_mqtt
 from backend.app.services.notification_service import notification_service
@@ -451,6 +453,29 @@ async def list_ha_entities(
     return [HAEntity(**e) for e in entities]
 
 
+@router.get("/moonraker/devices/{printer_id}")
+async def list_moonraker_devices(
+    printer_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.SMART_PLUGS_READ),
+):
+    """The `[power]` devices configured on a Klipper printer's Moonraker (Voron patch series).
+
+    Fills the picker in the plug dialog, so a device is chosen by name rather
+    than typed — Moonraker matches its device names exactly.
+    """
+    printer = (await db.execute(select(Printer).where(Printer.id == printer_id))).scalar_one_or_none()
+    if printer is None:
+        raise HTTPException(404, "Printer not found")
+    if getattr(printer, "provider", "bambu") != "klipper" or not printer.api_url:
+        raise HTTPException(400, "Moonraker power devices are only available for Klipper printers")
+    try:
+        return await list_moonraker_power_devices(printer.api_url, printer.auth_token)
+    except Exception as exc:  # noqa: BLE001 - host down, or [power] not configured at all
+        logger.warning("Could not list Moonraker power devices for printer %s: %s", printer_id, exc)
+        raise HTTPException(502, f"Could not reach Moonraker: {exc}") from exc
+
+
 @router.get("/ha/sensors", response_model=list[HASensorEntity])
 async def list_ha_sensor_entities(
     db: AsyncSession = Depends(get_db),
@@ -622,6 +647,9 @@ async def _get_service_for_plug(plug: SmartPlug, db: AsyncSession):
         return homeassistant_service
     if plug.plug_type == "rest":
         return rest_smart_plug_service
+    # Voron patch series (C3): a Moonraker [power] device on the linked printer.
+    if plug.plug_type == "moonraker":
+        return moonraker_plug_service
     return tasmota_service
 
 

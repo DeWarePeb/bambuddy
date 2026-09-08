@@ -1787,6 +1787,9 @@ async def run_migrations(conn):
     # Migration: Add auto_off_executed column to smart_plugs
     await _safe_execute(conn, "ALTER TABLE smart_plugs ADD COLUMN auto_off_executed BOOLEAN DEFAULT 0")
 
+    # Voron patch series (C3): Moonraker [power] device name for plug_type "moonraker"
+    await _safe_execute(conn, "ALTER TABLE smart_plugs ADD COLUMN moonraker_device VARCHAR(100)")
+
     # Migration: Add on_print_stopped column to notification_providers
     await _safe_execute(conn, "ALTER TABLE notification_providers ADD COLUMN on_print_stopped BOOLEAN DEFAULT 1")
     await _safe_execute(conn, "ALTER TABLE notification_providers ADD COLUMN on_print_almost_done BOOLEAN DEFAULT 0")
