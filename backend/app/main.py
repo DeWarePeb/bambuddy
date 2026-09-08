@@ -4838,9 +4838,16 @@ async def _list_timelapse_videos(printer) -> tuple[list[dict], str | None]:
     card" — see :func:`_timelapse_listing_is_trustworthy`, which the two
     baseline callers consult before believing one.
     """
+    from backend.app.services import klipper_timelapse
     from backend.app.services.bambu_ftp import list_files_async
 
     logger = logging.getLogger(__name__)
+
+    # Voron patch series (C4): Moonraker's own timelapse root. Everything the
+    # scan does around this — baseline, set-difference, retries, attach, delete
+    # — is transport-agnostic and stays exactly as it is.
+    if klipper_timelapse.is_klipper(printer):
+        return await klipper_timelapse.list_videos(printer), "timelapse"
 
     # No card in the slot means no /timelapse to walk — four connections that
     # can only fail, on a path whose failures are swallowed and so would go on
@@ -5155,6 +5162,7 @@ async def _attach_first_unclaimed_timelapse(
     already seen this exact listing — the poll runs for many rounds and only the
     rounds where something changed are worth an INFO line.
     """
+    from backend.app.services import klipper_timelapse
     from backend.app.services.bambu_ftp import (
         delete_archived_timelapse,
         download_file_bytes_async,
@@ -5213,13 +5221,20 @@ async def _attach_first_unclaimed_timelapse(
     # depend on a size we actually had, not on one we hoped was there.
     expected_size = target.get("size")
 
-    timelapse_data = await download_file_bytes_async(
-        printer.ip_address,
-        printer.access_code,
-        remote_path,
-        printer_model=printer.model,
-        expected_size=expected_size,
-    )
+    # Voron patch series (C4): same three steps over Moonraker for a Klipper
+    # printer — fetch with a length check, confirm it stopped growing, and only
+    # then let the delete below run.
+    is_klipper = klipper_timelapse.is_klipper(printer)
+    if is_klipper:
+        timelapse_data = await klipper_timelapse.download(printer, remote_path, expected_size)
+    else:
+        timelapse_data = await download_file_bytes_async(
+            printer.ip_address,
+            printer.access_code,
+            remote_path,
+            printer_model=printer.model,
+            expected_size=expected_size,
+        )
     if not timelapse_data:
         # Short or failed transfer. The printer keeps its copy, so the next
         # round can try again — which is exactly why the delete below is
@@ -5231,13 +5246,18 @@ async def _attach_first_unclaimed_timelapse(
     # printer had finished writing. A video still being written can be listed
     # short, served short, and pass — so confirm it has stopped growing before
     # committing to it and deleting the original (#2704).
-    if not await remote_file_settled(
-        printer.ip_address,
-        printer.access_code,
-        remote_path,
-        len(timelapse_data),
-        printer_model=printer.model,
-    ):
+    settled = (
+        await klipper_timelapse.settled(printer, remote_path, len(timelapse_data))
+        if is_klipper
+        else await remote_file_settled(
+            printer.ip_address,
+            printer.access_code,
+            remote_path,
+            len(timelapse_data),
+            printer_model=printer.model,
+        )
+    )
+    if not settled:
         return False
 
     # Write phase: attach in a fresh short-lived session.
@@ -5250,14 +5270,17 @@ async def _attach_first_unclaimed_timelapse(
     logger.info("[TIMELAPSE] Successfully attached timelapse to archive %s", archive_id)
     await ws_manager.send_archive_updated({"id": archive_id, "timelapse_attached": True})
 
-    await delete_archived_timelapse(
-        printer.ip_address,
-        printer.access_code,
-        remote_path,
-        verified=expected_size is not None,
-        printer_model=printer.model,
-        printer_name=printer.name,
-    )
+    if is_klipper:
+        await klipper_timelapse.delete(printer, remote_path)
+    else:
+        await delete_archived_timelapse(
+            printer.ip_address,
+            printer.access_code,
+            remote_path,
+            verified=expected_size is not None,
+            printer_model=printer.model,
+            printer_name=printer.name,
+        )
     return True
 
 

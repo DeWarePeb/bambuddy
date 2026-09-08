@@ -196,6 +196,9 @@ class MoonrakerClient:
         # Why the printer is not answering, when it is not answering: Klipper's
         # own state and message from ``printer/info``. Empty while all is well.
         self._klippy: dict[str, Any] = {}
+        # moonraker-timelapse present in Moonraker's component list (C4).
+        # Whether it is switched *on* is asked per print, not cached.
+        self._timelapse_component = False
         self._mmu = False
         self._mmu_num_gates = 0
         self._ams_units: list[dict[str, Any]] = []
@@ -251,6 +254,8 @@ class MoonrakerClient:
             info = self._get("server/info")
             self.state.connected = True
             self.state.firmware_version = str(info.get("moonraker_version") or "") or None
+            # C4: does this Moonraker have moonraker-timelapse installed at all?
+            self._timelapse_component = "timelapse" in (info.get("components") or [])
             self.last_connect_error = None
             self._discover_objects()
             self.request_status_update()
@@ -605,6 +610,26 @@ class MoonrakerClient:
         )
         return self.send_gcode(command) if command else False
 
+    def _timelapse_recording(self) -> bool:
+        """Whether moonraker-timelapse is installed *and* switched on (C4).
+
+        Gates upstream's whole timelapse flow, which is why it is asked here
+        rather than assumed: a Klipper printer with the component installed but
+        the toggle off produces no video, and a scan for one would poll a
+        printer for two minutes on every single print for nothing.
+
+        Read at the lifecycle transition rather than cached at connect —
+        moonraker-timelapse's own UI can flip `enabled` between prints, which
+        is exactly how people use it.
+        """
+        if not self._timelapse_component:
+            return False
+        try:
+            settings = self._get("machine/timelapse/settings")
+        except Exception:  # noqa: BLE001 - component gone or host busy; claim nothing
+            return False
+        return bool(settings.get("enabled"))
+
     def _load_metadata(self, filename: str) -> None:
         if filename == self._metadata_for:
             return
@@ -637,7 +662,7 @@ class MoonrakerClient:
             "remaining_time": self.state.remaining_time * 60 if self.state.remaining_time > 0 else None,
             "raw_data": self.state.raw_data,
             "ams_mapping": None,
-            "timelapse_was_active": False,
+            "timelapse_was_active": self._timelapse_recording(),
             "hms_errors": [],
             "last_progress": self._last_progress,
             "last_layer_num": self._last_layer_num,
