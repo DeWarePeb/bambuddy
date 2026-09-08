@@ -74,6 +74,7 @@ from backend.app.api.routes import (
     spoolman_inventory,
     support,
     system,
+    tv,
     updates,
     user_notifications,
     users,
@@ -9463,6 +9464,12 @@ PUBLIC_API_ROUTES = {
     # rejects an absent, expired, revoked, or wrong-scoped token. In particular a
     # plain ``camera_stream`` token does NOT open this door.
     "/api/v1/camwall/printers",
+    # TV / kiosk feed (voron B10): same arrangement as the Cam Wall entry above.
+    # It shows more than the wall does — the file on the bed and the spool
+    # feeding it — so it sits behind its own ``tv`` scope. The route runs
+    # RequireTvTokenIfAuthEnabled: a camwall, overlay or camera_stream token
+    # does NOT open it.
+    "/api/v1/tv/printers",
 }
 
 # Route prefixes that are public (for routes with dynamic segments)
@@ -9864,6 +9871,7 @@ app.include_router(maintenance.router, prefix=app_settings.api_prefix)
 app.include_router(alerts.router, prefix=app_settings.api_prefix)  # voron B5
 app.include_router(camera.router, prefix=app_settings.api_prefix)
 app.include_router(camwall.router, prefix=app_settings.api_prefix)
+app.include_router(tv.router, prefix=app_settings.api_prefix)
 app.include_router(external_links.router, prefix=app_settings.api_prefix)
 app.include_router(projects.router, prefix=app_settings.api_prefix)
 app.include_router(library.router, prefix=app_settings.api_prefix)

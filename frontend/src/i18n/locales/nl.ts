@@ -340,6 +340,7 @@ export default {
     tv: {
       title: 'Printfarm',
       backToApp: 'Terug naar Bambuddy',
+      tokenRejected: 'Deze tv-link is niet meer geldig. Het token is mogelijk verlopen of ingetrokken.',
       refreshInterval: 'Verversen',
       everySeconds: 'elke {{seconds}}s',
       cameras: "Camera's",
@@ -7571,6 +7572,7 @@ export default {
       camera_stream: 'Camerastream',
       camwall: 'Cameramuur',
       overlay: 'Streamingoverlay',
+      tv: 'TV / kiosk',
     },
     title: 'Camera-API-tokens',
     navTitle: 'Camera-API-tokens',
@@ -7591,6 +7593,8 @@ export default {
         'Een Cameramuur-token opent /camwall op een scherm zonder login. Het kan de naam en status van elke printer en hun camerastreams zien. Het kan geen bestandsnamen, adressen of toegangscodes zien.',
       hintOverlay:
         'Een Streaming Overlay-token opent /overlay/{printerId} op een scherm zonder login — voor OBS of een livestream. Het kan de camerastream van één printer plus de live afdrukstatus zien, inclusief de bestandsnaam op het scherm. Het kan geen adressen of toegangscodes zien.',
+      hintTv:
+        'Een TV-token opent /tv op een scherm zonder login — een wandscherm, een Pi in kioskmodus. Het kan van elke printer de status, het bestand dat wordt geprint, de voortgang en de geladen spoel zien, plus hun camerabeelden. Het kan geen adressen of toegangscodes zien.',
       title: 'Nieuw token aanmaken',
       nameLabel: 'Tokennaam',
       namePlaceholder: 'bijv. Home Assistant',
@@ -7606,6 +7610,9 @@ export default {
       overlayUrlTitle: 'Overlay-URL voor OBS',
       overlayUrlHint:
         'Voeg dit toe als Browser Source in OBS. Wijzig het nummer /overlay/1 in het nummer van je printer (uit de URL op de pagina Printers). Iedereen die de URL kan lezen kan de stream bekijken, dus behandel hem als een sleutel — trek het token in om de toegang te stoppen.',
+      tvUrlTitle: 'TV-URL voor dit scherm',
+      tvUrlHint:
+        'Open dit op het scherm. Voeg &cams=0 toe om de camerabeelden te verbergen, of &refresh=10 om te wijzigen hoe vaak er wordt ververst. Iedereen die de URL kan lezen kan het scherm bekijken, dus behandel hem als een sleutel — trek het token in om de toegang te stoppen.',
       title: 'Token aangemaakt — kopieer het nu',
       warning:
         'Dit is de enige keer dat dit token zichtbaar is. Nadat je dit venster sluit kun je het nooit meer bekijken.',

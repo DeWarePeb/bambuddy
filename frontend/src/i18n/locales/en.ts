@@ -340,6 +340,7 @@ export default {
     tv: {
       title: 'Print farm',
       backToApp: 'Back to Bambuddy',
+      tokenRejected: 'This TV link is no longer valid. The token may have expired or been revoked.',
       refreshInterval: 'Refresh',
       everySeconds: 'every {{seconds}}s',
       cameras: 'Cameras',
@@ -7571,6 +7572,7 @@ export default {
       camera_stream: 'Camera stream',
       camwall: 'Cam Wall',
       overlay: 'Streaming Overlay',
+      tv: 'TV / kiosk',
     },
     title: 'Camera API Tokens',
     navTitle: 'Camera API tokens',
@@ -7591,6 +7593,8 @@ export default {
         "A Cam Wall token opens /camwall on a screen with no login. It can see every printer's name and state, and their camera streams. It cannot see filenames, addresses or access codes.",
       hintOverlay:
         "A Streaming Overlay token opens /overlay/{printerId} on a screen with no login — for OBS or any live stream. It can see one printer's camera stream plus its live print status, including the filename shown on screen. It cannot see addresses or access codes.",
+      hintTv:
+        'A TV token opens /tv on a screen with no login — a wall display, a Pi in kiosk mode. It can see every printer\'s state, the file being printed, progress and the loaded spool, plus their camera snapshots. It cannot see addresses or access codes.',
       title: 'Create new token',
       nameLabel: 'Token name',
       namePlaceholder: 'e.g. Home Assistant',
@@ -7606,6 +7610,9 @@ export default {
       overlayUrlTitle: 'Overlay URL for OBS',
       overlayUrlHint:
         "Add this as a Browser Source in OBS. Change the /overlay/1 number to your printer's number (from its URL on the Printers page). Anyone who can read the URL can watch the stream, so treat it like a key — revoke the token to cut it off.",
+      tvUrlTitle: 'TV URL for this display',
+      tvUrlHint:
+        'Open this on the screen. Add &cams=0 to hide the camera frames, or &refresh=10 to change how often it polls. Anyone who can read the URL can watch the wall, so treat it like a key — revoke the token to cut the display off.',
       title: 'Token created — copy it now',
       warning:
         'This is the only time this token will be visible. After you close this dialog you can never view it again.',

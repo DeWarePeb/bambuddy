@@ -294,7 +294,10 @@ export interface SystemHealthResult {
 // 'camera_stream' reaches the video endpoints only. 'camwall' additionally
 // reaches the read-only Cam Wall feed, which names the printers (#2531), so it
 // is a separate scope rather than a widening of tokens already in the wild.
-export type LongLivedTokenScope = 'camera_stream' | 'camwall' | 'overlay';
+// 'overlay' reaches one printer's live status including the filename, and 'tv'
+// reaches the whole TV wall's status tiles (filename and loaded spool), so each
+// is again its own grant rather than a widening of an existing one.
+export type LongLivedTokenScope = 'camera_stream' | 'camwall' | 'overlay' | 'tv';
 
 export interface LongLivedCameraToken {
   id: number;
@@ -346,6 +349,37 @@ export interface OverlayStatus {
   // without a real sensor.
   temperatures: Record<string, number>;
   time_format: 'system' | '12h' | '24h';
+}
+
+// One tile of the token-authenticated TV feed (voron B10). Flatter than
+// PrinterStatus and narrower: no serial, no IP, no AMS beyond the one tray that
+// is actually feeding the hotend — the server resolves `tray_now` so a wall
+// token never sees the other slots. It does name the file on the bed, which is
+// exactly why it needs the `tv` scope rather than `camwall`.
+export interface TvFeedPrinter {
+  id: number;
+  name: string;
+  model: string | null;
+  location: string | null;
+  provider: PrinterProvider;
+  external_camera_enabled: boolean;
+  camera_rotation: number;
+  connected: boolean;
+  state: string | null;
+  current_print: string | null;
+  subtask_name: string | null;
+  gcode_file: string | null;
+  progress: number | null;
+  remaining_time: number | null;
+  layer_num: number | null;
+  total_layers: number | null;
+  hms_errors: HMSError[];
+  tray: {
+    tray_type: string | null;
+    tray_sub_brands: string | null;
+    tray_color: string | null;
+    remain: number | null;
+  } | null;
 }
 
 // Printer types
@@ -7021,6 +7055,13 @@ export const api = {
       token
         ? `/printers/${printerId}/overlay-status?token=${encodeURIComponent(token)}`
         : `/printers/${printerId}/overlay-status`,
+    ),
+  // Token-authenticated TV feed (voron B10). One request for the whole wall
+  // instead of the signed-in page's printers + N statuses. `token` is omitted
+  // only when auth is disabled, where the backend gate is a no-op.
+  getTvPrinters: (token?: string) =>
+    request<TvFeedPrinter[]>(
+      token ? `/tv/printers?token=${encodeURIComponent(token)}` : '/tv/printers',
     ),
   getCameraStreamUrl: (printerId: number, fps = 10) =>
     withStreamToken(`${API_BASE}/printers/${printerId}/camera/stream?fps=${fps}`),

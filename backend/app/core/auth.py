@@ -893,6 +893,22 @@ async def verify_overlay_token(token: str) -> bool:
         return record is not None
 
 
+async def verify_tv_token(token: str) -> bool:
+    """Verify a TV / kiosk token (voron B10). Reusable — does not consume it.
+
+    Only the long-lived ``tv`` scope passes. The TV feed names the file on the
+    bed and the spool feeding it for every printer at once, so neither a
+    ``camwall`` token (trusted to hide the part name) nor an ``overlay`` token
+    (granted for one printer) may open it, and a bare ``camera_stream`` token
+    was handed out for video alone.
+    """
+    async with async_session() as db:
+        from backend.app.services.long_lived_tokens import verify_token as verify_long_lived
+
+        record = await verify_long_lived(db, token, scope="tv")
+        return record is not None
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash.
 
@@ -2101,6 +2117,31 @@ def require_overlay_token_if_auth_enabled():
 
 
 RequireOverlayTokenIfAuthEnabled = Depends(require_overlay_token_if_auth_enabled())
+
+
+def require_tv_token_if_auth_enabled():
+    """Dependency that validates a TV / kiosk token query param when auth is
+    enabled.
+
+    Used by the read-only TV feed (voron B10), which a screen pinned to the
+    wall loads with the token in the URL because it has no login session to
+    carry a JWT.
+    """
+
+    async def checker(token: str | None = None) -> None:
+        async with async_session() as db:
+            if not await is_auth_enabled(db):
+                return  # Auth disabled, allow access
+        if not token or not await verify_tv_token(token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Valid TV token required. Create one under Settings > API Keys with the 'TV / kiosk' scope.",
+            )
+
+    return checker
+
+
+RequireTvTokenIfAuthEnabled = Depends(require_tv_token_if_auth_enabled())
 
 
 def require_ownership_permission(

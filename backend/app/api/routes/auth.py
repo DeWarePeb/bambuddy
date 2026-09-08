@@ -1671,9 +1671,11 @@ async def provision_ldap_user(
 # token. Permission gate: CAMERA_VIEW (same blast radius as the existing 60-min
 # token-mint endpoint).
 #
-# Two scopes, both minted here — see ALLOWED_SCOPES in services/long_lived_tokens
-# for what each one reaches: "camera_stream" (video only) and "camwall" (video
-# plus the Cam Wall's read-only tile metadata, #2531).
+# Four scopes, all minted here — see ALLOWED_SCOPES in services/long_lived_tokens
+# for what each one reaches: "camera_stream" (video only), "camwall" (video plus
+# the Cam Wall's read-only tile metadata, #2531), "overlay" (one printer's video
+# plus its live status including the filename, #2613) and "tv" (the whole TV
+# wall's status tiles, filename and loaded spool included, voron B10).
 
 
 def _long_lived_token_to_response(record, *, plaintext: str | None = None) -> dict:

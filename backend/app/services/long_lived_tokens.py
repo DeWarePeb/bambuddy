@@ -51,11 +51,16 @@ MAX_TOKEN_LIFETIME_DAYS = 365
 #                   precisely because it reveals the part name a camwall token
 #                   is trusted never to expose, so folding it into camwall would
 #                   silently widen every wall token already handed out.
-ALLOWED_SCOPES: frozenset[str] = frozenset({"camera_stream", "camwall", "overlay"})
+#   tv            — the TV / kiosk page (voron B10): the camera snapshots plus
+#                   the status-first tile feed /tv draws for *every* printer,
+#                   which names the file on the bed and the spool feeding it.
+#                   Wider than overlay (all printers rather than one) and wider
+#                   than camwall (it names the part), so again its own grant.
+ALLOWED_SCOPES: frozenset[str] = frozenset({"camera_stream", "camwall", "overlay", "tv"})
 
-# Scopes the camera stream / snapshot endpoints honour. A Cam Wall or overlay
-# token has to be able to pull the video its own view is showing.
-STREAM_SCOPES: tuple[str, ...] = ("camera_stream", "camwall", "overlay")
+# Scopes the camera stream / snapshot endpoints honour. A Cam Wall, overlay or
+# TV token has to be able to pull the video its own view is showing.
+STREAM_SCOPES: tuple[str, ...] = ("camera_stream", "camwall", "overlay", "tv")
 
 # Don't write to last_used_at more than once per minute per token. MJPEG
 # streams call verify() at most once per fetch (the browser holds the

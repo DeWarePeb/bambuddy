@@ -102,6 +102,7 @@ function CreateTokenForm({ onCreated }: CreateTokenFormProps) {
           <option value="camera_stream">{t('cameraTokens.scope.camera_stream', 'Camera stream')}</option>
           <option value="camwall">{t('cameraTokens.scope.camwall', 'Cam Wall')}</option>
           <option value="overlay">{t('cameraTokens.scope.overlay', 'Streaming Overlay')}</option>
+          <option value="tv">{t('cameraTokens.scope.tv', 'TV / kiosk')}</option>
         </select>
         <input
           type="number"
@@ -139,10 +140,15 @@ function CreateTokenForm({ onCreated }: CreateTokenFormProps) {
                 'cameraTokens.create.hintOverlay',
                 'A Streaming Overlay token opens /overlay/{printerId} on a screen with no login — for OBS or any live stream. It can see one printer\'s camera stream plus its live print status, including the filename shown on screen. It cannot see addresses or access codes.',
               )
-            : t(
-                'cameraTokens.create.hintCameraStream',
-                'A camera-stream token can only fetch camera streams and snapshots. Use it for Home Assistant, Frigate, or anything embedding a single camera.',
-              )}
+            : scope === 'tv'
+              ? t(
+                  'cameraTokens.create.hintTv',
+                  'A TV token opens /tv on a screen with no login — a wall display, a Pi in kiosk mode. It can see every printer\'s state, the file being printed, progress and the loaded spool, plus their camera snapshots. It cannot see addresses or access codes.',
+                )
+              : t(
+                  'cameraTokens.create.hintCameraStream',
+                  'A camera-stream token can only fetch camera streams and snapshots. Use it for Home Assistant, Frigate, or anything embedding a single camera.',
+                )}
       </p>
       <p className="text-xs text-bambu-gray mt-1">
         {t(
@@ -229,6 +235,13 @@ function JustCreatedModal({ token, onClose }: JustCreatedModalProps) {
   const overlayUrl =
     token.scope === 'overlay' && plaintext
       ? `${window.location.origin}/overlay/1?token=${encodeURIComponent(plaintext)}`
+      : null;
+
+  // A TV token is the same story as the Cam Wall one: the URL is the artefact,
+  // and it covers the whole wall so nothing needs templating (voron B10).
+  const tvUrl =
+    token.scope === 'tv' && plaintext
+      ? `${window.location.origin}/tv?token=${encodeURIComponent(plaintext)}`
       : null;
 
   const copyText = async (value: string) => {
@@ -332,6 +345,32 @@ function JustCreatedModal({ token, onClose }: JustCreatedModalProps) {
               <button
                 type="button"
                 onClick={() => copyText(overlayUrl)}
+                className="flex items-center gap-2 px-3 py-2 bg-bambu-green text-white rounded-md hover:bg-bambu-green/90"
+              >
+                <Copy className="w-4 h-4" />
+                {t('cameraTokens.created.copy', 'Copy')}
+              </button>
+            </div>
+          </div>
+        )}
+        {tvUrl && (
+          <div className="mb-4">
+            <p className="text-sm font-medium text-white mb-1">
+              {t('cameraTokens.created.tvUrlTitle', 'TV URL for this display')}
+            </p>
+            <p className="text-xs text-bambu-gray mb-2">
+              {t(
+                'cameraTokens.created.tvUrlHint',
+                'Open this on the screen. Add &cams=0 to hide the camera frames, or &refresh=10 to change how often it polls. Anyone who can read the URL can watch the wall, so treat it like a key — revoke the token to cut the display off.',
+              )}
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-bambu-dark rounded-md text-bambu-green text-xs break-all font-mono select-all">
+                {tvUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => copyText(tvUrl)}
                 className="flex items-center gap-2 px-3 py-2 bg-bambu-green text-white rounded-md hover:bg-bambu-green/90"
               >
                 <Copy className="w-4 h-4" />

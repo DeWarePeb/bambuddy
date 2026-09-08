@@ -7414,6 +7414,7 @@ export default {
       camera_stream: 'Flusso della telecamera',
       camwall: 'Muro telecamere',
       overlay: 'Overlay di streaming',
+      tv: 'TV / chiosco',
     },
     title: 'Token API telecamera',
     navTitle: 'Token API telecamera',
@@ -7434,6 +7435,8 @@ export default {
         'Un token Muro telecamere apre /camwall su uno schermo senza login. Vede nome e stato di ogni stampante e i relativi flussi della telecamera. Non vede nomi di file, indirizzi o codici di accesso.',
       hintOverlay:
         'Un token Overlay di streaming apre /overlay/{printerId} su uno schermo senza login, per OBS o qualsiasi diretta streaming. Vede il flusso della telecamera di una stampante e il suo stato di stampa in tempo reale, incluso il nome del file mostrato sullo schermo. Non vede indirizzi o codici di accesso.',
+      hintTv:
+        'Un token TV apre /tv su uno schermo senza login — uno schermo a parete, un Pi in modalità chiosco. Può vedere lo stato di ogni stampante, il file in stampa, l\'avanzamento e la bobina caricata, oltre alle istantanee delle telecamere. Non può vedere indirizzi o codici di accesso.',
       title: 'Crea nuovo token',
       nameLabel: 'Nome token',
       namePlaceholder: 'es. Home Assistant',
@@ -7449,6 +7452,9 @@ export default {
       overlayUrlTitle: 'Indirizzo overlay per OBS',
       overlayUrlHint:
         "Aggiungi questo come Sorgente browser in OBS. Cambia il numero in /overlay/1 con il numero della tua stampante (dall'indirizzo nella pagina Stampanti). Chiunque possa leggere l'indirizzo può guardare lo streaming, quindi trattalo come una chiave: revoca il token per interrompere l'accesso.",
+      tvUrlTitle: 'URL TV per questo schermo',
+      tvUrlHint:
+        'Apri questo sullo schermo. Aggiungi &cams=0 per nascondere le immagini della telecamera, oppure &refresh=10 per cambiare la frequenza di aggiornamento. Chiunque possa leggere l\'URL può guardare il muro, quindi trattalo come una chiave: revoca il token per interrompere l\'accesso.',
       title: 'Token creato – copialo ora',
       warning:
         'Questa è l\'unica volta in cui questo token sarà visibile. Dopo la chiusura di questa finestra non potrai più visualizzarlo.',

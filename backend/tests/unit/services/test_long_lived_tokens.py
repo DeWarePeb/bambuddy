@@ -108,13 +108,18 @@ async def test_create_rejects_expiry_above_policy_cap(db_session, alice: User):
 
 async def test_create_rejects_unsupported_scope(db_session, alice: User):
     """The scope set is closed: ``camera_stream`` (#1108), ``camwall`` (#2531),
-    and ``overlay`` (#2613).
+    ``overlay`` (#2613) and ``tv`` (voron B10).
 
     Pinned deliberately. Adding a scope should be a decision someone makes on
     purpose — a new value here means a new class of thing a URL-borne token can
     reach, so it should not be possible to add one without this line failing.
+
+    ``tv`` was added with that in mind: the TV feed names the file on the bed
+    and the loaded spool for every printer at once, which is strictly more than
+    ``camwall`` may show and broader than ``overlay``'s single printer, so it
+    could not reuse either without widening tokens already handed out.
     """
-    assert {"camera_stream", "camwall", "overlay"} == set(ALLOWED_SCOPES)
+    assert {"camera_stream", "camwall", "overlay", "tv"} == set(ALLOWED_SCOPES)
     with pytest.raises(ValueError, match="unsupported scope"):
         await create_token(
             db_session,

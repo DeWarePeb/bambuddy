@@ -7427,6 +7427,7 @@ export default {
       camera_stream: 'Kamera-Stream',
       camwall: 'Kamera-Wand',
       overlay: 'Streaming-Overlay',
+      tv: 'TV / Kiosk',
     },
     title: 'Kamera-API-Tokens',
     navTitle: 'Kamera-API-Tokens',
@@ -7447,6 +7448,8 @@ export default {
         'Ein Kamera-Wand-Token öffnet /camwall auf einem Bildschirm ohne Anmeldung. Es sieht Name und Status jedes Druckers sowie deren Kamera-Streams. Dateinamen, Adressen und Zugangscodes sieht es nicht.',
       hintOverlay:
         'Ein Streaming-Overlay-Token öffnet /overlay/{printerId} auf einem Bildschirm ohne Anmeldung – für OBS oder jeden Livestream. Es sieht den Kamera-Stream eines Druckers sowie dessen Live-Druckstatus, einschließlich des auf dem Bildschirm angezeigten Dateinamens. Adressen und Zugangscodes sieht es nicht.',
+      hintTv:
+        'Ein TV-Token öffnet /tv auf einem Bildschirm ohne Login — ein Wandbildschirm, ein Pi im Kioskmodus. Es sieht von jedem Drucker den Status, die gedruckte Datei, den Fortschritt und die geladene Spule sowie deren Kamerabilder. Adressen oder Zugangscodes sieht es nicht.',
       title: 'Neues Token erstellen',
       nameLabel: 'Token-Name',
       namePlaceholder: 'z. B. Home Assistant',
@@ -7462,6 +7465,9 @@ export default {
       overlayUrlTitle: 'Overlay-Adresse für OBS',
       overlayUrlHint:
         'Fügen Sie dies in OBS als Browser-Quelle hinzu. Ändern Sie die Zahl in /overlay/1 auf die Nummer Ihres Druckers (aus dessen Adresse auf der Seite „Drucker“). Wer die Adresse lesen kann, kann den Stream sehen – behandeln Sie sie wie einen Schlüssel und widerrufen Sie das Token, um sie abzuschalten.',
+      tvUrlTitle: 'TV-URL für diesen Bildschirm',
+      tvUrlHint:
+        'Öffne dies auf dem Bildschirm. Mit &cams=0 werden die Kamerabilder ausgeblendet, mit &refresh=10 änderst du das Abfrageintervall. Wer die URL lesen kann, kann die Wand sehen — behandle sie wie einen Schlüssel und widerrufe das Token, um den Bildschirm abzuschneiden.',
       title: 'Token erstellt – jetzt kopieren',
       warning:
         'Dies ist das einzige Mal, dass dieser Token sichtbar ist. Nach dem Schließen dieses Dialogs können Sie ihn nie wieder anzeigen.',

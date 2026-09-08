@@ -7415,6 +7415,7 @@ export default {
       camera_stream: 'Flux de caméra',
       camwall: 'Mur de caméras',
       overlay: 'Incrustation de streaming',
+      tv: 'TV / kiosque',
     },
     title: 'Jetons API caméra',
     navTitle: 'Jetons API caméra',
@@ -7435,6 +7436,8 @@ export default {
         "Un jeton Mur de caméras ouvre /camwall sur un écran sans connexion. Il voit le nom et l'état de chaque imprimante, ainsi que leurs flux de caméra. Il ne voit ni les noms de fichiers, ni les adresses, ni les codes d'accès.",
       hintOverlay:
         "Un jeton Incrustation de streaming ouvre /overlay/{printerId} sur un écran sans connexion — pour OBS ou tout autre flux en direct. Il voit le flux de caméra d'une imprimante ainsi que son état d'impression en direct, y compris le nom de fichier affiché à l'écran. Il ne voit ni les adresses ni les codes d'accès.",
+      hintTv:
+        'Un jeton TV ouvre /tv sur un écran sans connexion — un écran mural, un Pi en mode kiosque. Il voit l\'état de chaque imprimante, le fichier en cours d\'impression, la progression et la bobine chargée, ainsi que leurs instantanés de caméra. Il ne voit ni les adresses ni les codes d\'accès.',
       title: 'Créer un nouveau jeton',
       nameLabel: 'Nom du jeton',
       namePlaceholder: 'par ex. Home Assistant',
@@ -7450,6 +7453,9 @@ export default {
       overlayUrlTitle: "Adresse d'incrustation pour OBS",
       overlayUrlHint:
         "Ajoutez ceci comme Source navigateur dans OBS. Remplacez le numéro dans /overlay/1 par le numéro de votre imprimante (indiqué dans son adresse sur la page Imprimantes). Quiconque peut lire l'adresse peut regarder le flux : traitez-la comme une clé et révoquez le jeton pour couper l'accès.",
+      tvUrlTitle: 'URL TV pour cet écran',
+      tvUrlHint:
+        'Ouvrez ceci sur l\'écran. Ajoutez &cams=0 pour masquer les images de la caméra, ou &refresh=10 pour changer la fréquence d\'actualisation. Quiconque peut lire l\'URL peut voir le mur : traitez-la comme une clé et révoquez le jeton pour couper l\'accès.',
       title: 'Jeton créé – copiez-le maintenant',
       warning:
         'C\'est la seule fois où ce jeton sera visible. Après la fermeture de ce dialogue, vous ne pourrez plus jamais le voir.',

@@ -303,3 +303,110 @@ describe('resolveActiveTray', () => {
     expect(resolveActiveTray(status)).toBeNull();
   });
 });
+
+// The kiosk half of the page (voron B10 follow-up): a screen with no login
+// authenticates with a `tv`-scoped token in the URL and is fed by one request
+// to /tv/printers instead of printers + N statuses.
+const TV_FEED = [
+  {
+    id: 1,
+    name: 'X1C-Lab',
+    model: 'X1C',
+    location: 'Workshop',
+    provider: 'bambu',
+    external_camera_enabled: false,
+    camera_rotation: 0,
+    connected: true,
+    state: 'RUNNING',
+    current_print: 'bracket_v3.3mf',
+    subtask_name: 'bracket_v3',
+    gcode_file: '/data/Metadata/plate_1.gcode',
+    progress: 42,
+    remaining_time: 33,
+    layer_num: 120,
+    total_layers: 300,
+    hms_errors: [],
+    tray: { tray_type: 'PLA', tray_sub_brands: 'PLA Basic', tray_color: 'FF0000FF', remain: 63 },
+  },
+  {
+    id: 2,
+    name: 'Voron 2.4',
+    model: 'Voron 2.4',
+    location: null,
+    provider: 'klipper',
+    external_camera_enabled: false,
+    camera_rotation: 0,
+    connected: true,
+    state: 'IDLE',
+    current_print: null,
+    subtask_name: null,
+    gcode_file: null,
+    progress: 0,
+    remaining_time: 0,
+    layer_num: 0,
+    total_layers: 0,
+    hms_errors: [],
+    tray: null,
+  },
+];
+
+describe('TvPage kiosk mode', () => {
+  beforeEach(() => {
+    // No session at all — the token in the URL is the only credential.
+    mockUseAuth.user = null;
+    mockUseAuth.authEnabled = true;
+    storage.clear();
+    vi.mocked(localStorage.getItem).mockImplementation((key: string) => storage.get(key) ?? null);
+    vi.mocked(localStorage.setItem).mockImplementation((key: string, value: string) => {
+      storage.set(key, value);
+    });
+  });
+
+  afterEach(() => {
+    vi.mocked(localStorage.getItem).mockReset();
+    vi.mocked(localStorage.setItem).mockReset();
+  });
+
+  it('draws the same tiles from the token feed, with no login redirect', async () => {
+    let seenUrl = '';
+    server.use(
+      http.get('/api/v1/tv/printers', ({ request }) => {
+        seenUrl = request.url;
+        return HttpResponse.json(TV_FEED);
+      }),
+      http.get('/api/v1/printers/', () => HttpResponse.error()),
+    );
+
+    renderAt('?token=bblt_kiosk01_secret');
+    const tile = await screen.findByTestId('tv-tile-1');
+
+    expect(screen.queryByText('LOGIN PAGE')).not.toBeInTheDocument();
+    expect(within(tile).getByText('bracket_v3.3mf')).toBeInTheDocument();
+    expect(within(tile).getByText('42%')).toBeInTheDocument();
+    expect(within(tile).getByTestId('tv-spool-1')).toHaveTextContent('PLA Basic');
+    // The Klipper tile still drops the spool block it has no data for.
+    expect(screen.queryByTestId('tv-spool-2')).not.toBeInTheDocument();
+    // The token authenticates the feed itself, not just the snapshots.
+    expect(seenUrl).toContain('token=bblt_kiosk01_secret');
+  });
+
+  it('has no way back into the app — that link only leads to a login', async () => {
+    server.use(http.get('/api/v1/tv/printers', () => HttpResponse.json(TV_FEED)));
+
+    renderAt('?token=bblt_kiosk01_secret');
+    await screen.findByTestId('tv-tile-1');
+
+    expect(screen.queryByLabelText('Back to Bambuddy')).not.toBeInTheDocument();
+  });
+
+  it('says the token was rejected rather than showing an empty wall', async () => {
+    server.use(
+      http.get('/api/v1/tv/printers', () => new HttpResponse(null, { status: 401 })),
+    );
+
+    renderAt('?token=bblt_expired_token');
+
+    expect(await screen.findByText(/token/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('tv-grid')).not.toBeInTheDocument();
+  });
+});

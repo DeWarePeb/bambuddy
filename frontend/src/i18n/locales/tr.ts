@@ -7366,6 +7366,7 @@ export default {
       camera_stream: 'Kamera akışı',
       camwall: 'Kamera duvarı',
       overlay: 'Yayın bindirmesi',
+      tv: 'TV / kiosk',
     },
     title: 'Kamera API Belirteçleri',
     navTitle: 'Kamera API belirteçleri',
@@ -7386,6 +7387,8 @@ export default {
         'Kamera duvarı belirteci, oturum açmadan bir ekranda /camwall adresini açar. Her yazıcının adını ve durumunu, ayrıca kamera akışlarını görebilir. Dosya adlarını, adresleri veya erişim kodlarını göremez.',
       hintOverlay:
         'Yayın bindirmesi belirteci, oturum açmadan bir ekranda /overlay/{printerId} adresini açar — OBS veya herhangi bir canlı yayın için. Bir yazıcının kamera akışını ve ekranda gösterilen dosya adı dahil canlı yazdırma durumunu görebilir. Adresleri veya erişim kodlarını göremez.',
+      hintTv:
+        'Bir TV jetonu, oturum açmadan /tv sayfasını açar — duvar ekranı, kiosk modundaki bir Pi. Her yazıcının durumunu, yazdırılan dosyayı, ilerlemeyi ve takılı makarayı, ayrıca kamera görüntülerini görebilir. Adresleri veya erişim kodlarını göremez.',
       title: 'Yeni belirteç oluştur',
       nameLabel: 'Belirteç adı',
       namePlaceholder: 'örn. Home Assistant',
@@ -7401,6 +7404,9 @@ export default {
       overlayUrlTitle: 'OBS için bindirme adresi',
       overlayUrlHint:
         'Bunu OBS\'ye Tarayıcı Kaynağı olarak ekleyin. /overlay/1 içindeki sayıyı yazıcınızın numarasıyla değiştirin (Yazıcılar sayfasındaki adresinden). Adresi okuyabilen herkes yayını izleyebilir, bu yüzden onu bir anahtar gibi görün — erişimi kesmek için belirteci iptal edin.',
+      tvUrlTitle: 'Bu ekran için TV adresi',
+      tvUrlHint:
+        'Bunu ekranda açın. Kamera görüntülerini gizlemek için &cams=0, yenileme sıklığını değiştirmek için &refresh=10 ekleyin. Adresi okuyabilen herkes ekranı izleyebilir; bu yüzden onu bir anahtar gibi saklayın — erişimi kesmek için jetonu iptal edin.',
       title: 'Belirteç oluşturuldu — şimdi kopyalayın',
       warning:
         'Bu, bu belirtecin görünür olacağı tek seferdir. Bu iletişim kutusunu kapattıktan sonra onu bir daha asla görüntüleyemezsiniz.',

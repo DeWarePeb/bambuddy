@@ -193,7 +193,8 @@ function App() {
                 <Route path="/camwall" element={<CamWallPage />} />
                 {/* TV / kiosk mode (voron B10): status-first sibling of the Cam Wall.
                     Outside the layout for the same reason — a wall display wants no
-                    sidebar. Signed-in only; the page bounces a visitor to /login. */}
+                    sidebar, and a ?token= kiosk has no session to protect. A tokenless
+                    visitor is bounced to /login by the page itself. */}
                 <Route path="/tv" element={<TvPage />} />
 
                 {/* SpoolBuddy kiosk UI */}

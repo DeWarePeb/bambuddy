@@ -7435,6 +7435,7 @@ export default {
       camera_stream: 'Transmisión de cámara',
       camwall: 'Muro de cámaras',
       overlay: 'Superposición de streaming',
+      tv: 'TV / quiosco',
     },
     title: 'Tokens de API de la cámara',
     navTitle: 'Tokens de API de la cámara',
@@ -7455,6 +7456,8 @@ export default {
         'Un token de muro de cámaras abre /camwall en una pantalla sin iniciar sesión. Puede ver el nombre y el estado de cada impresora, y sus transmisiones de cámara. No puede ver nombres de archivo, direcciones ni códigos de acceso.',
       hintOverlay:
         'Un token de superposición de streaming abre /overlay/{printerId} en una pantalla sin iniciar sesión, para OBS o cualquier transmisión en vivo. Puede ver la transmisión de la cámara de una impresora y su estado de impresión en vivo, incluido el nombre de archivo que aparece en pantalla. No puede ver direcciones ni códigos de acceso.',
+      hintTv:
+        'Un token de TV abre /tv en una pantalla sin inicio de sesión — una pantalla de pared, una Pi en modo quiosco. Puede ver el estado de cada impresora, el archivo que se está imprimiendo, el progreso y la bobina cargada, además de sus instantáneas de cámara. No puede ver direcciones ni códigos de acceso.',
       title: 'Crear nuevo token',
       nameLabel: 'Nombre del token',
       namePlaceholder: 'p. ej. Home Assistant',
@@ -7470,6 +7473,9 @@ export default {
       overlayUrlTitle: 'Dirección de superposición para OBS',
       overlayUrlHint:
         'Agrega esto como Fuente de navegador en OBS. Cambia el número de /overlay/1 por el número de tu impresora (de su dirección en la página Impresoras). Cualquiera que pueda leer la dirección puede ver la transmisión, así que trátala como una llave: revoca el token para cortar el acceso.',
+      tvUrlTitle: 'URL de TV para esta pantalla',
+      tvUrlHint:
+        'Abre esto en la pantalla. Añade &cams=0 para ocultar las imágenes de la cámara, o &refresh=10 para cambiar la frecuencia de actualización. Cualquiera que pueda leer la URL puede ver el muro, así que trátala como una llave: revoca el token para cortar el acceso.',
       title: 'Token creado — cópielo ahora',
       warning:
         'Esta es la única vez que este token estará visible. Después de cerrar este diálogo no podrá volver a verlo nunca.',

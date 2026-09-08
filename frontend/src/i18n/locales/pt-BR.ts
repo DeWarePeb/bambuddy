@@ -7414,6 +7414,7 @@ export default {
       camera_stream: 'Transmissão da câmera',
       camwall: 'Mural de câmeras',
       overlay: 'Sobreposição de streaming',
+      tv: 'TV / quiosque',
     },
     title: 'Tokens da API de câmera',
     navTitle: 'Tokens da API de câmera',
@@ -7434,6 +7435,8 @@ export default {
         'Um token do mural de câmeras abre /camwall em uma tela sem login. Ele vê o nome e o estado de cada impressora e as transmissões das câmeras. Não vê nomes de arquivo, endereços nem códigos de acesso.',
       hintOverlay:
         'Um token de sobreposição de streaming abre /overlay/{printerId} em uma tela sem login — para o OBS ou qualquer transmissão ao vivo. Ele vê a transmissão da câmera de uma impressora e seu status de impressão ao vivo, incluindo o nome de arquivo mostrado na tela. Não vê endereços nem códigos de acesso.',
+      hintTv:
+        'Um token de TV abre /tv em uma tela sem login — um display de parede, um Pi em modo quiosque. Ele vê o estado de cada impressora, o arquivo sendo impresso, o progresso e a bobina carregada, além dos instantâneos das câmeras. Não vê endereços nem códigos de acesso.',
       title: 'Criar novo token',
       nameLabel: 'Nome do token',
       namePlaceholder: 'ex. Home Assistant',
@@ -7449,6 +7452,9 @@ export default {
       overlayUrlTitle: 'Endereço de sobreposição para OBS',
       overlayUrlHint:
         'Adicione isto como Fonte de navegador no OBS. Altere o número em /overlay/1 para o número da sua impressora (do endereço dela na página Impressoras). Qualquer pessoa que consiga ler o endereço pode assistir à transmissão, então trate-o como uma chave: revogue o token para cortar o acesso.',
+      tvUrlTitle: 'URL de TV para esta tela',
+      tvUrlHint:
+        'Abra isto na tela. Use &cams=0 para ocultar as imagens da câmera ou &refresh=10 para mudar a frequência de atualização. Qualquer pessoa que possa ler a URL pode ver o painel, então trate-a como uma chave — revogue o token para cortar o acesso.',
       title: 'Token criado – copie agora',
       warning:
         'Esta é a única vez que este token será visível. Após fechar este diálogo, você nunca poderá vê-lo novamente.',
