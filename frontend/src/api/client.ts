@@ -8825,6 +8825,17 @@ export interface FirmwareUpdateInfo {
   download_url: string | null;
   release_notes: string | null;
   available_versions: AvailableFirmwareVersion[];
+  // Voron patch series (C6): Klipper, Moonraker and the web UI, each with its
+  // own version, from Moonraker's update_manager. Empty for Bambu printers.
+  // On the "system" row, `latest` is a package count rather than a version.
+  components?: FirmwareComponentInfo[];
+}
+
+export interface FirmwareComponentInfo {
+  name: string;
+  current: string | null;
+  latest: string | null;
+  update_available: boolean;
 }
 
 export interface FirmwareUploadPrepare {

@@ -804,6 +804,8 @@ export default {
     // Firmware
     firmwareUpdateAvailable: 'Firmware güncellemesi mevcut: {{current}} → {{latest}}',
     firmwareUpToDate: 'Firmware {{version}} — Güncel',
+    firmwareSystemPackages_one: 'sistem: {{count}} paket güncellemesi',
+    firmwareSystemPackages_other: 'sistem: {{count}} paket güncellemesi',
     firmwareUpdateButton: 'Güncelle',
     // Plaka algılama
     plateDetection: {

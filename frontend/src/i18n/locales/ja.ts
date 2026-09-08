@@ -803,6 +803,8 @@ export default {
     // Firmware
     firmwareUpdateAvailable: 'ファームウェアアップデートあり: {{current}} → {{latest}}',
     firmwareUpToDate: 'ファームウェア {{version}} — 最新',
+    firmwareSystemPackages_one: 'システム: パッケージ更新 {{count}} 件',
+    firmwareSystemPackages_other: 'システム: パッケージ更新 {{count}} 件',
     firmwareUpdateButton: 'アップデート',
     // Plate detection
     plateDetection: {

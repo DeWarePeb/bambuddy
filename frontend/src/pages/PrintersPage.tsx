@@ -4158,8 +4158,33 @@ function PrinterCard({
                   {queueCount}
                 </button>
               )}
-              {/* Firmware Version Badge */}
-              {checkPrinterFirmware && firmwareInfo?.current_version && firmwareInfo?.latest_version ? (
+              {/* Firmware Version Badge.
+                  Voron patch series (C6): a Klipper printer's versions come from
+                  Moonraker's update_manager and every component is listed in the
+                  tooltip. Not a button — the modal behind it downloads a Bambu
+                  image and pushes it to an SD card, and Klipper updates belong
+                  in Mainsail next to the machine, not in a dashboard. */}
+              {checkPrinterFirmware && printer.provider === 'klipper' && firmwareInfo?.current_version ? (
+                <span
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                    firmwareInfo.update_available
+                      ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400'
+                      : 'bg-status-ok/20 text-status-ok'
+                  }`}
+                  title={(firmwareInfo.components ?? [])
+                    .map((c) =>
+                      c.name === 'system'
+                        ? t('printers.firmwareSystemPackages', { count: Number(c.latest ?? 0) })
+                        : c.update_available
+                          ? `${c.name}: ${c.current} → ${c.latest}`
+                          : `${c.name}: ${c.current}`,
+                    )
+                    .join('\n')}
+                >
+                  {firmwareInfo.update_available ? <Download className="w-[var(--pc-i3,0.75rem)] h-[var(--pc-i3,0.75rem)]" /> : <CheckCircle className="w-[var(--pc-i3,0.75rem)] h-[var(--pc-i3,0.75rem)]" />}
+                  {firmwareInfo.current_version}
+                </span>
+              ) : checkPrinterFirmware && firmwareInfo?.current_version && firmwareInfo?.latest_version ? (
                 <button
                   onClick={() => setShowFirmwareModal(true)}
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs hover:opacity-80 transition-opacity ${

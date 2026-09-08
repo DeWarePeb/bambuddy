@@ -804,6 +804,8 @@ export default {
     // Firmware
     firmwareUpdateAvailable: 'Mise à jour firmware : {{current}} → {{latest}}',
     firmwareUpToDate: 'Firmware {{version}} — À jour',
+    firmwareSystemPackages_one: 'système : {{count}} mise à jour de paquet',
+    firmwareSystemPackages_other: 'système : {{count}} mises à jour de paquets',
     firmwareUpdateButton: 'Mettre à jour',
     // Plate detection
     plateDetection: {

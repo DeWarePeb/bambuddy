@@ -811,6 +811,8 @@ export default {
     // Firmware
     firmwareUpdateAvailable: 'Firmware-update beschikbaar: {{current}} → {{latest}}',
     firmwareUpToDate: 'Firmware {{version}} — up-to-date',
+    firmwareSystemPackages_one: 'systeem: {{count}} pakketupdate',
+    firmwareSystemPackages_other: 'systeem: {{count}} pakketupdates',
     firmwareUpdateButton: 'Bijwerken',
     // Plate detection
     plateDetection: {

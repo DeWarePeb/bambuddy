@@ -763,6 +763,8 @@ export default {
     openCameraWindow: '새 창에서 카메라 열기',
     firmwareUpdateAvailable: '펌웨어 업데이트 가능: {{current}} → {{latest}}',
     firmwareUpToDate: '펌웨어 {{version}} — 최신 상태',
+    firmwareSystemPackages_one: '시스템: 패키지 업데이트 {{count}}건',
+    firmwareSystemPackages_other: '시스템: 패키지 업데이트 {{count}}건',
     firmwareUpdateButton: '업데이트',
     plateDetection: {
       noPermission: '프린터를 업데이트할 권한이 없습니다',

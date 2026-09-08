@@ -776,6 +776,10 @@ export default {
     openCameraWindow: "Открыть камеру в новом окне",
     firmwareUpdateAvailable: "Доступно обновление прошивки: {{current}} → {{latest}}",
     firmwareUpToDate: "Прошивка {{version}} — актуальная версия",
+    firmwareSystemPackages_one: 'система: {{count}} обновление пакета',
+    firmwareSystemPackages_few: 'система: {{count}} обновления пакетов',
+    firmwareSystemPackages_many: 'система: {{count}} обновлений пакетов',
+    firmwareSystemPackages_other: 'система: {{count}} обновлений пакетов',
     firmwareUpdateButton: "Обновить",
     plateDetection: {
       noPermission: "У вас нет прав на изменение настроек принтера",

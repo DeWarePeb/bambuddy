@@ -804,6 +804,8 @@ export default {
     // Firmware
     firmwareUpdateAvailable: '韌體更新可用：{{current}} → {{latest}}',
     firmwareUpToDate: '韌體 {{version}} — 已是最新',
+    firmwareSystemPackages_one: '系統：{{count}} 個套件更新',
+    firmwareSystemPackages_other: '系統：{{count}} 個套件更新',
     firmwareUpdateButton: '更新',
     // Plate detection
     plateDetection: {

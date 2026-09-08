@@ -40,6 +40,19 @@ class AvailableFirmwareVersion(BaseModel):
     release_time: str | None = None
 
 
+class FirmwareComponentInfo(BaseModel):
+    """One update_manager component on a Klipper printer (Voron patch series, C6).
+
+    ``latest`` on the "system" row is a package count, not a version — the OS
+    has no single version to be behind.
+    """
+
+    name: str
+    current: str | None = None
+    latest: str | None = None
+    update_available: bool = False
+
+
 class FirmwareUpdateInfo(BaseModel):
     """Firmware update information for a printer."""
 
@@ -52,6 +65,9 @@ class FirmwareUpdateInfo(BaseModel):
     download_url: str | None = None
     release_notes: str | None = None
     available_versions: list[AvailableFirmwareVersion] = Field(default_factory=list)
+    # Voron patch series (C6): Klipper, Moonraker and the web UI, each with its
+    # own version. Empty for Bambu printers, which have one firmware.
+    components: list[FirmwareComponentInfo] = Field(default_factory=list)
 
 
 class FirmwareUpdatesResponse(BaseModel):
@@ -59,6 +75,51 @@ class FirmwareUpdatesResponse(BaseModel):
 
     updates: list[FirmwareUpdateInfo] = Field(default_factory=list)
     updates_available: int = Field(0, description="Number of printers with updates available")
+
+
+async def _reject_klipper(printer_id: int, db: AsyncSession) -> None:
+    """Refuse the Bambu firmware-upload flow for a Klipper printer (C6).
+
+    The flow downloads a Bambu image and pushes it to an SD card over FTPS.
+    Klipper updates run through Moonraker's own update_manager, deliberately
+    not from here — see `services/klipper_update.py`.
+    """
+    printer = (await db.execute(select(Printer).where(Printer.id == printer_id))).scalar_one_or_none()
+    if printer is not None and getattr(printer, "provider", "bambu") == "klipper":
+        raise HTTPException(
+            status_code=400,
+            detail="Klipper printers update through Moonraker, not through Bambu firmware upload",
+        )
+
+
+async def _klipper_update_info(printer) -> FirmwareUpdateInfo:
+    """Firmware row for a Klipper printer, from Moonraker's update_manager (C6).
+
+    A Voron has no entry on Bambu Lab's firmware page, so the Bambu check
+    always answered "nothing known" — for a machine whose Klipper may well be
+    a year behind its Moonraker.
+    """
+    from backend.app.services.klipper_update import check_updates
+
+    summary = await check_updates(printer)
+    if summary is None:
+        return FirmwareUpdateInfo(
+            printer_id=printer.id,
+            printer_name=printer.name,
+            model=printer.model or "Klipper",
+            current_version=None,
+            latest_version=None,
+            update_available=False,
+        )
+    return FirmwareUpdateInfo(
+        printer_id=printer.id,
+        printer_name=printer.name,
+        model=printer.model or "Klipper",
+        current_version=summary["current_version"],
+        latest_version=summary["latest_version"],
+        update_available=summary["update_available"],
+        components=[FirmwareComponentInfo(**c) for c in summary["components"]],
+    )
 
 
 class LatestFirmwareInfo(BaseModel):
@@ -94,6 +155,14 @@ async def check_firmware_updates(
     updates_available = 0
 
     for printer in printers:
+        # Voron patch series (C6): Klipper printers are asked their own Moonraker.
+        if getattr(printer, "provider", "bambu") == "klipper":
+            info = await _klipper_update_info(printer)
+            if info.update_available:
+                updates_available += 1
+            updates.append(info)
+            continue
+
         # Get current firmware version from MQTT state
         current_version = None
         mqtt_client = printer_manager.get_client(printer.id)
@@ -141,6 +210,10 @@ async def check_printer_firmware(
 
     if not printer:
         raise HTTPException(status_code=404, detail="Printer not found")
+
+    # Voron patch series (C6): Klipper printers are asked their own Moonraker.
+    if getattr(printer, "provider", "bambu") == "klipper":
+        return await _klipper_update_info(printer)
 
     # Get current firmware version from MQTT state
     current_version = None
@@ -246,6 +319,7 @@ async def prepare_firmware_upload(
     Call this before starting a firmware upload to ensure the operation
     can succeed.
     """
+    await _reject_klipper(printer_id, db)
     update_service = get_firmware_update_service()
     result = await update_service.prepare_update(printer_id, db, target_version=version)
     return FirmwareUploadPrepareResponse(**result)
@@ -271,6 +345,8 @@ async def start_firmware_upload(
     After upload completes, the user must trigger the update from the
     printer's screen (Settings > Firmware).
     """
+    await _reject_klipper(printer_id, db)
+
     # First check prerequisites
     update_service = get_firmware_update_service()
     prepare_result = await update_service.prepare_update(printer_id, db, target_version=version)

@@ -816,6 +816,10 @@ export default {
     // Firmware
     firmwareUpdateAvailable: "Доступне оновлення прошивки: {{current}} → {{latest}}",
     firmwareUpToDate: "Прошивка {{version}} актуальна",
+    firmwareSystemPackages_one: 'система: {{count}} оновлення пакета',
+    firmwareSystemPackages_few: 'система: {{count}} оновлення пакетів',
+    firmwareSystemPackages_many: 'система: {{count}} оновлень пакетів',
+    firmwareSystemPackages_other: 'система: {{count}} оновлень пакетів',
     firmwareUpdateButton: "Оновити",
     // Plate detection
     plateDetection: {
