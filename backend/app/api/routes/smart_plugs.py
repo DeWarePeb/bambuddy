@@ -33,7 +33,9 @@ from backend.app.schemas.smart_plug import (
 )
 from backend.app.services.discovery import tasmota_scanner
 from backend.app.services.homeassistant import homeassistant_service
-from backend.app.services.moonraker_plug import list_devices as list_moonraker_power_devices
+from backend.app.services.moonraker_plug import (
+    list_devices as list_moonraker_power_devices,
+)
 from backend.app.services.moonraker_plug import moonraker_plug_service
 from backend.app.services.mqtt_relay import mqtt_relay
 from backend.app.services.mqtt_smart_plug import subscribe_plug_to_mqtt

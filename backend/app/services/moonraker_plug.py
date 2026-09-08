@@ -58,7 +58,7 @@ class MoonrakerPlugService:
     be repointed, and its Moonraker URL edited, while the process runs.
     """
 
-    async def _connection(self, plug: "SmartPlug") -> tuple[str, str | None] | None:
+    async def _connection(self, plug: SmartPlug) -> tuple[str, str | None] | None:
         from sqlalchemy import select
 
         from backend.app.core.database import async_session
@@ -67,14 +67,12 @@ class MoonrakerPlugService:
         if not plug.printer_id or not plug.moonraker_device:
             return None
         async with async_session() as db:
-            printer = (
-                await db.execute(select(Printer).where(Printer.id == plug.printer_id))
-            ).scalar_one_or_none()
+            printer = (await db.execute(select(Printer).where(Printer.id == plug.printer_id))).scalar_one_or_none()
         if printer is None or not printer.api_url:
             return None
         return printer.api_url.rstrip("/"), printer.auth_token
 
-    async def _request(self, plug: "SmartPlug", path: str) -> str | None:
+    async def _request(self, plug: SmartPlug, path: str) -> str | None:
         """Call one device_power endpoint; returns the device's reported state."""
         connection = await self._connection(plug)
         if connection is None:
@@ -102,19 +100,19 @@ class MoonrakerPlugService:
             state = next(iter(result.values()))
         return str(state).lower() if state is not None else None
 
-    async def turn_on(self, plug: "SmartPlug") -> bool:
+    async def turn_on(self, plug: SmartPlug) -> bool:
         return await self._request(plug, "on") == "on"
 
-    async def turn_off(self, plug: "SmartPlug") -> bool:
+    async def turn_off(self, plug: SmartPlug) -> bool:
         return await self._request(plug, "off") == "off"
 
-    async def toggle(self, plug: "SmartPlug") -> bool:
+    async def toggle(self, plug: SmartPlug) -> bool:
         state = await self.get_status(plug)
         if state.get("state") == "ON":
             return await self.turn_off(plug)
         return await self.turn_on(plug)
 
-    async def get_status(self, plug: "SmartPlug") -> dict:
+    async def get_status(self, plug: SmartPlug) -> dict:
         """``{state, reachable, device_name}`` — the contract the other plug services use."""
         state = await self._request(plug, "device")
         if state is None:
@@ -125,7 +123,7 @@ class MoonrakerPlugService:
             return {"state": None, "reachable": True, "device_name": plug.moonraker_device}
         return {"state": state.upper(), "reachable": True, "device_name": plug.moonraker_device}
 
-    async def get_energy(self, plug: "SmartPlug") -> dict | None:  # noqa: ARG002
+    async def get_energy(self, plug: SmartPlug) -> dict | None:  # noqa: ARG002
         """Moonraker's power API reports no energy — see the module docstring."""
         return None
 

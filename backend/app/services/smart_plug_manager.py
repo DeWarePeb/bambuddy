@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.tasks import spawn_background_task
 from backend.app.services.homeassistant import homeassistant_service
-from backend.app.services.printer_manager import printer_manager
 from backend.app.services.moonraker_plug import moonraker_plug_service
+from backend.app.services.printer_manager import printer_manager
 from backend.app.services.rest_smart_plug import rest_smart_plug_service
 from backend.app.services.tasmota import tasmota_service
 from backend.app.utils.local_time import next_local_hour, to_naive_utc, utcnow_naive
