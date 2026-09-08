@@ -140,6 +140,7 @@ import {
   Tv,
   ExternalLink,
   PictureInPicture2,
+  History,
 } from 'lucide-react';
 
 // Aliased: lucide-react already exports a `Link` icon into this module.
@@ -8505,6 +8506,23 @@ function EditPrinterModal({
     onError: (error: Error) => showToast(error.message || t('printers.toast.failedToUpdate'), 'error'),
   });
 
+  // Voron patch series: import past jobs from Moonraker's history. Kept in the
+  // edit dialog rather than on the card — it is a setup-time action, run once
+  // per printer, and the archive list is where its result shows up.
+  const importHistoryMutation = useMutation({
+    mutationFn: () => api.importKlipperHistory(printer.id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['archives'] });
+      showToast(
+        result.imported > 0
+          ? t('printers.toast.historyImported', { count: result.imported })
+          : t('printers.toast.historyNothingNew'),
+        result.imported > 0 ? 'success' : 'info',
+      );
+    },
+    onError: (error: Error) => showToast(error.message || t('printers.toast.historyImportFailed'), 'error'),
+  });
+
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -8615,6 +8633,29 @@ function EditPrinterModal({
                     onChange={(e) => setForm({ ...form, model: e.target.value })}
                     placeholder={t('printers.modal.klipperModelPlaceholder')}
                   />
+                </div>
+                {/* Voron patch series: Moonraker remembers every job it ever
+                    ran, so a machine that predates Printhok can fill its own
+                    history. type="button" — this modal's form submits a save. */}
+                <div className="pt-2 border-t border-bambu-dark-tertiary">
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.importHistory')}</label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={importHistoryMutation.isPending}
+                      onClick={() => importHistoryMutation.mutate()}
+                    >
+                      {importHistoryMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <History className="w-4 h-4" />
+                      )}
+                      {t('printers.modal.importHistoryButton')}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-bambu-gray mt-1">{t('printers.modal.importHistoryHelp')}</p>
                 </div>
               </>
             ) : (

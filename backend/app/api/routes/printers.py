@@ -60,7 +60,7 @@ from backend.app.services.bambu_ftp import (
     get_storage_info_async,
     list_files_result_async,
 )
-from backend.app.services.moonraker_client import probe_moonraker
+from backend.app.services.moonraker_client import MoonrakerClient, probe_moonraker
 from backend.app.services.print_storage import ftp_probe_paths, print_file_reachable_over_ftp
 from backend.app.services.printer_diagnostic import run_connection_diagnostic
 from backend.app.services.printer_manager import (
@@ -2247,6 +2247,35 @@ async def print_printer_file(
     if not await asyncio.to_thread(client.start_print, path.lstrip("/")):
         raise HTTPException(500, f"Moonraker refused to start {path}")
     return {"status": "started", "path": path}
+
+
+@router.post("/{printer_id}/klipper/import-history")
+async def import_klipper_history(
+    printer_id: int,
+    limit: int = 500,
+    _=RequirePermissionIfAuthEnabled(Permission.ARCHIVES_CREATE),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import past jobs from Moonraker's history into the archive (Voron patch series).
+
+    Bambuddy only knows the prints it watched, so a Klipper machine that has
+    been running for a year arrives with an empty history. Re-runnable: jobs
+    already imported are recognised and skipped.
+    """
+    printer = await _load_printer_or_404(printer_id)
+    if getattr(printer, "provider", "bambu") != "klipper":
+        raise HTTPException(400, "History import is only available for Klipper printers")
+    client = printer_manager.get_client(printer_id)
+    if not isinstance(client, MoonrakerClient):
+        raise HTTPException(503, "Printer is not connected")
+
+    from backend.app.services.klipper_history import import_history
+
+    try:
+        return await import_history(db, printer_id, client, limit=max(1, min(limit, 5000)))
+    except Exception as exc:  # noqa: BLE001 - Moonraker unreachable or answering something else
+        logger.warning("Klipper history import failed for printer %s: %s", printer_id, exc)
+        raise HTTPException(502, f"Could not read Moonraker's job history: {exc}") from exc
 
 
 @router.get("/{printer_id}/storage")

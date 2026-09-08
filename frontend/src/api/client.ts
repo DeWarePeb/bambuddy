@@ -5204,6 +5204,12 @@ export const api = {
     request<{ status: string; path: string }>(`/printers/${printerId}/files/print?path=${encodeURIComponent(path)}`, {
       method: 'POST',
     }),
+  // Voron patch series: pull past jobs out of Moonraker's history into the archive.
+  importKlipperHistory: (printerId: number, limit = 500) =>
+    request<{ found: number; imported: number; skipped: number }>(
+      `/printers/${printerId}/klipper/import-history?limit=${limit}`,
+      { method: 'POST' },
+    ),
   getPrinterStorage: (printerId: number) =>
     request<{ used_bytes: number | null; free_bytes: number | null }>(`/printers/${printerId}/storage`),
 

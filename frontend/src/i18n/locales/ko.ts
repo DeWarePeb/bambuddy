@@ -488,6 +488,10 @@ export default {
       failedToLoad: '필라멘트 로드 실패',
       failedToUnload: '필라멘트 언로드 실패',
       connectionFailedNotAdded: '프린터에 연결할 수 없습니다. IP, 시리얼 번호, 액세스 코드를 확인하고 LAN 전용 모드가 켜져 있는지 확인하세요. 프린터가 추가되지 않았습니다.'
+      historyImported_one: '출력 {{count}}건을 가져왔습니다',
+      historyImported_other: '출력 {{count}}건을 가져왔습니다',
+      historyNothingNew: '가져올 새 출력이 없습니다',
+      historyImportFailed: '출력 기록을 가져오지 못했습니다',
     },
     connection: {
       connected: '연결됨',
@@ -559,6 +563,9 @@ export default {
       moonrakerApiKey: 'Moonraker API 키(선택)',
       moonrakerApiKeyHelp: '이 호스트에서 Moonraker가 인증을 요구할 때만 필요합니다.',
       klipperModelPlaceholder: '예: Voron 2.4 350',
+      importHistory: '출력 기록',
+      importHistoryButton: 'Moonraker에서 가져오기',
+      importHistoryHelp: 'Moonraker가 기억하는 모든 작업을 파일 없이 아카이브에 추가합니다. 이미 가져온 작업은 건너뛰므로 다시 실행해도 안전합니다.',
       saveChanges: '변경사항 저장'
     },
     skipObjects: {
