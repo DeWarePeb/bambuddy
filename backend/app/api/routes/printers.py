@@ -4182,8 +4182,14 @@ async def get_printable_objects(
     if not client:
         raise HTTPException(400, "Printer not connected")
 
+    # Voron patch series (C5): a Klipper printer reports its objects live on the
+    # `exclude_object` Klipper object, refreshed on every poll. There is nothing
+    # to reload, and the fallbacks below would reach for a 3MF over FTPS that a
+    # Klipper printer neither has nor serves.
+    is_klipper = getattr(printer, "provider", "bambu") == "klipper"
+
     # Reload objects from 3MF if requested or no objects loaded
-    if reload or not client.state.printable_objects:
+    if not is_klipper and (reload or not client.state.printable_objects):
         # The archive of a running print normally holds the very file the
         # printer is executing, so ask the disk before asking the printer:
         # the fan-out below pulls the whole 3MF over FTPS from a machine that
@@ -4224,7 +4230,7 @@ async def get_printable_objects(
 
     # Only when the disk could not answer: a `reload=true` that the archive
     # satisfied has already refreshed from the file the printer is running.
-    if not client.state.printable_objects:
+    if not is_klipper and not client.state.printable_objects:
         subtask_name = client.state.subtask_name
         if subtask_name:
             from backend.app.services.archive import extract_printable_objects_from_3mf

@@ -199,6 +199,10 @@ class MoonrakerClient:
         # moonraker-timelapse present in Moonraker's component list (C4).
         # Whether it is switched *on* is asked per print, not cached.
         self._timelapse_component = False
+        # C5: Klipper's exclude_object, if the printer has it. Object ids are
+        # indices into _object_names, which skip_objects translates back.
+        self._exclude_object = False
+        self._object_names: list[str] = []
         self._mmu = False
         self._mmu_num_gates = 0
         self._ams_units: list[dict[str, Any]] = []
@@ -293,6 +297,10 @@ class MoonrakerClient:
         self._mmu = "mmu" in objects
         if self._mmu:
             polled.extend(["mmu", "mmu_machine", "save_variables"])
+        # C5: cancel-object support, present whenever [exclude_object] is enabled.
+        self._exclude_object = "exclude_object" in objects
+        if self._exclude_object:
+            polled.append("exclude_object")
         if chamber:
             self._chamber_object = chamber
             polled.append(chamber)
@@ -457,6 +465,8 @@ class MoonrakerClient:
             self.state.tray_now = 254 if self.state.state in ("RUNNING", "PAUSE") else 255
             if self._mmu:
                 self._apply_mmu(status)
+            if self._exclude_object:
+                self._apply_exclude_object(status)
             self.state.raw_data = {
                 "provider": "klipper",
                 "klippy": {},
@@ -475,6 +485,76 @@ class MoonrakerClient:
             self._last_state = self.state.state
             self._has_sample = True
         return True
+
+    # -------------------------------------------------------- skip objects
+
+    def _apply_exclude_object(self, status: dict[str, Any]) -> None:
+        """Klipper's ``exclude_object`` in the shape the skip-objects UI reads (C5).
+
+        Upstream's modal, its camera-pick overlay and its route are entirely
+        provider-agnostic — they read ``printable_objects`` and
+        ``skipped_objects`` off the state and post a list of integer ids back.
+        Klipper names its objects instead of numbering them, so the id is the
+        object's index in the list Klipper reports, and ``_object_names`` keeps
+        the mapping for ``skip_objects`` to translate back. That list is stable
+        for the duration of a print: it comes from the ``EXCLUDE_OBJECT_DEFINE``
+        lines the slicer wrote into the file being printed.
+        """
+        exclude = status.get("exclude_object")
+        if not isinstance(exclude, dict):
+            return
+        objects = exclude.get("objects")
+        if not isinstance(objects, list):
+            return
+
+        names: list[str] = []
+        printable: dict[int, dict[str, Any]] = {}
+        xs: list[float] = []
+        ys: list[float] = []
+        for index, obj in enumerate(objects):
+            if not isinstance(obj, dict) or not obj.get("name"):
+                continue
+            name = str(obj["name"])
+            center = obj.get("center") if isinstance(obj.get("center"), (list, tuple)) else None
+            x = _f(center[0]) if center and len(center) > 0 else None
+            y = _f(center[1]) if center and len(center) > 1 else None
+            names.append(name)
+            printable[index] = {"name": name, "x": x, "y": y}
+            for point in obj.get("polygon") or []:
+                if isinstance(point, (list, tuple)) and len(point) >= 2:
+                    xs.append(_f(point[0]))
+                    ys.append(_f(point[1]))
+
+        self._object_names = names
+        self.state.printable_objects = printable
+        self.state.printable_objects_count = len(printable)
+        excluded = {str(n) for n in (exclude.get("excluded_objects") or [])}
+        self.state.skipped_objects = [i for i, name in enumerate(names) if name in excluded]
+        # The pick-on-camera overlay maps a click onto the bed through this box.
+        # Only from polygons: an object's centre alone gives a box with no area.
+        if xs and ys:
+            self.state.printable_objects_bbox_all = [min(xs), min(ys), max(xs), max(ys)]
+
+    def skip_objects(self, object_ids: list[int]) -> bool:
+        """Exclude objects from the running print (C5).
+
+        Klipper cancels by name and has no batch form, so this sends one
+        ``EXCLUDE_OBJECT`` per id. A partial failure is reported as failure but
+        leaves the objects that did go through excluded — the next poll reads
+        the truth back off ``exclude_object`` either way, so the card never
+        shows a skip that did not happen.
+        """
+        if not self._object_names:
+            return False
+        ok = True
+        for object_id in object_ids:
+            if not 0 <= int(object_id) < len(self._object_names):
+                ok = False
+                continue
+            name = self._object_names[int(object_id)]
+            if not self.send_gcode(f'EXCLUDE_OBJECT NAME="{name}"'):
+                ok = False
+        return ok
 
     # ------------------------------------------------------ Happy Hare MMU
 
