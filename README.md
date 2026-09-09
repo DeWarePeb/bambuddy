@@ -91,6 +91,11 @@ is new files, which is why the rebase stays cheap.
 
 ### Happy Hare MMU as AMS units
 
+> **Barely tested.** There is a Happy Hare here and the mapping has been exercised against it, but
+> lightly — a handful of loads, not a season of printing. Multi-material queue dispatch in particular
+> has had far less real use than the single-material path. If you run an MMU, you are the tester this
+> fork most needs.
+
 Gates are reported as AMS trays (unit = `gate // 4`, tray = `gate % 4`), the loaded gate follows
 `tray_now`, and bypass stays slot 254. Assigning a spool writes `MMU_GATE_MAP`; load and unload are
 `MMU_SELECT` + `MMU_LOAD` / `MMU_UNLOAD`; a queue dispatch carrying an AMS mapping sends
@@ -156,6 +161,34 @@ Upstream's own pages are the honest reference for all of it:
 
 ---
 
+## What has actually been run
+
+Being specific about this, because "supports Klipper" can mean anything from a green dot to a
+finished print.
+
+**Run on real hardware, repeatedly:** adding a Voron 2.4 (Mainsail, Cartographer) and watching the
+card — state, nozzle/bed, progress, layer, time left. Queueing a file sliced in Orca, uploading it to
+Moonraker, starting it, watching it print to completion, and getting an archive row with the
+filament and time on it. The file manager over Moonraker. Archiving a print that was started from
+Mainsail instead of from here. Pushed status over Moonraker's WebSocket, including the fall back to
+polling when the socket goes quiet. Bambu printers alongside it on the same dashboard, which is the
+setup this is built for.
+
+**Exercised, but lightly:** Happy Hare MMU (see the caveat above). Multi-material dispatch.
+
+**Never run against real hardware:** the iOS Notify provider's payloads — that needs the paid app.
+
+**Testing it?** [`docs/printhok/TESTING.md`](docs/printhok/TESTING.md) is the guide — what to try in
+what order, the known rough edges, and how to get back off it again.
+
+**One printer, one topology.** Everything above is one Voron 2.4 on one LAN behind Mainsail's nginx,
+plus three Bambu machines. Every Klipper install is a little different, and the ones that will break
+this are the ones that are not here: Fluidd, a Moonraker on a non-standard path, a printer behind a
+tunnel, a bed mesh that reports objects with names I have never seen. That is what testing would
+tell me.
+
+---
+
 ## Install
 
 > Upstream's `install.sh` hardcodes a clone from `maziggy/bambuddy`, so it cannot fetch this fork on
@@ -175,8 +208,32 @@ The installer finds the existing `.git`, fetches `origin` (this fork), and conti
 does: service user, virtualenv, frontend build, systemd unit, port 8000.
 
 **Requirements:** Python 3.10+ (3.11/3.12 recommended), Node for the frontend build, and at least one
-of — a Bambu Lab printer with Developer Mode enabled, or a Klipper printer reachable at
-`http://<host>:7125`. On a 2 GB machine the frontend build needs a heap cap or Node runs out of
+of — a Bambu Lab printer with Developer Mode enabled, or a Klipper printer running Moonraker.
+
+**Reaching Moonraker.** Give the printer's URL, not a port you assume. Both of these work, and the
+second is what most Mainsail and Fluidd installs actually expose:
+
+- `http://<host>:7125` — Moonraker's own port, if it is reachable from the Printhok host
+- `http://<host>` — port 80, through Mainsail's or Fluidd's nginx. The proxy forwards the API *and*
+  the WebSocket upgrade, so pushed status works through it. This is the tested setup here; the Voron
+  this was developed against does not expose 7125 at all
+
+A URL with no scheme is accepted and gets `http://` put in front of it. Only the LAN-scan feature
+assumes 7125, because a scan has to guess at something.
+
+**Moonraker has to let Printhok in.** Either add the host to `trusted_clients` in `moonraker.conf`:
+
+```ini
+[authorization]
+trusted_clients:
+    192.168.1.0/24
+```
+
+…or leave authorization on and paste a Moonraker API key into the printer's **API key** field when
+you add it. If the printer card connects and then immediately goes stale, this is almost always why —
+check `journalctl -u bambuddy -f` for 401s.
+
+On a 2 GB machine the frontend build needs a heap cap or Node runs out of
 memory:
 
 ```bash
@@ -280,8 +337,12 @@ requires the source and because the Klipper work may be useful to someone else.
 
 - **Bug in Bambuddy itself?** → [upstream issues](https://github.com/maziggy/bambuddy/issues) and the
   [Discord](https://discord.gg/aFS3ZfScHM). Please do not send them fork bugs
-- **Bug in the Klipper path, the ported features, or the branding?** → issues here. Include the commit
-  you are on: `git -C /opt/bambuddy rev-parse --short HEAD`
+- **Bug in the Klipper path, the ported features, or the branding?** →
+  [issues here](https://github.com/DeWarePeb/bambuddy/issues). A report I can act on has: the commit
+  (`git -C /opt/bambuddy rev-parse --short HEAD`), your printer and Klipper front end (Mainsail /
+  Fluidd / neither), the Moonraker URL form you used, `moonraker.conf`'s `[authorization]` block with
+  any key removed, and the relevant lines from `journalctl -u bambuddy -f`. A screenshot of a wrong
+  printer card is worth a paragraph of describing it
 - **A feature that belongs upstream?** Send it upstream. Anything here that could live in Bambuddy is
   better off there — a smaller patch series is a fork that survives
 
