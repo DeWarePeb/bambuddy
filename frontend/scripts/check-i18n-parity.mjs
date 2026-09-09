@@ -125,7 +125,7 @@ function isAlwaysAllowedIdentical(value) {
   if (/^https?:\/\//.test(value)) return true;          // URL
   if (/^ON,\s+true,\s+1$/.test(value)) return true;     // literal example "ON, true, 1"
   // Brand / technical names that ship verbatim everywhere.
-  if (/^(Bambuddy|BamBuddy|SpoolBuddy|Bambu Lab|Bambu Studio|Bambu Studio 2\.6\+|Bambu Studio sidecar URL|OrcaSlicer|OrcaSlicer sidecar URL|MakerWorld|Spoolman|\(Spoolman\)|Spoolman URL|Tailscale|GitHub|GitLab|Gitea|Forgejo|Discord|MQTT|FTP|HTTPS?|JSON|YAML|RTSP|TLS|SSL|CSRF|OIDC|SSO|SSO \/ OIDC|LDAP|TOTP|2FA|MFA|API|AMS|CRC|SHA256|SHA-256|kWh|MB|GB|KB|RGBA?|HSL|RGB|UTC|ISO|UI|HTTP|HTTP Method|H2D|H2D Pro|X1C|X1E|P1S|P1P|A1|A1 Mini|H2C|N3F|N3S|PETG|PLA|ABS|PA|TPU|PEI|PA-CF|PVA|HIPS|ASA|PC|PETG-HF|G\.code|G-code|gcode|cm³|°C|°F|GCODE|SOURCE|ntfy|Pushover|Bark|Telegram|Webhook|Webhook URL|Home Assistant|Home Assistant URL|CallMeBot\/WhatsApp|Bambuddy URL|Cool Plate|Cool Plate SuperTack|Engineering Plate|High Temp Plate|Smooth PEI Plate|Textured PEI Plate|Ext-L|Ext-R|ISO \(YYYY-MM-DD\))$/.test(value)) return true;
+  if (/^(Bambuddy|BamBuddy|SpoolBuddy|Bambu Lab|Bambu Studio|Bambu Studio 2\.6\+|Bambu Studio sidecar URL|OrcaSlicer|OrcaSlicer sidecar URL|MakerWorld|Spoolman|\(Spoolman\)|Spoolman URL|Klipper|Klipper \(Moonraker\)|Moonraker|Moonraker URL|Open Filament Database|Notify|Tailscale|GitHub|GitLab|Gitea|Forgejo|Discord|MQTT|FTP|HTTPS?|JSON|YAML|RTSP|TLS|SSL|CSRF|OIDC|SSO|SSO \/ OIDC|LDAP|TOTP|2FA|MFA|API|AMS|CRC|SHA256|SHA-256|kWh|MB|GB|KB|RGBA?|HSL|RGB|UTC|ISO|UI|HTTP|HTTP Method|H2D|H2D Pro|X1C|X1E|P1S|P1P|A1|A1 Mini|H2C|N3F|N3S|PETG|PLA|ABS|PA|TPU|PEI|PA-CF|PVA|HIPS|ASA|PC|PETG-HF|G\.code|G-code|gcode|cm³|°C|°F|GCODE|SOURCE|ntfy|Pushover|Bark|Telegram|Webhook|Webhook URL|Home Assistant|Home Assistant URL|CallMeBot\/WhatsApp|Bambuddy URL|Cool Plate|Cool Plate SuperTack|Engineering Plate|High Temp Plate|Smooth PEI Plate|Textured PEI Plate|Ext-L|Ext-R|ISO \(YYYY-MM-DD\))$/.test(value)) return true;
   return false;
 }
 
@@ -172,6 +172,7 @@ const DE_COGNATES = [
   'Avery L7160 — A4 sheet (38.1 × 63.5 mm × 21)',
   'Avery 5160 — US Letter sheet (25.4 × 66.7 mm × 30)',
   'China', 'Proxy', 'Start',
+  '{{count}} online', '{{count}} offline',  // B11 fleet tiles — both loanwords in German
   'Diagnose',  // DE: same spelling/meaning as EN — camera diagnostic button label
   '{{filament}} @ {{temp}}°C',  // drying badge: filament code + universal °C
   'Score',  // #1546 AI detection modal — established DE loanword (Duden)
@@ -222,6 +223,8 @@ const FR_COGNATES = [
   '{{filament}} @ {{temp}}°C',  // drying badge: filament code + universal °C
   'Simple', 'Expert',  // slicer settings visibility tiers — identical words in French
   'Support',  // same word in French
+  '15 minutes', '30 minutes',  // B8 wait options — identical wording in French
+  '{{count}} filament(s)',  // B6 count — "filament" and its plural marker are the same in French
 ];
 
 // Italian cognates.
@@ -257,6 +260,7 @@ const IT_COGNATES = [
   'Off',  // cam-wall status overlay mode — common loanword in Italian UI
   '{{filament}} @ {{temp}}°C',  // drying badge: filament code + universal °C
   'Skirt / brim',  // Italian slicer UIs keep the English terms
+  '{{count}} online', '{{count}} offline',  // B11 fleet tiles — both loanwords in Italian
 ];
 
 // Japanese: very few cognates because of script difference. Almost
@@ -303,6 +307,7 @@ const PT_BR_COGNATES = [
   'e.g., Home Assistant, OctoPrint', 'ntfy, Pushover, Discord, etc.',
   'Proxy', 'total: {{minutes}} min',
   '{{filament}} @ {{temp}}°C',  // drying badge: filament code + universal °C
+  '{{count}} online', '{{count}} offline',  // B11 fleet tiles — both loanwords in PT-BR
 ];
 
 // Chinese (Simplified): very few cognates beyond brand names.
@@ -387,6 +392,7 @@ const TR_COGNATES = [
   'Filament {{index}} ({{type}})',
   'EC984C,#6CD4BC,A66EB9,D87694',
   '{{filament}} @ {{temp}}°C',  // drying badge: filament code + universal °C
+  'TV / kiosk',  // B10 token scope — Turkish uses both words verbatim
 ];
 
 const RU_COGNATES = [
@@ -453,6 +459,10 @@ const NL_COGNATES = [
   'Timelapse', 'Topic', 'Trend', 'Type',
   'Type:', 'Updates', 'Uptime', 'Urgent',
   'Warm', '{{weight}}g', 'Workflow',
+  // Fork additions (B10, B11). The Command Center keeps its English page name,
+  // and Dutch counts printers with the English noun.
+  'Command Center', 'Farm Command Center', 'TV / kiosk',
+  '{{count}} online', '{{count}} offline', '{{count}} printer', '{{count}} printers',
 ];
 
 const IDENTICAL_TO_EN_ALLOWED = {
@@ -470,6 +480,40 @@ const IDENTICAL_TO_EN_ALLOWED = {
   uk: new Set(UK_COGNATES),
   nl: new Set(NL_COGNATES),
 };
+
+// i18next resolves a count through Intl.PluralRules, so a locale whose plural
+// system has more categories than English needs suffixes English never writes:
+// Russian and Ukrainian say "3 катушки" (few) and "5 катушек" (many) where
+// English has only one/other. Such a key is not drift — it is the key en
+// declares, spelled for that locale's grammar — so it must not read as an
+// extra key. Everything else en does not have still fails.
+const EN_PLURAL_CATEGORIES = new Set(['one', 'other']);
+
+const pluralCategoryCache = new Map();
+function pluralCategories(code) {
+  if (!pluralCategoryCache.has(code)) {
+    let categories;
+    try {
+      categories = new Set(new Intl.PluralRules(code).resolvedOptions().pluralCategories);
+    } catch {
+      categories = EN_PLURAL_CATEGORIES;
+    }
+    pluralCategoryCache.set(code, categories);
+  }
+  return pluralCategoryCache.get(code);
+}
+
+// True only for `<base>_<category>` where the category is one this locale
+// actually uses, en does not, and en declares the same base as a plural
+// (`<base>_other`). A stray `foo_bar` is not a plural form and still fails.
+function isLocalePluralForm(code, key, enKeys) {
+  const match = /^(.*)_([a-z]+)$/.exec(key);
+  if (!match) return false;
+  const [, base, category] = match;
+  if (EN_PLURAL_CATEGORIES.has(category)) return false;
+  if (!pluralCategories(code).has(category)) return false;
+  return enKeys.has(`${base}_other`);
+}
 
 // Pure comparison logic, exported so tests can verify each failure mode
 // without going through file IO or the TypeScript parser.
@@ -489,7 +533,9 @@ export function compareLocales(locales) {
     if (code === 'en') continue;
     const keys = new Set(map.keys());
     const missing = [...enKeys].filter((k) => !keys.has(k)).sort();
-    const extra = [...keys].filter((k) => !enKeys.has(k)).sort();
+    const extra = [...keys]
+      .filter((k) => !enKeys.has(k) && !isLocalePluralForm(code, k, enKeys))
+      .sort();
     add(`${code}: missing keys vs en`, missing);
     add(`${code}: extra keys vs en`, extra);
   }

@@ -47,6 +47,52 @@ describe('compareLocales (parity-script self-test)', () => {
     expect(hasReport(result.reports, 'zh-CN: extra keys vs en', 'a.stray')).toBe(true);
   });
 
+  it('accepts the plural categories a locale has and en does not', () => {
+    // Russian counts in one/few/many/other, so "3 катушки" and "5 катушек"
+    // need suffixes en never writes. Those are the same key, spelled for the
+    // grammar — not drift.
+    const result = compareLocales({
+      en: toMap({ spool_one: 'spool', spool_other: 'spools' }),
+      ru: toMap({
+        spool_one: 'катушка',
+        spool_few: 'катушки',
+        spool_many: 'катушек',
+        spool_other: 'катушки',
+      }),
+    });
+    expect(result.failed).toBe(false);
+  });
+
+  it('still flags an extra key whose suffix is not a plural category', () => {
+    const result = compareLocales({
+      en: toMap({ spool_one: 'spool', spool_other: 'spools' }),
+      ru: toMap({ spool_one: 'катушка', spool_other: 'катушки', spool_maybe: 'опечатка' }),
+    });
+    expect(result.failed).toBe(true);
+    expect(hasReport(result.reports, 'ru: extra keys vs en', 'spool_maybe')).toBe(true);
+  });
+
+  it('still flags a plural-category suffix on a key en does not pluralize', () => {
+    // No `spool_other` in en means this locale invented the plural, so the
+    // count never reaches i18next and the extra forms are dead strings.
+    const result = compareLocales({
+      en: toMap({ spool: 'spool' }),
+      ru: toMap({ spool: 'катушка', spool_many: 'катушек' }),
+    });
+    expect(result.failed).toBe(true);
+    expect(hasReport(result.reports, 'ru: extra keys vs en', 'spool_many')).toBe(true);
+  });
+
+  it('does not accept a plural category the locale itself lacks', () => {
+    // German has no "few"; only Slavic-style locales do.
+    const result = compareLocales({
+      en: toMap({ spool_one: 'spool', spool_other: 'spools' }),
+      de: toMap({ spool_one: 'Spule', spool_other: 'Spulen', spool_few: 'Spulen' }),
+    });
+    expect(result.failed).toBe(true);
+    expect(hasReport(result.reports, 'de: extra keys vs en', 'spool_few')).toBe(true);
+  });
+
   it('flags placeholder mismatch (missing placeholder in translation)', () => {
     const result = compareLocales({
       en: toMap({ greeting: 'Hello {{name}}!' }),
