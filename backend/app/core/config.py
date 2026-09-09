@@ -8,7 +8,20 @@ from pydantic_settings import BaseSettings
 
 # Application version - single source of truth
 APP_VERSION = "1.2.5.5"
-GITHUB_REPO = "maziggy/bambuddy"
+# Voron patch series: the repository the in-app updater checks releases against
+# and, crucially, the one it will reset the working tree to.
+#
+# This MUST be the fork. Left at upstream's value it is destructive, not merely
+# wrong: `_perform_update` rewrites `origin` to `https://github.com/{GITHUB_REPO}`
+# whenever the current origin does not already resolve to it, then hard-resets to
+# an upstream release tag. On a Printhok install that means one click of Apply
+# Update silently repoints the checkout at maziggy/bambuddy and replaces the
+# entire fork with stock Bambuddy — with origin left pointing upstream, so it
+# does not come back.
+#
+# The fork has no releases yet, which the updater reports as "No releases found"
+# and offers nothing. That is the correct resting state until releases are cut.
+GITHUB_REPO = "DeWarePeb/printhok"
 # Voron patch series: upstream defaults this to its own relay, which files the
 # report as an issue on maziggy/bambuddy. On a fork that is the wrong tracker
 # and the button is the path of least resistance to it — a tester hits a bug in

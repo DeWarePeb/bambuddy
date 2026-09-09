@@ -632,6 +632,36 @@ resolving to 169.254.169.254 at request time still passes — the same TOCTOU ho
 consumer has, documented in `_url_safety.py`. Closing it means resolving at request time and pinning
 the address, which is a change to the shared guard and not to this fork's patch series.
 
+### A15 · The in-app updater points at the fork
+
+| | |
+|---|---|
+| **Status** | ✅ |
+| **Touched** | `backend/app/core/config.py` (`GITHUB_REPO`), `tests/integration/test_updates_api.py` |
+
+Inherited unchanged, `GITHUB_REPO = "maziggy/bambuddy"` made the Apply Update button destructive on
+this fork rather than merely wrong. `_perform_update` rewrites `origin` to
+`https://github.com/{GITHUB_REPO}.git` whenever the current origin does not already resolve to it,
+then hard-resets the working tree to a release tag from that repo. So on a Printhok install, one
+click repointed the checkout at upstream and replaced the entire fork with stock Bambuddy — with
+`origin` left pointing upstream, so it did not come back. On a tester's machine that is their install
+gone, and it would have been the first thing a curious person clicked.
+
+`GITHUB_REPO` is the fork now. The fork has no releases, which the updater already handles as "No
+releases found" and offers nothing — the correct resting state until releases are cut. If they ever
+are, the same code path works unchanged against the fork's tags.
+
+Note the shell updater was never affected: `install/update.sh` is branch- and remote-agnostic, which
+is why this went unnoticed — the documented update path is fine and only the button was armed.
+
+Three tests hardcoded `git@github.com:maziggy/bambuddy.git` as *the correct origin* while asserting
+it gets preserved, so they would have kept passing while asserting the opposite of what the fork
+needs. They derive it from `GITHUB_REPO` now.
+
+**Guard against upstream drift:** `GITHUB_REPO` is pinned by
+`test_the_updater_points_at_the_fork_not_upstream`. If a rebase ever takes upstream's value back,
+that test is the thing that says so.
+
 ## Open items
 
 Each one has an issue on the fork, so this table is the summary and the issue is the detail.

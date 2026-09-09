@@ -304,7 +304,7 @@ class TestUpdatesAPI:
     @pytest.mark.asyncio
     async def test_perform_update_preserves_ssh_origin_when_pointing_at_correct_repo(self, tmp_path):
         """Regression for the developer-checkout footgun: if origin already
-        points at github.com/maziggy/bambuddy via SSH, the updater must
+        points at the configured repo via SSH, the updater must
         leave it alone instead of clobbering it with HTTPS. Pre-fix, every
         Apply Update click rewrote `git@github.com:...` to `https://...`,
         breaking subsequent `git push` for any developer testing the
@@ -326,7 +326,7 @@ class TestUpdatesAPI:
             # SSH URL. Every other subprocess returns successfully with no
             # output.
             if "get-url" in args and "origin" in args:
-                proc.communicate = AsyncMock(return_value=(b"git@github.com:maziggy/bambuddy.git\n", b""))
+                proc.communicate = AsyncMock(return_value=(_correct_ssh_origin(), b""))
             else:
                 proc.communicate = AsyncMock(return_value=(b"", b""))
             proc.returncode = 0
@@ -425,7 +425,7 @@ class TestUpdatesAPI:
             calls.append({"args": args, "cwd": kwargs.get("cwd")})
             proc = MagicMock()
             if "get-url" in args and "origin" in args:
-                proc.communicate = AsyncMock(return_value=(b"git@github.com:maziggy/bambuddy.git\n", b""))
+                proc.communicate = AsyncMock(return_value=(_correct_ssh_origin(), b""))
             else:
                 proc.communicate = AsyncMock(return_value=(b"", b""))
             proc.returncode = 0
@@ -617,7 +617,7 @@ class TestUpdatesAPI:
             calls.append({"args": args, "cwd": kwargs.get("cwd")})
             proc = MagicMock()
             if "get-url" in args and "origin" in args:
-                proc.communicate = AsyncMock(return_value=(b"git@github.com:maziggy/bambuddy.git\n", b""))
+                proc.communicate = AsyncMock(return_value=(_correct_ssh_origin(), b""))
             else:
                 proc.communicate = AsyncMock(return_value=(b"", b""))
             proc.returncode = 0
@@ -936,3 +936,37 @@ class TestUpdatesAPI:
             body = (await async_client.get("/api/v1/updates/check")).json()
         assert body["update_method"] == "git"
         assert body["compose_dir_detected"] is None
+
+
+def _correct_ssh_origin() -> bytes:
+    """`git remote get-url origin` output for an origin that already points at
+    the configured repo, over SSH.
+
+    Derived from GITHUB_REPO rather than written out. These tests assert that a
+    *correct* origin is preserved, so hardcoding upstream's URL meant they kept
+    passing while asserting the wrong thing the moment the fork stopped being
+    upstream.
+    """
+    from backend.app.core.config import GITHUB_REPO
+
+    return f"git@github.com:{GITHUB_REPO}.git\n".encode()
+
+
+@pytest.mark.unit
+def test_the_updater_points_at_the_fork_not_upstream():
+    """The one that must never regress.
+
+    `_perform_update` rewrites `origin` to `https://github.com/{GITHUB_REPO}.git`
+    whenever the current origin does not already resolve to it, and then hard-resets
+    the working tree to a release tag from that repo. GITHUB_REPO is therefore not
+    just where release notes come from — it is what the installation becomes.
+
+    Left at upstream's value on this fork, one click of Apply Update repoints a
+    Printhok checkout at maziggy/bambuddy and replaces the whole fork with stock
+    Bambuddy, origin included, so it does not come back. On a tester's machine that
+    is their install gone.
+    """
+    from backend.app.core.config import GITHUB_REPO
+
+    assert GITHUB_REPO == "DeWarePeb/printhok"
+    assert not GITHUB_REPO.startswith("maziggy/")
