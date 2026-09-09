@@ -176,3 +176,32 @@ describe('filterCompatibleQueueItems — force-color PLA variant (#2650)', () =>
     expect(filterCompatibleQueueItems([noIdxJob], loadedTypes, loaded, variants)).toHaveLength(1);
   });
 });
+
+describe('getPrinterImage — non-Bambu providers (fork)', () => {
+  it('draws a Klipper printer as neutral line art, not as a Bambu', () => {
+    // The fallback among these images is a render of an X1, so every Klipper
+    // machine used to be shown as a Bambu Lab printer.
+    expect(getPrinterImage('Voron 2.4', 'klipper')).toBe('/img/printers/klipper.svg');
+  });
+
+  it('does not care what a non-Bambu printer calls its model', () => {
+    // Klipper machines are all different and their model is free text, so there
+    // is nothing to match on and nothing that should be matched.
+    expect(getPrinterImage(null, 'klipper')).toBe('/img/printers/klipper.svg');
+    expect(getPrinterImage('', 'klipper')).toBe('/img/printers/klipper.svg');
+    expect(getPrinterImage('RatRig V-Core 4', 'klipper')).toBe('/img/printers/klipper.svg');
+  });
+
+  it('never lets a model string steer a non-Bambu printer to a Bambu render', () => {
+    // "Voron A1" contains a1; the provider has to win over the substring match.
+    expect(getPrinterImage('Voron A1', 'klipper')).toBe('/img/printers/klipper.svg');
+    expect(getPrinterImage('X1 clone', 'klipper')).toBe('/img/printers/klipper.svg');
+  });
+
+  it('leaves Bambu printers exactly as they were', () => {
+    expect(getPrinterImage('X1C', 'bambu')).toBe('/img/printers/x1c.png');
+    expect(getPrinterImage('P2S', 'bambu')).toBe('/img/printers/p1s.png');
+    expect(getPrinterImage('X1C')).toBe('/img/printers/x1c.png');
+    expect(getPrinterImage(null, 'bambu')).toBe('/img/printers/default.png');
+  });
+});

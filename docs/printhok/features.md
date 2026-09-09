@@ -192,8 +192,8 @@ surface.
 
 | | |
 |---|---|
-| **Status** | ⚠️ working, never spoken to real hardware |
-| **Commit** | `a7bbd33c` |
+| **Status** | ✅ |
+| **Commits** | `a7bbd33c`, `6448b477` lazy start |
 | **New files** | `backend/app/services/moonraker_stream.py`, `backend/tests/unit/services/test_moonraker_stream.py`, `backend/tests/integration/test_moonraker_stream_live.py` |
 
 A0 polled `printer/objects/query` every two seconds: a card up to two seconds stale, and one request
@@ -221,12 +221,43 @@ Built on aiohttp, already a declared dependency. `websockets` is installed as we
 `uvicorn[standard]` pulls it, and a transport that disappears when uvicorn changes its extras is not
 one to build on.
 
-**Gap:** the only Moonraker this has spoken to is the fake one in the integration tests — the Voron
-was powered off when it was written. Those tests do drive the real protocol (connect, subscribe,
-snapshot, pushed update, API key on the handshake, reconnect after the server hangs up, survive a
-callback that raises), and they caught the bug the exercise existed to find: `stop()` set a flag the
-thread never looked at, because it spends its life awaiting a frame an idle printer never sends, so
-every disconnect leaked a thread. Still, the first run against real hardware is the one that counts.
+**Verified against the real Voron on 2026-09-09.** It connects at `ws://192.168.2.177/websocket` —
+port 80, so through Mainsail's own nginx rather than straight to Moonraker on 7125, which is the
+setup most people actually have and the one the fallback exists for. Temperatures then change on
+every three-second sample while the poll is backed off to thirty, which only the socket can be doing.
+
+The fake Moonraker in the integration tests earned its place first: it drives connect, subscribe,
+snapshot, pushed update, API key on the handshake, reconnect after the server hangs up, and a
+callback that raises — and it caught the bug this kind of change exists to have. `stop()` set a flag
+the thread never looked at, because the thread spends its life awaiting a frame that an idle printer
+never sends, so every disconnect leaked a thread.
+
+`6448b477` fixed a second one, found by deploying onto a printer that was switched off: the stream
+started at the end of `connect()`, inside the try that reachability decides, and nothing opened it
+afterwards because the poll is what recovers that connection. A printer powered on after the server —
+the normal order in a workshop — would have looked fine and never used the socket at all. The poll
+now opens it the first time the printer answers.
+
+### A13 · A Klipper printer is not drawn as a Bambu
+
+| | |
+|---|---|
+| **Status** | ✅ |
+| **New file** | `frontend/public/img/printers/klipper.svg` |
+
+Every image in `public/img/printers/` is a product render of a specific Bambu machine, and
+`getPrinterImage` fell back to `default.png` — the X1 — for any model string it did not recognise.
+A Klipper model is free text and matches none of them, so every Voron, RatRig and Ender in this fork
+was drawn as a Bambu Lab X1, badge and all.
+
+`getPrinterImage` now takes the provider, and anything that is not `bambu` gets neutral line art:
+the frame every CoreXY shares, in `currentColor`, carrying no brand. Not a photo of a Voron, because
+Klipper machines are all different and a picture of one particular printer would be just as wrong as
+a picture of an X1.
+
+The provider is checked before the model, so a machine whose name happens to contain a Bambu model —
+"Voron A1", "X1 clone" — cannot be steered back to a render by a substring match. Bambu printers are
+untouched.
 
 ---
 
@@ -577,7 +608,6 @@ Each one has an issue on the fork, so this table is the summary and the issue is
 | | | |
 |---|---|---|
 | [#1](https://github.com/DeWarePeb/bambuddy/issues/1) | A0 | `api_url` reaches an outbound fetch unguarded — SSRF and DNS rebinding. Recorded in `test_outbound_url_ssrf_guards.py` under `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD`, alongside upstream's own camera URLs; closing it needs a scheme-aware guard, not a delegation. |
-| [#2](https://github.com/DeWarePeb/bambuddy/issues/2) | A12 | **Done** in `a7bbd33c`, but never against real hardware — the only Moonraker it has spoken to is the fake one in the tests. Close it after a run with the Voron powered on. |
 | [#3](https://github.com/DeWarePeb/bambuddy/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
 | [#4](https://github.com/DeWarePeb/bambuddy/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
 

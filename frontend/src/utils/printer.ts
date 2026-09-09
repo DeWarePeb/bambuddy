@@ -1,4 +1,10 @@
-export function getPrinterImage(model: string | null | undefined): string {
+export function getPrinterImage(model: string | null | undefined, provider?: string | null): string {
+  // Every other image here is a render of a specific Bambu machine, and the
+  // fallback among them is an X1 — so a printer whose model matched nothing was
+  // drawn as a Bambu. That is every Klipper machine, which is not a Bambu and is
+  // not any one shape either, so it gets neutral line art rather than a photo of
+  // somebody else's printer.
+  if (provider && provider !== 'bambu') return '/img/printers/klipper.svg';
   if (!model) return '/img/printers/default.png';
   const m = model.toLowerCase().replace(/\s+/g, '');
   if (m.includes('x1e')) return '/img/printers/x1e.png';

@@ -3890,7 +3890,7 @@ function PrinterCard({
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* Printer Model Image */}
               <img
-                src={getPrinterImage(printer.model)}
+                src={getPrinterImage(printer.model, printer.provider)}
                 alt={printer.model || t('common.printer')}
                 className={`object-contain rounded-lg flex-shrink-0 ${getImageSize()}`}
               />

@@ -195,7 +195,7 @@ export function PrinterInfoModal({ printer, status, totalPrintHours, onClose }: 
           {/* Printer Image */}
           <div className="flex justify-center mb-4">
             <img
-              src={getPrinterImage(printer.model)}
+              src={getPrinterImage(printer.model, printer.provider)}
               alt={printer.model ?? printer.name}
               className="h-24 object-contain"
             />
