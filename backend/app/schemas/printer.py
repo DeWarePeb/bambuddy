@@ -51,6 +51,10 @@ class PrinterBase(BaseModel):
     # enclosure". None means guess from the usual names. Stored in
     # provider_options, not a column of its own.
     chamber_object: str | None = Field(default=None, max_length=120)
+    # "auto" uses Moonraker's WebSocket with the poll as a safety net; "poll"
+    # sticks to polling, for a Moonraker behind something that will not pass an
+    # upgrade request.
+    transport: Literal["auto", "poll"] | None = None
 
 
 def klipper_identity_from_url(api_url: str) -> tuple[str, str]:
@@ -119,6 +123,7 @@ class PrinterUpdate(BaseModel):
     api_url: str | None = Field(default=None, max_length=500)  # Klipper: Moonraker base URL
     auth_token: str | None = Field(default=None, max_length=500)  # Klipper: Moonraker API key
     chamber_object: str | None = Field(default=None, max_length=120)  # Klipper: chamber object name
+    transport: Literal["auto", "poll"] | None = None  # Klipper: pushed status, or poll only
     model: str | None = None
     location: str | None = None
     is_active: bool | None = None
@@ -175,6 +180,7 @@ class PrinterResponse(PrinterBase):
             "provider": getattr(printer, "provider", None) or "bambu",
             "api_url": getattr(printer, "api_url", None),
             "chamber_object": provider_options.get_str(getattr(printer, "provider_options", None), "chamber_object"),
+            "transport": provider_options.get_str(getattr(printer, "provider_options", None), "transport"),
             "is_active": printer.is_active,
             "nozzle_count": printer.nozzle_count,
             "supports_nozzle_flow_type": supports_nozzle_flow_type(printer.model),

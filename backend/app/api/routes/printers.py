@@ -213,10 +213,9 @@ async def create_printer(
     fields = printer_data.model_dump()
     # Provider-specific knobs live in the provider_options JSON, not columns of
     # their own, so they never reach the constructor as keyword arguments.
-    chamber_object = fields.pop("chamber_object", None)
+    options = {key: fields.pop(key, None) for key in ("chamber_object", "transport")}
     printer = Printer(**fields)
-    if chamber_object:
-        printer.provider_options = provider_options.merge(None, {"chamber_object": chamber_object})
+    printer.provider_options = provider_options.merge(None, options)
     db.add(printer)
     await db.commit()
     await db.refresh(printer)
@@ -427,10 +426,9 @@ async def update_printer(
     # Folded into provider_options rather than set on the model: there is no
     # such column, and setattr would put it on the instance where it would be
     # silently dropped at commit.
-    if "chamber_object" in update_data:
-        printer.provider_options = provider_options.merge(
-            printer.provider_options, {"chamber_object": update_data.pop("chamber_object") or None}
-        )
+    option_updates = {key: (update_data.pop(key) or None) for key in ("chamber_object", "transport") if key in update_data}
+    if option_updates:
+        printer.provider_options = provider_options.merge(printer.provider_options, option_updates)
 
     for field, value in update_data.items():
         setattr(printer, field, value)

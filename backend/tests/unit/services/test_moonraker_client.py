@@ -367,3 +367,73 @@ def test_download_file_lets_an_http_error_through():
         stream.return_value = _FakeStream([], status_error=error)
         with pytest.raises(httpx.HTTPStatusError):
             client.download_file("missing.gcode")
+
+
+# ------------------------------------------------------ transport switching
+
+
+class _StubStatusStream:
+    """Only the bit effective_poll_interval looks at."""
+
+    def __init__(self, healthy):
+        self.healthy = healthy
+
+
+def test_poll_interval_backs_off_while_the_stream_is_healthy():
+    """The poll never stops, it gets out of the way — so a wedged WebSocket
+    costs latency for one interval, not a card that stops updating."""
+    client = MoonrakerClient("http://printer:7125", poll_interval=2.0, slow_poll_interval=30.0)
+    client._stream = _StubStatusStream(healthy=True)
+    assert client.effective_poll_interval() == 30.0
+
+
+def test_poll_interval_snaps_back_when_the_stream_goes_quiet():
+    client = MoonrakerClient("http://printer:7125", poll_interval=2.0, slow_poll_interval=30.0)
+    client._stream = _StubStatusStream(healthy=False)
+    assert client.effective_poll_interval() == 2.0
+
+
+def test_poll_interval_without_a_stream_is_the_plain_one():
+    client = MoonrakerClient("http://printer:7125", poll_interval=2.0, slow_poll_interval=30.0)
+    assert client.effective_poll_interval() == 2.0
+
+
+def test_transport_poll_never_opens_a_stream():
+    """For a Moonraker behind something that will not pass an upgrade request."""
+    client = MoonrakerClient("http://printer:7125", transport="poll")
+    client._objects = ["print_stats"]
+    client._start_stream()
+    assert client._stream is None
+
+
+def test_transport_auto_opens_one():
+    client = MoonrakerClient("http://printer:7125", transport="auto")
+    client._objects = ["print_stats"]
+    with patch("backend.app.services.moonraker_client.MoonrakerStatusStream") as stream_cls:
+        client._start_stream()
+    stream_cls.assert_called_once()
+    stream_cls.return_value.start.assert_called_once()
+
+
+def test_pushed_updates_are_merged_before_they_are_applied():
+    """A partial frame must not reach _apply_status on its own — it would look
+    like a printer that had just lost every field it did not mention."""
+    client = MoonrakerClient("http://printer:7125")
+    client._status_cache = {"extruder": {"temperature": 210.0, "target": 210.0}}
+    with patch.object(client, "_apply_status") as apply_status:
+        client._on_pushed_status({"extruder": {"target": 0.0}})
+    apply_status.assert_called_once()
+    assert apply_status.call_args.args[0]["extruder"] == {"temperature": 210.0, "target": 0.0}
+
+
+def test_pushed_updates_are_coalesced():
+    """Moonraker pushes whenever the toolhead moves. Every frame is merged, but
+    the fan-out behind it is not run several times a second."""
+    client = MoonrakerClient("http://printer:7125")
+    with patch.object(client, "_apply_status") as apply_status:
+        client._on_pushed_status({"toolhead": {"position": [0, 0, 0, 0]}})
+        client._on_pushed_status({"toolhead": {"position": [1, 0, 0, 0]}})
+        client._on_pushed_status({"toolhead": {"position": [2, 0, 0, 0]}})
+    assert apply_status.call_count == 1
+    # Dropped from the work, never from the picture.
+    assert client._status_cache["toolhead"]["position"] == [2, 0, 0, 0]

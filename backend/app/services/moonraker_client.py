@@ -40,6 +40,7 @@ from urllib.parse import quote, urlparse
 import httpx
 
 from backend.app.services.bambu_mqtt import MQTTLogEntry, PrinterState
+from backend.app.services.moonraker_stream import MoonrakerStatusStream, merge_status
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,11 @@ _STATE_MAP = {
 _BASE_OBJECTS = ["print_stats", "virtual_sdcard", "display_status", "extruder", "heater_bed", "toolhead", "fan"]
 
 _CHAMBER_OBJECT_PREFIXES = ("temperature_sensor chamber", "temperature_fan chamber", "heater_generic chamber")
+
+# Longest a pushed update waits before it reaches the card. Moonraker pushes on
+# every change and toolhead position changes constantly, so this bounds the
+# websocket fan-out to the browsers rather than the delay anyone notices.
+_PUSH_COALESCE_SECONDS = 0.25
 
 # Klipper object kinds that can report a temperature. The chamber is whichever
 # one the user says it is; these are the candidates worth offering them.
@@ -190,6 +196,8 @@ class MoonrakerClient:
         poll_interval: float = 2.0,
         timeout: float = 5.0,
         chamber_object: str | None = None,
+        transport: str = "auto",
+        slow_poll_interval: float = 30.0,
         **_ignored_bambu_callbacks: Any,
     ) -> None:
         if not base_url:
@@ -228,6 +236,16 @@ class MoonrakerClient:
         # the name is whatever that install's printer.cfg calls it; None means
         # fall back to guessing from the usual names.
         self._configured_chamber_object = (chamber_object or "").strip() or None
+        # "auto" tries the WebSocket and keeps polling as the safety net; "poll"
+        # never opens one, for a Moonraker behind something that will not pass an
+        # upgrade, or to rule the stream out while debugging.
+        self._transport = (transport or "auto").strip().lower()
+        self._slow_poll_interval = slow_poll_interval
+        self._stream: MoonrakerStatusStream | None = None
+        # The last full picture. Both transports write it; pushed updates are
+        # partial and are merged into it rather than replacing it.
+        self._status_cache: dict[str, Any] = {}
+        self._last_push_apply = 0.0
         self._chamber_object: str | None = None
         self._light_object: str | None = None
         self._has_sample = False
@@ -315,6 +333,7 @@ class MoonrakerClient:
             self.last_connect_error = None
             self._discover_objects()
             self.request_status_update()
+            self._start_stream()
         except Exception as exc:  # noqa: BLE001
             self.last_connect_error = str(exc)
             self.state.connected = False
@@ -331,6 +350,9 @@ class MoonrakerClient:
 
     def disconnect(self, timeout: float = 0) -> None:
         self._stop.set()
+        if self._stream:
+            self._stream.stop(timeout)
+            self._stream = None
         thread = self._thread
         if thread and thread.is_alive() and timeout > 0:
             thread.join(timeout)
@@ -368,7 +390,63 @@ class MoonrakerClient:
                 self.request_status_update()
             except Exception as exc:  # noqa: BLE001 - keep polling through transient errors
                 self._mark_unreachable(str(exc))
-            self._stop.wait(self.poll_interval)
+            # The poll never stops, it just gets out of the way. While the stream
+            # is delivering, this is a slow refresh that keeps the cache honest
+            # and notices a wedged connection; the moment the stream goes quiet
+            # the interval snaps back and nothing downstream can tell.
+            self._stop.wait(self.effective_poll_interval())
+
+    def effective_poll_interval(self) -> float:
+        stream = self._stream
+        return self._slow_poll_interval if (stream and stream.healthy) else self.poll_interval
+
+    def _start_stream(self) -> None:
+        """Open the pushed-status stream, if this printer is allowed one.
+
+        Failure here is deliberately quiet: the poll is already running, so a
+        Moonraker that will not upgrade the connection costs latency, not
+        function.
+        """
+        if self._transport == "poll" or self._stream is not None:
+            return
+        self._stream = MoonrakerStatusStream(
+            self.base_url,
+            self.auth_token,
+            self._objects,
+            on_status=self._on_pushed_status,
+            on_klippy_event=self._on_klippy_event,
+        )
+        self._stream.start()
+
+    def _on_pushed_status(self, update: dict[str, Any]) -> None:
+        """Merge a pushed update and, at most a few times a second, apply it.
+
+        Moonraker pushes whenever anything moves, and `toolhead` moves
+        constantly, so applying every frame would fan out a websocket broadcast
+        to every browser several times a second for a position nobody reads. The
+        merge is always done — the cache must stay complete — but the work behind
+        it is coalesced.
+        """
+        with self._lock:
+            self._status_cache = merge_status(self._status_cache, update)
+            now = time.monotonic()
+            if now - self._last_push_apply < _PUSH_COALESCE_SECONDS:
+                return
+            self._last_push_apply = now
+            try:
+                self._apply_status(self._status_cache)
+            except Exception:  # noqa: BLE001 - a bad frame must not stop the stream
+                logger.exception("[%s] pushed status could not be applied", self.serial_number)
+
+    def _on_klippy_event(self, event: str) -> None:
+        """Klipper came up or went down; ask the poll path for the details.
+
+        The notification says which event, not why. `_refresh_klippy` already
+        knows how to get the reason out of `printer/info` (C2), so this only has
+        to make the next poll happen promptly rather than in thirty seconds.
+        """
+        logger.info("[%s] Klippy %s", self.serial_number, event)
+        self._last_push_apply = 0.0
 
     def _mark_unreachable(self, reason: str) -> None:
         was_connected = self.state.connected
@@ -441,101 +519,112 @@ class MoonrakerClient:
         """Poll Moonraker once and update ``state``; fires the same callbacks as MQTT reports."""
         with self._lock:
             status = self._query(self._objects)
-            previous_state = self._last_state if self._has_sample else None
-            was_connected = self.state.connected
+            self._status_cache = status
+            return self._apply_status(status)
 
-            print_stats = status.get("print_stats") or {}
-            virtual_sdcard = status.get("virtual_sdcard") or {}
-            display_status = status.get("display_status") or {}
-            extruder = status.get("extruder") or {}
-            heater_bed = status.get("heater_bed") or {}
-            toolhead = status.get("toolhead") or {}
+    def _apply_status(self, status: dict[str, Any]) -> bool:
+        """Turn a full status dict into ``state`` and callbacks. Caller holds the lock.
 
-            self.state.connected = True
-            self.last_connect_error = None
-            self._klippy = {}  # Klipper answered; whatever it was complaining about is over.
-            self._last_message_time = time.monotonic()
-            self.state.state = map_moonraker_state(print_stats.get("state"))
+        Split out of the poll so the WebSocket stream reaches the card by exactly
+        the same path: two transports that processed status differently would be
+        two things to keep in step, and the difference would only ever show up on
+        someone else's printer.
+        """
+        previous_state = self._last_state if self._has_sample else None
+        was_connected = self.state.connected
 
-            filename = str(print_stats.get("filename") or "") or None
-            if filename:
-                base = filename.rsplit("/", 1)[-1]
-                self.state.gcode_file = base
-                self.state.current_print = base
-                self.state.subtask_name = base
-                self._load_metadata(filename)
-            elif self.state.state == "IDLE":
-                self.state.gcode_file = None
-                self.state.current_print = None
-                self.state.subtask_name = None
+        print_stats = status.get("print_stats") or {}
+        virtual_sdcard = status.get("virtual_sdcard") or {}
+        display_status = status.get("display_status") or {}
+        extruder = status.get("extruder") or {}
+        heater_bed = status.get("heater_bed") or {}
+        toolhead = status.get("toolhead") or {}
 
-            info = print_stats.get("info") or {}
-            layer = info.get("current_layer")
-            total = info.get("total_layer") or self._metadata.get("layer_count")
-            self.state.layer_num = int(layer) if isinstance(layer, (int, float)) else 0
-            self.state.total_layers = int(total) if isinstance(total, (int, float)) else 0
+        self.state.connected = True
+        self.last_connect_error = None
+        self._klippy = {}  # Klipper answered; whatever it was complaining about is over.
+        self._last_message_time = time.monotonic()
+        self.state.state = map_moonraker_state(print_stats.get("state"))
 
-            progress = _f(virtual_sdcard.get("progress"), _f(display_status.get("progress")))
-            duration = _f(print_stats.get("print_duration"))
-            if self.state.state == "FINISH":
-                self.state.progress = 100.0
-                self.state.remaining_time = 0
-            elif self.state.state in ("IDLE", "FAILED", "unknown"):
-                self.state.progress = 0.0
-                self.state.remaining_time = 0
-            else:
-                self.state.progress = round(max(0.0, min(progress, 1.0)) * 100, 1)
-                self.state.remaining_time = self._remaining_minutes(duration, self.state.progress)
+        filename = str(print_stats.get("filename") or "") or None
+        if filename:
+            base = filename.rsplit("/", 1)[-1]
+            self.state.gcode_file = base
+            self.state.current_print = base
+            self.state.subtask_name = base
+            self._load_metadata(filename)
+        elif self.state.state == "IDLE":
+            self.state.gcode_file = None
+            self.state.current_print = None
+            self.state.subtask_name = None
 
-            temps: dict[str, Any] = {
-                "nozzle": _f(extruder.get("temperature")),
-                "nozzle_target": _f(extruder.get("target")),
-                "bed": _f(heater_bed.get("temperature")),
-                "bed_target": _f(heater_bed.get("target")),
-            }
-            if self._chamber_object and isinstance(status.get(self._chamber_object), dict):
-                chamber = status[self._chamber_object]
-                temps["chamber"] = _f(chamber.get("temperature"))
-                temps["chamber_target"] = _f(chamber.get("target"))
-            self.state.temperatures = temps
+        info = print_stats.get("info") or {}
+        layer = info.get("current_layer")
+        total = info.get("total_layer") or self._metadata.get("layer_count")
+        self.state.layer_num = int(layer) if isinstance(layer, (int, float)) else 0
+        self.state.total_layers = int(total) if isinstance(total, (int, float)) else 0
 
-            fan = status.get("fan") or {}
-            self.state.cooling_fan_speed = int(round(_f(fan.get("speed")) * 100)) if fan else None
-            if self._light_object and isinstance(status.get(self._light_object), dict):
-                light = status[self._light_object]
-                value = light.get("value")
-                if value is None and isinstance(light.get("color_data"), list) and light["color_data"]:
-                    value = max(light["color_data"][0] or [0])
-                self.state.chamber_light = _f(value) > 0
+        progress = _f(virtual_sdcard.get("progress"), _f(display_status.get("progress")))
+        duration = _f(print_stats.get("print_duration"))
+        if self.state.state == "FINISH":
+            self.state.progress = 100.0
+            self.state.remaining_time = 0
+        elif self.state.state in ("IDLE", "FAILED", "unknown"):
+            self.state.progress = 0.0
+            self.state.remaining_time = 0
+        else:
+            self.state.progress = round(max(0.0, min(progress, 1.0)) * 100, 1)
+            self.state.remaining_time = self._remaining_minutes(duration, self.state.progress)
 
-            # A Klipper printer feeds from one spool. Report it the way a Bambu
-            # reports its external spool holder (virtual tray 254 = AMS 255 /
-            # tray 0): the card shows an "External" slot with the assign-spool
-            # dialog, and the usage tracker books filament to whatever spool is
-            # assigned there. tray_now points at it while printing so the
-            # tracker's tray_now_at_start lands on the same key.
-            self.state.tray_now = 254 if self.state.state in ("RUNNING", "PAUSE") else 255
-            if self._mmu:
-                self._apply_mmu(status)
-            if self._exclude_object:
-                self._apply_exclude_object(status)
-            self.state.raw_data = {
-                "provider": "klipper",
-                "klippy": {},
-                "moonraker": {k: v for k, v in status.items() if k != "save_variables"},
-                "homed_axes": toolhead.get("homed_axes"),
-                "print_duration": duration,
-                "filament_used": _f(print_stats.get("filament_used")),
-                "estimated_time": self._metadata.get("estimated_time"),
-                "message": print_stats.get("message") or display_status.get("message"),
-                "ams": [dict(u, tray=[dict(t) for t in u["tray"]]) for u in self._ams_units],
-                "vt_tray": [dict(self._external_tray)],
-                "mmu": dict(self._mmu_info),
-            }
+        temps: dict[str, Any] = {
+            "nozzle": _f(extruder.get("temperature")),
+            "nozzle_target": _f(extruder.get("target")),
+            "bed": _f(heater_bed.get("temperature")),
+            "bed_target": _f(heater_bed.get("target")),
+        }
+        if self._chamber_object and isinstance(status.get(self._chamber_object), dict):
+            chamber = status[self._chamber_object]
+            temps["chamber"] = _f(chamber.get("temperature"))
+            temps["chamber_target"] = _f(chamber.get("target"))
+        self.state.temperatures = temps
 
-            self._emit(previous_state, was_connected)
-            self._last_state = self.state.state
-            self._has_sample = True
+        fan = status.get("fan") or {}
+        self.state.cooling_fan_speed = int(round(_f(fan.get("speed")) * 100)) if fan else None
+        if self._light_object and isinstance(status.get(self._light_object), dict):
+            light = status[self._light_object]
+            value = light.get("value")
+            if value is None and isinstance(light.get("color_data"), list) and light["color_data"]:
+                value = max(light["color_data"][0] or [0])
+            self.state.chamber_light = _f(value) > 0
+
+        # A Klipper printer feeds from one spool. Report it the way a Bambu
+        # reports its external spool holder (virtual tray 254 = AMS 255 /
+        # tray 0): the card shows an "External" slot with the assign-spool
+        # dialog, and the usage tracker books filament to whatever spool is
+        # assigned there. tray_now points at it while printing so the
+        # tracker's tray_now_at_start lands on the same key.
+        self.state.tray_now = 254 if self.state.state in ("RUNNING", "PAUSE") else 255
+        if self._mmu:
+            self._apply_mmu(status)
+        if self._exclude_object:
+            self._apply_exclude_object(status)
+        self.state.raw_data = {
+            "provider": "klipper",
+            "klippy": {},
+            "moonraker": {k: v for k, v in status.items() if k != "save_variables"},
+            "homed_axes": toolhead.get("homed_axes"),
+            "print_duration": duration,
+            "filament_used": _f(print_stats.get("filament_used")),
+            "estimated_time": self._metadata.get("estimated_time"),
+            "message": print_stats.get("message") or display_status.get("message"),
+            "ams": [dict(u, tray=[dict(t) for t in u["tray"]]) for u in self._ams_units],
+            "vt_tray": [dict(self._external_tray)],
+            "mmu": dict(self._mmu_info),
+        }
+
+        self._emit(previous_state, was_connected)
+        self._last_state = self.state.state
+        self._has_sample = True
         return True
 
     # -------------------------------------------------------- skip objects

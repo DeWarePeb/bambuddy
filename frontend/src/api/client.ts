@@ -395,6 +395,9 @@ export interface Printer {
   // Which Klipper object reports the chamber. Null means guess from the usual
   // names; the install decides what its own sensor is called (fork, A6).
   chamber_object?: string | null;
+  // Klipper transport: "auto" uses the pushed-status WebSocket with the poll as
+  // a safety net, "poll" sticks to polling (fork, issue #2).
+  transport?: 'auto' | 'poll' | null;
   // Optional because the backend only returns access_code when the caller has
   // PRINTERS_UPDATE — Admin / Operator JWTs or auth-disabled mode. Viewers and
   // API keys receive a Printer without this field.
@@ -714,6 +717,9 @@ export interface PrinterCreate {
   api_url?: string | null;
   auth_token?: string | null;
   chamber_object?: string | null;
+  // Klipper transport: "auto" uses the pushed-status WebSocket with the poll as
+  // a safety net, "poll" sticks to polling (fork, issue #2).
+  transport?: 'auto' | 'poll' | null;
   model?: string;
   location?: string;
   auto_archive?: boolean;

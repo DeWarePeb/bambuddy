@@ -834,6 +834,9 @@ class PrinterManager:
                 # Which object is the chamber is a property of that install's
                 # printer.cfg, so it is configured per printer rather than guessed.
                 chamber_object=provider_options.get_str(printer.provider_options, "chamber_object"),
+                # "auto" opens the pushed-status stream and keeps the poll as a
+                # safety net; "poll" never opens one.
+                transport=provider_options.get_str(printer.provider_options, "transport") or "auto",
             )
         else:
             client = BambuMQTTClient(

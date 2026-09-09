@@ -8540,6 +8540,7 @@ function EditPrinterModal({
     api_url: printer.api_url || '',
     auth_token: '',
     chamber_object: printer.chamber_object || '',
+    transport: printer.transport || 'auto',
   });
 
   // What this printer could call its chamber. Only asked of a connected Klipper
@@ -8610,6 +8611,7 @@ function EditPrinterModal({
       data.api_url = form.api_url.trim();
       // Always sent, so clearing the box back to Automatic actually clears it.
       data.chamber_object = form.chamber_object.trim();
+      data.transport = form.transport;
       delete data.ip_address;  // derived server-side from api_url
       if (form.auth_token) {
         data.auth_token = form.auth_token;
@@ -8714,6 +8716,18 @@ function EditPrinterModal({
                       ? t('printers.modal.chamberObjectUsing', { name: chamberCandidates.in_use })
                       : t('printers.modal.chamberObjectHelp')}
                   </p>
+                </div>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.transport')}</label>
+                  <select
+                    className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                    value={form.transport}
+                    onChange={(e) => setForm({ ...form, transport: e.target.value as 'auto' | 'poll' })}
+                  >
+                    <option value="auto">{t('printers.modal.transportAuto')}</option>
+                    <option value="poll">{t('printers.modal.transportPoll')}</option>
+                  </select>
+                  <p className="text-xs text-bambu-gray mt-1">{t('printers.modal.transportHelp')}</p>
                 </div>
                 <div>
                   <label className="block text-sm text-bambu-gray mb-1">{t('printers.model')}</label>
