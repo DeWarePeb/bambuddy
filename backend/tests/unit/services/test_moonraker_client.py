@@ -157,6 +157,40 @@ def test_bambu_only_methods_fail_soft():
         _ = client._does_not_exist  # private names still raise
 
 
+def test_report_messages_since_connect_is_a_number_not_a_callable():
+    """The bug this pins: the diagnostic reads this attribute and compares it to
+    an integer. It was never defined, so `__getattr__` answered with its no-op
+    *function* and `run_connection_diagnostic` raised
+    `TypeError: '>' not supported between instances of 'function' and 'int'` —
+    a 500 on the diagnose button for every Klipper printer."""
+    client = MoonrakerClient("http://voron.test")
+    value = client.report_messages_since_connect
+    assert isinstance(value, int)
+    assert not callable(value)
+    assert value > -1  # the comparison the diagnostic actually makes
+
+
+def test_report_messages_since_connect_counts_applied_status():
+    """Counted in `_apply_status`, the one path the poll and the WebSocket
+    stream share, so the diagnostic reads the same number either way."""
+    client = _FakeMoonraker([_status(), _status(progress=0.5)], serial_number="KLIPPER-VORON")
+    assert client.report_messages_since_connect == 0
+
+    client.request_status_update()
+    assert client.report_messages_since_connect == 1
+
+    client.request_status_update()
+    assert client.report_messages_since_connect == 2
+
+
+def test_bambu_only_methods_still_fail_soft_around_the_new_property():
+    """Adding a real attribute must not open a hole in the catch-all: the long
+    tail of Bambu-only *methods* still has to answer False rather than raise."""
+    client = MoonrakerClient("http://voron.test")
+    assert client.ams_load_filament(1) is False
+    assert isinstance(client.report_messages_since_connect, int)
+
+
 def test_gcode_helpers_build_expected_commands():
     sent: list[str] = []
     client = MoonrakerClient("http://voron.test")

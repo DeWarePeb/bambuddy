@@ -63,6 +63,7 @@ def _declared_length(header: str | None) -> int | None:
     except ValueError:
         return None
 
+
 # Moonraker print_stats.state -> Bambu gcode_state vocabulary the rest of the
 # app is written against (see print_scheduler._ACTIVE_PRINT_STATES).
 _STATE_MAP = {
@@ -224,6 +225,13 @@ class MoonrakerClient:
         self.state = PrinterState()
         self.last_connect_error: str | None = None
         self._last_message_time: float = 0.0
+        # Upstream's connection diagnostic reads this to tell "the transport
+        # came up but the printer never sent anything" apart from "healthy and
+        # idle". It has to be a real count rather than a stand-in: __getattr__
+        # below answers unknown attributes with a no-op *function*, so leaving
+        # this one undefined made the diagnostic compare a function to an int
+        # and 500 on every Klipper printer.
+        self._report_messages_since_connect: int = 0
         self._drying_targets: dict[int, dict] = {}  # read by printer_manager.get_drying_targets
         self._logs: list[MQTTLogEntry] = []
         self._logging_enabled = False
@@ -324,6 +332,7 @@ class MoonrakerClient:
     def connect(self, loop: Any = None) -> None:  # noqa: ARG002 - signature parity with BambuMQTTClient
         """Probe Moonraker once, discover optional objects, start the poll thread."""
         self._stop.clear()
+        self._report_messages_since_connect = 0
         try:
             info = self._get("server/info")
             self.state.connected = True
@@ -552,6 +561,10 @@ class MoonrakerClient:
         self.last_connect_error = None
         self._klippy = {}  # Klipper answered; whatever it was complaining about is over.
         self._last_message_time = time.monotonic()
+        # Counted here rather than in the poll or the stream because this is the
+        # single path both of them reach the card by, so the diagnostic cannot
+        # disagree with itself depending on which transport is live.
+        self._report_messages_since_connect += 1
         self.state.state = map_moonraker_state(print_stats.get("state"))
 
         filename = str(print_stats.get("filename") or "") or None
@@ -1269,6 +1282,23 @@ class MoonrakerClient:
         return self._logging_enabled
 
     # ------------------------------------------------- Bambu-only fallbacks
+
+    @property
+    def report_messages_since_connect(self) -> int:
+        """Status payloads applied since the last ``connect()`` — parity with
+        ``BambuMQTTClient``'s property of the same name (upstream `c571ad86`).
+
+        Read by the connection diagnostic to separate "Moonraker accepted us but
+        the printer never published" from a bridge that is simply idle. Zero
+        right after a connect is normal; zero once a poll interval has passed
+        means Moonraker is answering nothing useful.
+
+        This exists as a property, not as a fall-through to ``__getattr__``,
+        because that returns a callable and the diagnostic compares this value
+        to an integer. Anything upstream adds that is *read* rather than
+        *called* needs the same treatment — see docs/printhok/upstream-sync.md.
+        """
+        return self._report_messages_since_connect
 
     def __getattr__(self, name: str):
         """Bambu-only methods (AMS, K-profiles, calibration, drying, xcam...) fail soft.
