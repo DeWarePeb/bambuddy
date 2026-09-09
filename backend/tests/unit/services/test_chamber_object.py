@@ -123,3 +123,35 @@ def test_merge_removes_rather_than_nulls():
 
 def test_merge_leaves_the_column_null_when_nothing_is_left():
     assert provider_options.merge('{"chamber_object": "a"}', {"chamber_object": None}) is None
+
+
+# ------------------------------------------------- reading it back out again
+
+
+class _FakePrinter:
+    """Just the column the properties read."""
+
+    provider_options = '{"chamber_object": "temperature_sensor enclosure", "transport": "poll"}'
+
+
+def test_the_model_exposes_the_options_as_attributes():
+    """The responses are built with ``PrinterResponse.model_validate(printer)``,
+    which reads attributes off the ORM object. A value that lived only inside
+    the JSON blob was saved correctly and then read back as null, so the setting
+    appeared to reset itself the moment the dialog reopened.
+    """
+    from backend.app.models.printer import Printer
+
+    printer = Printer()
+    printer.provider_options = _FakePrinter.provider_options
+    assert printer.chamber_object == "temperature_sensor enclosure"
+    assert printer.transport == "poll"
+
+
+def test_a_printer_with_no_options_reads_as_none():
+    from backend.app.models.printer import Printer
+
+    printer = Printer()
+    printer.provider_options = None
+    assert printer.chamber_object is None
+    assert printer.transport is None

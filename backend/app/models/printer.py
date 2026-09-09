@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, DateTime, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.database import Base
+from backend.app.services import provider_options
 
 
 class Printer(Base):
@@ -69,6 +70,24 @@ class Printer(Base):
         back_populates="printer", cascade="all, delete-orphan"
     )
     ha_sensors: Mapped[list["PrinterHASensor"]] = relationship(back_populates="printer", cascade="all, delete-orphan")
+
+    # Provider-specific settings are stored together as JSON in provider_options
+    # rather than a column each. These read them back as ordinary attributes so
+    # every serialiser sees them: the responses are built with
+    # `PrinterResponse.model_validate(printer)`, which reads attributes off this
+    # object, so a value that lives only inside the JSON blob is saved correctly
+    # and then read back as null. Writes go the other way, through
+    # `provider_options.merge` in the routes — hence read-only here.
+
+    @property
+    def chamber_object(self) -> str | None:
+        """Klipper object reporting the chamber; None means guess (A6)."""
+        return provider_options.get_str(self.provider_options, "chamber_object")
+
+    @property
+    def transport(self) -> str | None:
+        """Klipper status transport: "auto" or "poll"; None means auto (A12)."""
+        return provider_options.get_str(self.provider_options, "transport")
 
 
 from backend.app.models.ams_history import AMSSensorHistory  # noqa: E402

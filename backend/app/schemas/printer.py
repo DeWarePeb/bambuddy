@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from backend.app.services import provider_options
 from backend.app.utils.printer_models import supports_nozzle_flow_type
 
 
@@ -179,8 +178,8 @@ class PrinterResponse(PrinterBase):
             "camera_rotation": printer.camera_rotation,
             "provider": getattr(printer, "provider", None) or "bambu",
             "api_url": getattr(printer, "api_url", None),
-            "chamber_object": provider_options.get_str(getattr(printer, "provider_options", None), "chamber_object"),
-            "transport": provider_options.get_str(getattr(printer, "provider_options", None), "transport"),
+            "chamber_object": getattr(printer, "chamber_object", None),
+            "transport": getattr(printer, "transport", None),
             "is_active": printer.is_active,
             "nozzle_count": printer.nozzle_count,
             "supports_nozzle_flow_type": supports_nozzle_flow_type(printer.model),

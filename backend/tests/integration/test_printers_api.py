@@ -4544,6 +4544,57 @@ class TestXYJogAPI:
         assert "X-5.00" in sent and "Y7.00" in sent
 
 
+class TestKlipperProviderOptionsRoundTrip:
+    """Fork: a per-printer provider option must survive being saved.
+
+    `chamber_object` and `transport` live inside the `provider_options` JSON
+    column rather than columns of their own, and the responses are built with
+    `PrinterResponse.model_validate(printer)`, which reads attributes off the ORM
+    object. Until the model exposed them the write worked and every read came
+    back null, so the setting appeared to reset itself the moment the dialog was
+    reopened — reported from the UI, invisible to every test that only checked
+    the storage helper.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_saved_chamber_object_is_read_back(self, async_client: AsyncClient, printer_factory):
+        printer = await printer_factory(
+            name="Voron",
+            provider="klipper",
+            api_url="http://voron:7125",
+            provider_options='{"chamber_object": "temperature_sensor enclosure"}',
+        )
+        response = await async_client.get(f"/api/v1/printers/{printer.id}")
+        assert response.status_code == 200
+        assert response.json()["chamber_object"] == "temperature_sensor enclosure"
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_the_list_carries_it_too(self, async_client: AsyncClient, printer_factory):
+        """The dialog is populated from the list, not from the single GET."""
+        await printer_factory(
+            name="Voron",
+            provider="klipper",
+            api_url="http://voron:7125",
+            provider_options='{"chamber_object": "temperature_sensor enclosure", "transport": "poll"}',
+        )
+        response = await async_client.get("/api/v1/printers/")
+        assert response.status_code == 200
+        klipper = [p for p in response.json() if p["provider"] == "klipper"]
+        assert klipper, "no Klipper printer in the list"
+        assert klipper[0]["chamber_object"] == "temperature_sensor enclosure"
+        assert klipper[0]["transport"] == "poll"
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_printer_without_options_reads_as_null(self, async_client: AsyncClient, printer_factory):
+        printer = await printer_factory(name="Eddy", model="X1C")
+        body = (await async_client.get(f"/api/v1/printers/{printer.id}")).json()
+        assert body["chamber_object"] is None
+        assert body["transport"] is None
+
+
 class TestMovementRefusedWhilePrinting:
     """Fork: the manual movement endpoints refuse while a job is loaded.
 
