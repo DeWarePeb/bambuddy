@@ -1,7 +1,7 @@
 export default {
   // Voron patch series (B5): the "needs a hand" banner
   alerts: {
-    title: 'Needs a hand',
+    title: 'Needs attention',
     maintenanceDue_one: '{{count}} maintenance task due',
     maintenanceDue_other: '{{count}} maintenance tasks due',
     lowStock_one: '{{count}} spool running low',
@@ -10,6 +10,8 @@ export default {
     printerFaults_other: '{{count}} printers reporting a fault',
     openPrinters: 'Open Printers',
     more: '+{{count}} more',
+    spoolLow: '{{spool}} ({{percent}}%)',
+    spoolLowOn: '{{spool}} ({{percent}}%, in {{printer}})',
     openMaintenance: 'Open Maintenance',
     openInventory: 'Open Inventory',
     dismiss: 'Hide until something changes',

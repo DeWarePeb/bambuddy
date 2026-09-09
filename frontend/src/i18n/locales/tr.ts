@@ -9,6 +9,8 @@ export default {
     printerFaults_one: '{{count}} yazıcı arıza bildiriyor',
     printerFaults_other: '{{count}} yazıcı arıza bildiriyor',
     more: '+{{count}} daha',
+    spoolLow: '{{spool}} (%{{percent}})',
+    spoolLowOn: '{{spool}} (%{{percent}}, {{printer}})',
     openMaintenance: 'Bakımı aç',
     openInventory: 'Filamenti aç',
     openPrinters: 'Yazıcıları aç',

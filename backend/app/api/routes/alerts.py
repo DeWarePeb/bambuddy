@@ -22,6 +22,7 @@ from backend.app.core.database import get_db
 from backend.app.core.permissions import Permission
 from backend.app.models.printer import Printer
 from backend.app.models.spool import Spool
+from backend.app.models.spool_assignment import SpoolAssignment
 from backend.app.models.user import User
 from backend.app.services.printer_manager import printer_manager
 
@@ -115,6 +116,27 @@ async def get_alerts_summary(
                 "remaining_pct": round(remaining_pct, 1),
             }
         )
+    # Which printer a low spool is loaded in. "Two spools running low" sends you
+    # to the Inventory page to work out where they are; naming the printer means
+    # you already know whether it is the one you were about to start a job on.
+    # Read from the built-in assignments because that is where this list's
+    # spools come from — in Spoolman mode both are equally beside the point.
+    # A spool can sit in slots on more than one printer, so this is a list.
+    if low_stock:
+        rows = await db.execute(
+            select(SpoolAssignment.spool_id, Printer.name)
+            .join(Printer, Printer.id == SpoolAssignment.printer_id)
+            .where(SpoolAssignment.spool_id.in_([s["spool_id"] for s in low_stock]))
+            .order_by(Printer.name)
+        )
+        loaded_in: dict[int, list[str]] = {}
+        for spool_id, printer_name in rows.all():
+            names = loaded_in.setdefault(spool_id, [])
+            if printer_name not in names:
+                names.append(printer_name)
+        for entry in low_stock:
+            entry["printers"] = loaded_in.get(entry["spool_id"], [])
+
     low_stock.sort(key=lambda s: s["remaining_pct"])
 
     return {

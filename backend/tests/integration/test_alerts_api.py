@@ -7,6 +7,7 @@ from httpx import AsyncClient
 
 from backend.app.api.routes.alerts import spool_is_low
 from backend.app.models.spool import Spool
+from backend.app.models.spool_assignment import SpoolAssignment
 
 
 class TestSpoolIsLow:
@@ -59,3 +60,50 @@ class TestAlertsSummaryAPI:
         assert low[0]["remaining_pct"] == 8.0
         assert isinstance(data["maintenance_due"], list)
         assert data["total"] == len(data["maintenance_due"]) + 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_low_spool_names_the_printer_it_is_loaded_in(
+        self, async_client: AsyncClient, printer_factory, db_session
+    ):
+        """"Two spools running low" sends you to the Inventory page to work out
+        where they are. Naming the printer means you already know whether it is
+        the one you were about to start a job on."""
+        printer = await printer_factory(name="Eddy")
+        loaded = Spool(material="PLA", brand="Bambu Lab", color_name="Black", label_weight=1000, weight_used=920)
+        on_the_shelf = Spool(material="PETG", color_name="Grey", label_weight=1000, weight_used=930)
+        db_session.add_all([loaded, on_the_shelf])
+        await db_session.flush()
+        db_session.add(SpoolAssignment(spool_id=loaded.id, printer_id=printer.id, ams_id=0, tray_id=1))
+        await db_session.commit()
+
+        low = (await async_client.get("/api/v1/alerts/summary")).json()["low_stock"]
+        by_material = {s["material"]: s for s in low}
+
+        assert by_material["PLA"]["printers"] == ["Eddy"]
+        # On the shelf: an empty list, not a missing key — the banner reads it
+        # directly and would otherwise have to guess what absent means.
+        assert by_material["PETG"]["printers"] == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_spool_loaded_in_two_printers_names_both(
+        self, async_client: AsyncClient, printer_factory, db_session
+    ):
+        """The slot constraint is per printer, so nothing stops one spool being
+        assigned on two machines."""
+        one = await printer_factory(name="Eddy")
+        two = await printer_factory(name="Kees")
+        spool = Spool(material="PLA", label_weight=1000, weight_used=950)
+        db_session.add(spool)
+        await db_session.flush()
+        db_session.add_all(
+            [
+                SpoolAssignment(spool_id=spool.id, printer_id=two.id, ams_id=0, tray_id=0),
+                SpoolAssignment(spool_id=spool.id, printer_id=one.id, ams_id=0, tray_id=0),
+            ]
+        )
+        await db_session.commit()
+
+        low = (await async_client.get("/api/v1/alerts/summary")).json()["low_stock"]
+        assert low[0]["printers"] == ["Eddy", "Kees"]

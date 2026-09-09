@@ -128,6 +128,12 @@ function isAlwaysAllowedIdentical(value) {
   // an example of what to type; translating one would be telling the user to
   // configure a section their firmware has never heard of.
   if (/^(temperature_sensor|temperature_fan|heater_generic|output_pin|neopixel|led) [a-z0-9_]+$/.test(value)) return true;
+  // A value whose only letters sit inside its placeholders is a format, not a
+  // sentence — "{{spool}} ({{percent}}%)" has nothing in it to translate, and
+  // demanding a different one per locale invites someone to reorder the
+  // punctuation just to satisfy the gate. Any prose outside the braces still
+  // fails, so this cannot swallow a real string.
+  if (!/\p{L}/u.test(value.replace(/\{\{[^}]+\}\}/g, ''))) return true;
   // Brand / technical names that ship verbatim everywhere.
   if (/^(Bambuddy|BamBuddy|SpoolBuddy|Bambu Lab|Bambu Studio|Bambu Studio 2\.6\+|Bambu Studio sidecar URL|OrcaSlicer|OrcaSlicer sidecar URL|MakerWorld|Spoolman|\(Spoolman\)|Spoolman URL|Klipper|Klipper \(Moonraker\)|Moonraker|Moonraker URL|Open Filament Database|Notify|Tailscale|GitHub|GitLab|Gitea|Forgejo|Discord|MQTT|FTP|HTTPS?|JSON|YAML|RTSP|TLS|SSL|CSRF|OIDC|SSO|SSO \/ OIDC|LDAP|TOTP|2FA|MFA|API|AMS|CRC|SHA256|SHA-256|kWh|MB|GB|KB|RGBA?|HSL|RGB|UTC|ISO|UI|HTTP|HTTP Method|H2D|H2D Pro|X1C|X1E|P1S|P1P|A1|A1 Mini|H2C|N3F|N3S|PETG|PLA|ABS|PA|TPU|PEI|PA-CF|PVA|HIPS|ASA|PC|PETG-HF|G\.code|G-code|gcode|cm³|°C|°F|GCODE|SOURCE|ntfy|Pushover|Bark|Telegram|Webhook|Webhook URL|Home Assistant|Home Assistant URL|CallMeBot\/WhatsApp|Bambuddy URL|Cool Plate|Cool Plate SuperTack|Engineering Plate|High Temp Plate|Smooth PEI Plate|Textured PEI Plate|Ext-L|Ext-R|ISO \(YYYY-MM-DD\))$/.test(value)) return true;
   return false;
@@ -264,6 +270,7 @@ const IT_COGNATES = [
   'Off',  // cam-wall status overlay mode — common loanword in Italian UI
   '{{filament}} @ {{temp}}°C',  // drying badge: filament code + universal °C
   'Skirt / brim',  // Italian slicer UIs keep the English terms
+  '{{spool}} ({{percent}}%, in {{printer}})',  // "in" is the Italian preposition too
   '{{count}} online', '{{count}} offline',  // B11 fleet tiles — both loanwords in Italian
 ];
 
@@ -466,6 +473,7 @@ const NL_COGNATES = [
   // Fork additions (B10, B11). The Command Center keeps its English page name,
   // and Dutch counts printers with the English noun.
   'Command Center', 'Farm Command Center', 'TV / kiosk',
+  '{{spool}} ({{percent}}%, in {{printer}})',  // "in" is the Dutch preposition too
   '{{count}} online', '{{count}} offline', '{{count}} printer', '{{count}} printers',
 ];
 

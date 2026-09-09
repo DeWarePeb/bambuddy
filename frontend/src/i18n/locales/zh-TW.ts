@@ -9,6 +9,8 @@ export default {
     printerFaults_one: '{{count}} 台印表機回報錯誤',
     printerFaults_other: '{{count}} 台印表機回報錯誤',
     more: '還有 {{count}} 項',
+    spoolLow: '{{spool}}（{{percent}}%）',
+    spoolLowOn: '{{spool}}（{{percent}}%，{{printer}}）',
     openMaintenance: '開啟維護',
     openInventory: '開啟耗材',
     openPrinters: '開啟印表機',

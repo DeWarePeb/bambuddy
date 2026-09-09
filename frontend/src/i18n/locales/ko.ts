@@ -9,6 +9,8 @@ export default {
     printerFaults_one: '프린터 {{count}}대 오류 보고',
     printerFaults_other: '프린터 {{count}}대 오류 보고',
     more: '외 {{count}}건',
+    spoolLow: '{{spool}} ({{percent}}%)',
+    spoolLowOn: '{{spool}} ({{percent}}%, {{printer}})',
     openMaintenance: '유지보수 열기',
     openInventory: '필라멘트 열기',
     openPrinters: '프린터 열기',

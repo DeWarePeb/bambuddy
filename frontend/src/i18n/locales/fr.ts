@@ -9,6 +9,8 @@ export default {
     printerFaults_one: '{{count}} imprimante en défaut',
     printerFaults_other: '{{count}} imprimantes en défaut',
     more: '+{{count}} autres',
+    spoolLow: '{{spool}} ({{percent}} %)',
+    spoolLowOn: '{{spool}} ({{percent}} %, dans {{printer}})',
     openMaintenance: 'Ouvrir Entretien',
     openInventory: 'Ouvrir Filament',
     openPrinters: 'Ouvrir Imprimantes',

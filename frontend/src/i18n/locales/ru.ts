@@ -15,6 +15,8 @@ export default {
     printerFaults_many: '{{count}} принтеров сообщают об ошибке',
     printerFaults_other: '{{count}} принтеров сообщают об ошибке',
     more: '+{{count}} ещё',
+    spoolLow: '{{spool}} ({{percent}} %)',
+    spoolLowOn: '{{spool}} ({{percent}} %, в {{printer}})',
     openMaintenance: 'Открыть обслуживание',
     openInventory: 'Открыть филамент',
     openPrinters: 'Открыть принтеры',

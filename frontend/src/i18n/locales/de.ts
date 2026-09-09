@@ -9,6 +9,8 @@ export default {
     printerFaults_one: '{{count}} Drucker meldet eine Störung',
     printerFaults_other: '{{count}} Drucker melden eine Störung',
     more: '+{{count}} weitere',
+    spoolLow: '{{spool}} ({{percent}} %)',
+    spoolLowOn: '{{spool}} ({{percent}} %, in {{printer}})',
     openMaintenance: 'Wartung öffnen',
     openInventory: 'Filament öffnen',
     openPrinters: 'Drucker öffnen',

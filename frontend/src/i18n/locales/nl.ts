@@ -10,6 +10,8 @@ export default {
     printerFaults_other: '{{count}} printers melden een storing',
     openPrinters: 'Printers openen',
     more: '+{{count}} meer',
+    spoolLow: '{{spool}} ({{percent}}%)',
+    spoolLowOn: '{{spool}} ({{percent}}%, in {{printer}})',
     openMaintenance: 'Onderhoud openen',
     openInventory: 'Voorraad openen',
     dismiss: 'Verbergen tot er iets verandert',

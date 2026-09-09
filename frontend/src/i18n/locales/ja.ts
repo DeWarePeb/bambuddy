@@ -9,6 +9,8 @@ export default {
     printerFaults_one: 'プリンター {{count}} 台がエラーを報告',
     printerFaults_other: 'プリンター {{count}} 台がエラーを報告',
     more: 'ほか {{count}} 件',
+    spoolLow: '{{spool}}（{{percent}}%）',
+    spoolLowOn: '{{spool}}（{{percent}}%、{{printer}}）',
     openMaintenance: 'メンテナンスを開く',
     openInventory: 'フィラメントを開く',
     openPrinters: 'プリンターを開く',

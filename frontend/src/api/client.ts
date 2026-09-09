@@ -3450,6 +3450,8 @@ export interface AlertsLowStockSpool {
   color_name: string | null;
   remaining_g: number;
   remaining_pct: number;
+  /** Printers this spool is loaded in, by name. Empty when it is on the shelf. */
+  printers?: string[];
 }
 
 // Voron patch series: a printer whose firmware reports a fault (Klipper in

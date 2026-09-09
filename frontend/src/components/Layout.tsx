@@ -996,9 +996,17 @@ export function Layout() {
                 >
                   {t('alerts.lowStock', { count: alertsSummary.low_stock.length })}:{' '}
                   {summarize(
-                    alertsSummary.low_stock.map(
-                      (s) => `${[s.brand, s.material, s.color_name].filter(Boolean).join(' ')} (${Math.round(s.remaining_pct)}%)`
-                    )
+                    alertsSummary.low_stock.map((s) => {
+                      const spool = [s.brand, s.material, s.color_name].filter(Boolean).join(' ');
+                      const percent = Math.round(s.remaining_pct);
+                      // Naming the printer is the point: a spool sitting in the
+                      // machine you are about to start is a different problem
+                      // from one on the shelf. Spools in no printer keep the
+                      // shorter form rather than carrying an empty bracket.
+                      return s.printers?.length
+                        ? t('alerts.spoolLowOn', { spool, percent, printer: s.printers.join(', ') })
+                        : t('alerts.spoolLow', { spool, percent });
+                    })
                   )}
                 </button>
               )}
