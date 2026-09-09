@@ -3,8 +3,12 @@
 Tests the /api/v1/metrics endpoint for Prometheus scraping.
 """
 
+from unittest.mock import patch
+
 import pytest
 from httpx import AsyncClient
+
+from backend.app.services.bambu_mqtt import PrinterState
 
 
 class TestMetricsAPI:
@@ -116,6 +120,66 @@ class TestMetricsAPI:
     # ========================================================================
     # Settings persistence
     # ========================================================================
+
+    # ========================================================================
+    # Chamber gauge: optional hardware, so absent means no series (fork)
+    # ========================================================================
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_klipper_without_a_chamber_emits_no_chamber_series(
+        self, async_client: AsyncClient, printer_factory
+    ):
+        """A Klipper printer passes the model gate — the list is a list of Bambu
+        models and a Voron will never be on it — so the gate cannot also stand in
+        for "this machine has a chamber". Most Klipper printers have no chamber
+        object configured at all, and a gauge at 0.0 does not read as "no sensor"
+        on a dashboard; it reads as a chamber at freezing.
+        """
+        await async_client.put("/api/v1/settings/", json={"prometheus_enabled": True, "prometheus_token": ""})
+        printer = await printer_factory(name="Voron", model="Voron 2.4", provider="klipper", api_url="http://v:7125")
+
+        status = PrinterState()
+        status.temperatures = {"nozzle": 27.0, "bed": 23.0}  # no chamber configured
+        with patch("backend.app.api.routes.metrics.printer_manager") as mock_pm:
+            mock_pm.get_all_statuses.return_value = {printer.id: status}
+            body = (await async_client.get("/api/v1/metrics")).text
+
+        assert "bambuddy_chamber_temp_celsius{" not in body
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_klipper_with_a_chamber_is_reported(self, async_client: AsyncClient, printer_factory):
+        """And when the user has picked a sensor, it must come through — the
+        whole point of making the model gate provider-aware."""
+        await async_client.put("/api/v1/settings/", json={"prometheus_enabled": True, "prometheus_token": ""})
+        printer = await printer_factory(name="Voron", model="Voron 2.4", provider="klipper", api_url="http://v:7125")
+
+        status = PrinterState()
+        status.temperatures = {"nozzle": 27.0, "bed": 23.0, "chamber": 30.3}
+        with patch("backend.app.api.routes.metrics.printer_manager") as mock_pm:
+            mock_pm.get_all_statuses.return_value = {printer.id: status}
+            body = (await async_client.get("/api/v1/metrics")).text
+
+        assert "bambuddy_chamber_temp_celsius{" in body
+        assert "30.3" in body
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_bambu_model_without_a_chamber_is_still_skipped(
+        self, async_client: AsyncClient, printer_factory
+    ):
+        """A P1P's invented chamber_temper must keep being dropped."""
+        await async_client.put("/api/v1/settings/", json={"prometheus_enabled": True, "prometheus_token": ""})
+        printer = await printer_factory(name="Mini", model="P1P")
+
+        status = PrinterState()
+        status.temperatures = {"nozzle": 27.0, "bed": 23.0, "chamber": 99.0}
+        with patch("backend.app.api.routes.metrics.printer_manager") as mock_pm:
+            mock_pm.get_all_statuses.return_value = {printer.id: status}
+            body = (await async_client.get("/api/v1/metrics")).text
+
+        assert "bambuddy_chamber_temp_celsius{" not in body
 
     @pytest.mark.asyncio
     @pytest.mark.integration

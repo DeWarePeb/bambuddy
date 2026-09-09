@@ -155,3 +155,41 @@ def test_a_printer_with_no_options_reads_as_none():
     printer.provider_options = None
     assert printer.chamber_object is None
     assert printer.transport is None
+
+
+# ----------------------------------------------- surviving the display filters
+
+
+def test_supports_chamber_temp_is_a_bambu_model_list():
+    from backend.app.services.printer_manager import supports_chamber_temp
+
+    assert supports_chamber_temp("X1C") is True
+    assert supports_chamber_temp("P1P") is False
+    assert supports_chamber_temp("Voron 2.4 350") is False
+
+
+def test_a_klipper_chamber_is_never_filtered_by_model():
+    """The list is a list of Bambu models, so it answers False for every Klipper
+    printer and always will. Four separate filters used it, so a Voron's chamber
+    was read correctly by the client and then dropped on the way out — the
+    sensor the user had just chosen by hand simply never appeared."""
+    from backend.app.services.printer_manager import supports_chamber_temp
+
+    assert supports_chamber_temp("Voron 2.4 350", "klipper") is True
+    assert supports_chamber_temp(None, "klipper") is True
+
+
+def test_a_bambu_printer_is_still_filtered():
+    """A P1P's invented chamber_temper must keep being dropped."""
+    from backend.app.services.printer_manager import supports_chamber_temp
+
+    assert supports_chamber_temp("P1P", "bambu") is False
+    assert supports_chamber_temp("X1C", "bambu") is True
+
+
+def test_display_temperatures_keeps_a_klipper_chamber():
+    from backend.app.services.printer_manager import display_temperatures
+
+    temps = {"nozzle": 27.0, "bed": 23.0, "chamber": 30.3}
+    assert display_temperatures(temps, "Voron 2.4", "klipper").get("chamber") == 30.3
+    assert "chamber" not in display_temperatures(temps, "P1P", "bambu")

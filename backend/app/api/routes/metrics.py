@@ -281,10 +281,19 @@ async def get_metrics(
     lines.append("# TYPE bambuddy_chamber_temp_celsius gauge")
     for printer in printers:
         # Only report chamber temp for models that have a real sensor
-        if not supports_chamber_temp(printer.model):
+        if not supports_chamber_temp(printer.model, getattr(printer, "provider", None)):
             continue
         status = all_statuses.get(printer.id)
-        temp = status.temperatures.get("chamber", 0) if status else 0
+        # A chamber is optional hardware, so the series is omitted when there is
+        # no reading rather than zeroed — the same shape as the fans and the
+        # second nozzle below, and unlike nozzle and bed, which every printer
+        # has. The model list used to stand in for that check, but it cannot for
+        # a Klipper printer: the chamber object is configured per printer and is
+        # very often not set at all. A gauge at 0.0 does not read as "no sensor"
+        # on a dashboard, it reads as a chamber at freezing.
+        if not status or status.temperatures.get("chamber") is None:
+            continue
+        temp = status.temperatures["chamber"]
         labels = format_labels(
             printer_id=str(printer.id),
             printer_name=printer.name,

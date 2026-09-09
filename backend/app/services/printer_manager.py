@@ -81,12 +81,22 @@ STG_CUR_IDLE_BUG_MODELS = A1_MODELS | frozenset(
 )
 
 
-def supports_chamber_temp(model: str | None) -> bool:
+def supports_chamber_temp(model: str | None, provider: str | None = None) -> bool:
     """Check if a printer model has a real chamber temperature sensor.
 
     P1P, P1S, A1, and A1Mini do NOT have chamber temp sensors.
     The 'chamber_temper' value they report is meaningless.
+
+    The model list is a list of Bambu models, so it answers False for every
+    Klipper printer and always will. That silently discarded the chamber reading
+    on a Voron whose sensor the user had just chosen by hand (A6): the client
+    read it, and four separate filters dropped it on the way out. A non-Bambu
+    chamber comes from an object the user picked themselves, so unlike a P1P's
+    invented `chamber_temper` it is real by construction and there is nothing to
+    filter.
     """
+    if provider and provider != "bambu":
+        return True
     if not model:
         return False
     # Normalize model name (uppercase, strip whitespace)
@@ -265,7 +275,7 @@ DISPLAY_TEMPERATURE_KEYS = (
 )
 
 
-def display_temperatures(temperatures: dict | None, model: str | None) -> dict[str, float]:
+def display_temperatures(temperatures: dict | None, model: str | None, provider: str | None = None) -> dict[str, float]:
     """Filter `state.temperatures` down to the readings a viewer is shown.
 
     Drops chamber readings on models without a real chamber sensor — P1P, P1S,
@@ -274,7 +284,7 @@ def display_temperatures(temperatures: dict | None, model: str | None) -> dict[s
     """
     if not temperatures:
         return {}
-    allow_chamber = supports_chamber_temp(model)
+    allow_chamber = supports_chamber_temp(model, provider)
     out: dict[str, float] = {}
     for key in DISPLAY_TEMPERATURE_KEYS:
         if key.startswith("chamber") and not allow_chamber:
@@ -1562,7 +1572,7 @@ def printer_state_to_dict(
     # Filter out chamber temp for models that don't have a real sensor
     # P1P, P1S, A1, A1Mini report meaningless chamber_temper values
     temperatures = state.temperatures
-    if not supports_chamber_temp(model):
+    if not supports_chamber_temp(model, (state.raw_data or {}).get("provider")):
         temperatures = {
             k: v for k, v in temperatures.items() if k not in ("chamber", "chamber_target", "chamber_heating")
         }

@@ -798,7 +798,7 @@ async def get_printer_status(
     # Filter out chamber temp for models that don't have a real sensor
     # P1P, P1S, A1, A1Mini report meaningless chamber_temper values
     temperatures = state.temperatures
-    if not supports_chamber_temp(printer.model):
+    if not supports_chamber_temp(printer.model, getattr(printer, "provider", None)):
         temperatures = {
             k: v for k, v in temperatures.items() if k not in ("chamber", "chamber_target", "chamber_heating")
         }
@@ -1003,7 +1003,7 @@ async def get_overlay_status(
         "stg_cur_name": get_derived_status_name(state, printer.model),
         # Nozzle / bed / chamber readings for the overlay's temperature fields
         # (#1422). Filtered rather than passed through: see display_temperatures.
-        "temperatures": display_temperatures(state.temperatures, printer.model),
+        "temperatures": display_temperatures(state.temperatures, printer.model, getattr(printer, "provider", None)),
         "time_format": time_format,
     }
 
