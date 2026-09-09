@@ -966,6 +966,8 @@ export default {
       empty: 'ライブラリにスライス済みファイルがありません',
       noMatches: '一致するファイルがありません',
       uploadInstead: 'ファイルをアップロード',
+      showOthers: '他のプリンター用にスライスしたファイルも表示',
+      noneForThisPrinter: 'ライブラリにこのプリンター用のファイルがありません',
     },
   },
 

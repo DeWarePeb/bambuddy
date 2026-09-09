@@ -967,6 +967,8 @@ export default {
       empty: '文件库中还没有已切片的文件',
       noMatches: '没有匹配的文件',
       uploadInstead: '上传文件',
+      showOthers: '同时显示为其他打印机切片的文件',
+      noneForThisPrinter: '文件库中没有为这台打印机切片的文件',
     },
   },
 

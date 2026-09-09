@@ -967,6 +967,8 @@ export default {
       empty: '檔案庫中還沒有已切片的檔案',
       noMatches: '沒有符合的檔案',
       uploadInstead: '上傳檔案',
+      showOthers: '同時顯示為其他印表機切片的檔案',
+      noneForThisPrinter: '檔案庫中沒有為這台印表機切片的檔案',
     },
   },
 

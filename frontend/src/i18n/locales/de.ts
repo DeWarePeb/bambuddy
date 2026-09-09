@@ -967,6 +967,8 @@ export default {
       empty: 'Noch keine gesliceten Dateien in deiner Bibliothek',
       noMatches: 'Keine Dateien gefunden',
       uploadInstead: 'Datei hochladen',
+      showOthers: 'Auch Dateien für andere Drucker anzeigen',
+      noneForThisPrinter: 'Nichts in deiner Bibliothek ist für diesen Drucker gesliced',
     },
   },
 

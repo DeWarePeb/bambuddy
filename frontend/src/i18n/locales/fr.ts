@@ -967,6 +967,8 @@ export default {
       empty: 'Aucun fichier tranché dans votre bibliothèque',
       noMatches: 'Aucun fichier ne correspond à la recherche',
       uploadInstead: 'Importer un fichier',
+      showOthers: 'Afficher aussi les fichiers tranchés pour d’autres imprimantes',
+      noneForThisPrinter: 'Rien dans votre bibliothèque n’est tranché pour cette imprimante',
     },
   },
 

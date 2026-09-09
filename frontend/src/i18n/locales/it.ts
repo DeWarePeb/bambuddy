@@ -967,6 +967,8 @@ export default {
       empty: 'Nessun file elaborato nella libreria',
       noMatches: 'Nessun file corrisponde alla ricerca',
       uploadInstead: 'Carica file',
+      showOthers: 'Mostra anche i file elaborati per altre stampanti',
+      noneForThisPrinter: 'Nella libreria non c’è nulla elaborato per questa stampante',
     },
   },
 

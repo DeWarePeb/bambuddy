@@ -2,8 +2,10 @@
  * The printer card's Print button used to open the upload modal and nothing
  * else, so printing a file that was already in the library meant uploading it
  * a second time. These pin what the picker in front of it promises: only
- * sliced files, newest first, searchable, and a file sliced for another model
- * refused before the click rather than after the upload.
+ * sliced files, newest first, searchable, and a file this printer cannot run
+ * kept out of the list rather than refused after the upload -- behind a
+ * checkbox, because "my file is not there" is a worse puzzle than a greyed-out
+ * row.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -86,9 +88,29 @@ describe('PrintFilePickerModal', () => {
     expect(screen.getByText('keychain.gcode.3mf')).toBeInTheDocument();
   });
 
-  it('refuses a file sliced for another printer model up front', async () => {
+  it('hides a file this printer cannot run, and says so', async () => {
+    serveFiles([makeFile({ id: 3, filename: 'h2d.gcode.3mf', sliced_for_model: 'H2D' })]);
+    render(
+      <PrintFilePickerModal
+        printerName="Eddy"
+        printerModel="P1S"
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(
+      await screen.findByText('Nothing in your library is sliced for this printer'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('h2d.gcode.3mf')).toBeNull();
+  });
+
+  it('brings the hidden files back, greyed out with the reason', async () => {
     const onSelect = vi.fn();
-    serveFiles([makeFile({ id: 3, filename: 'voron.gcode', sliced_for_model: 'Voron' })]);
+    serveFiles([
+      makeFile({ id: 1, filename: 'bracket.gcode.3mf', sliced_for_model: 'P1S' }),
+      makeFile({ id: 3, filename: 'h2d.gcode.3mf', sliced_for_model: 'H2D' }),
+    ]);
     render(
       <PrintFilePickerModal
         printerName="Eddy"
@@ -97,11 +119,35 @@ describe('PrintFilePickerModal', () => {
         onClose={() => {}}
       />,
     );
+    await screen.findByText('bracket.gcode.3mf');
+    expect(screen.queryByText('h2d.gcode.3mf')).toBeNull();
 
-    const row = (await screen.findByText('voron.gcode')).closest('button') as HTMLButtonElement;
+    // The count next to the checkbox is what says something is being held back.
+    await userEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByText(/Also show files sliced for other printers/)).toBeInTheDocument();
+
+    const row = (await screen.findByText('h2d.gcode.3mf')).closest('button') as HTMLButtonElement;
     expect(row).toBeDisabled();
     await userEvent.click(row, { pointerEventsCheck: 0 });
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('keeps a file from the same G-code family on offer', async () => {
+    // X1C and P1S are one family, so dispatch allows the pair and the picker
+    // must not hide it -- exact-name matching would have.
+    serveFiles([makeFile({ id: 4, filename: 'x1c.gcode.3mf', sliced_for_model: 'X1C' })]);
+    render(
+      <PrintFilePickerModal
+        printerName="Eddy"
+        printerModel="P1S"
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    const row = (await screen.findByText('x1c.gcode.3mf')).closest('button') as HTMLButtonElement;
+    expect(row).toBeEnabled();
+    expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
   it('offers the upload route only when the caller allows it', async () => {

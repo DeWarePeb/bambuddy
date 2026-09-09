@@ -973,6 +973,8 @@ export default {
       empty: 'No sliced files in your library yet',
       noMatches: 'No files match your search',
       uploadInstead: 'Upload a file',
+      showOthers: 'Also show files sliced for other printers',
+      noneForThisPrinter: 'Nothing in your library is sliced for this printer',
     },
   },
 

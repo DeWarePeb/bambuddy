@@ -723,8 +723,20 @@ File Manager is where folders are for. **Newest first**, on `fs_modified_at ?? c
 file someone just sliced is the one they came for, while the endpoint's own order is alphabetical for
 the folder view. **The model check moved in front of the click:** the upload path uploads, compares
 `sliced_for_model` against the card's printer, and on a mismatch deletes the row it just made and
-reports the rejection. The library already knows the field, so a file sliced for another machine is
-greyed out with the reason on it instead.
+reports the rejection. The library already knows the field, so the picker can answer before anything
+is uploaded.
+
+**What that check is, and why it is a checkbox.** The rule is `isGcodeCompatible` — the app's own,
+mirroring the backend's `GCODE_COMPAT_FAMILIES` — not the upload path's exact-name comparison. That
+matters in both directions: an X1C plate stays on offer on a P1S because those are one G-code family
+and dispatch allows the pair, while everything the backend would refuse is genuinely refused here.
+Files that fail it are **hidden**, because a card you opened to print something should not list what
+it cannot run. They are hidden behind a checkbox rather than dropped, with the count of what is being
+held back next to it: "my file is not in the list" is a worse puzzle than a greyed-out row, and the
+row carries the reason. Revealed rows stay disabled — the dispatch button in the Print modal would
+refuse them anyway, and offering a click that leads to a dead end is not a favour. Sorting keeps the
+compatible ones first so ticking the box appends instead of reshuffling the row someone was about to
+click.
 
 `cleanupLibraryAfterDispatch` is the one thing that must differ between the two routes. The upload
 route makes a throwaway copy and asks the backend to delete it after dispatch; a file picked from the

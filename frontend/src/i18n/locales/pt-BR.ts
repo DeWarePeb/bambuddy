@@ -967,6 +967,8 @@ export default {
       empty: 'Nenhum arquivo fatiado na sua biblioteca',
       noMatches: 'Nenhum arquivo corresponde à busca',
       uploadInstead: 'Enviar arquivo',
+      showOthers: 'Mostrar também arquivos fatiados para outras impressoras',
+      noneForThisPrinter: 'Nada na sua biblioteca está fatiado para esta impressora',
     },
   },
 

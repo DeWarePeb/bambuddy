@@ -972,6 +972,8 @@ export default {
       empty: 'Nog geen geslicede bestanden in je bibliotheek',
       noMatches: 'Geen bestanden gevonden',
       uploadInstead: 'Bestand uploaden',
+      showOthers: 'Ook bestanden voor andere printers tonen',
+      noneForThisPrinter: 'Niets in je bibliotheek is voor deze printer gesliced',
     },
   },
 

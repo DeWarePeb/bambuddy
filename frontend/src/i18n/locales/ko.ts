@@ -919,6 +919,8 @@ export default {
       empty: '라이브러리에 슬라이스된 파일이 없습니다',
       noMatches: '검색과 일치하는 파일이 없습니다',
       uploadInstead: '파일 업로드',
+      showOthers: '다른 프린터용으로 슬라이스된 파일도 표시',
+      noneForThisPrinter: '라이브러리에 이 프린터용 파일이 없습니다',
     },
     addPreflight: {
       checking: '연결 확인 중...',

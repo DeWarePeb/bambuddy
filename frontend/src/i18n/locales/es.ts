@@ -967,6 +967,8 @@ export default {
       empty: 'Aún no hay archivos laminados en tu biblioteca',
       noMatches: 'Ningún archivo coincide con la búsqueda',
       uploadInstead: 'Subir archivo',
+      showOthers: 'Mostrar también archivos laminados para otras impresoras',
+      noneForThisPrinter: 'Nada en tu biblioteca está laminado para esta impresora',
     },
   },
 

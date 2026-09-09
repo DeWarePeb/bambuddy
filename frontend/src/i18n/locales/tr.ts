@@ -967,6 +967,8 @@ export default {
       empty: 'Kitaplığınızda henüz dilimlenmiş dosya yok',
       noMatches: 'Aramayla eşleşen dosya yok',
       uploadInstead: 'Dosya yükle',
+      showOthers: 'Diğer yazıcılar için dilimlenmiş dosyaları da göster',
+      noneForThisPrinter: 'Kitaplığınızda bu yazıcı için dilimlenmiş dosya yok',
     },
   },
 
