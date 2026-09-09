@@ -9,7 +9,14 @@ from pydantic_settings import BaseSettings
 # Application version - single source of truth
 APP_VERSION = "1.2.5.5"
 GITHUB_REPO = "maziggy/bambuddy"
-BUG_REPORT_RELAY_URL = os.environ.get("BUG_REPORT_RELAY_URL", "https://bambuddy.cool/api/bug-report")
+# Voron patch series: upstream defaults this to its own relay, which files the
+# report as an issue on maziggy/bambuddy. On a fork that is the wrong tracker
+# and the button is the path of least resistance to it — a tester hits a bug in
+# the Klipper path, clicks the button, and upstream receives a report about a
+# printer it does not support, with a diagnostic snapshot to match. Default to
+# unset here. Set BUG_REPORT_RELAY_URL explicitly to point it at a relay of your
+# own; see docs/printhok/features.md.
+BUG_REPORT_RELAY_URL = os.environ.get("BUG_REPORT_RELAY_URL", "")
 
 # App directory - where the application is installed (for static files)
 _app_dir = Path(__file__).resolve().parent.parent.parent.parent

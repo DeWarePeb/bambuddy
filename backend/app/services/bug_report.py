@@ -45,7 +45,13 @@ async def submit_report(
     if not BUG_REPORT_RELAY_URL:
         return {
             "success": False,
-            "message": "Bug reporting is not configured. BUG_REPORT_RELAY_URL is not set.",
+            "message": (
+                "One-click bug reporting is off in this fork, because upstream's relay files "
+                "reports on maziggy/bambuddy and this is not that project. Please open an issue "
+                "at https://github.com/DeWarePeb/bambuddy/issues instead — and if you can "
+                "reproduce it on stock Bambuddy with a Bambu printer, upstream is the right "
+                "place after all."
+            ),
             "issue_url": None,
             "issue_number": None,
         }

@@ -93,7 +93,33 @@ class TestBugReportService:
             )
 
         assert result["success"] is False
-        assert "not configured" in result["message"]
+        # The fork's wording, not upstream's: an unset relay is the *default*
+        # here rather than a misconfiguration, so the message has to tell the
+        # user where to actually report instead of naming an env var at them.
+        assert "DeWarePeb/bambuddy/issues" in result["message"]
+        assert "maziggy/bambuddy" in result["message"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_the_fork_does_not_default_to_upstreams_relay(self):
+        """Upstream ships its own relay as the default, which files the report as
+        an issue on maziggy/bambuddy. On a fork that is the wrong tracker, and the
+        button is the shortest path to it: a tester hits a bug in the Klipper path,
+        clicks Report a Bug, and upstream gets a report about a printer it does not
+        support. The default is unset here and stays unset."""
+        import os
+        from importlib import reload
+
+        from backend.app.core import config
+
+        saved = os.environ.pop("BUG_REPORT_RELAY_URL", None)
+        try:
+            reload(config)
+            assert config.BUG_REPORT_RELAY_URL == ""
+        finally:
+            if saved is not None:
+                os.environ["BUG_REPORT_RELAY_URL"] = saved
+            reload(config)
 
     @pytest.mark.asyncio
     @pytest.mark.unit
