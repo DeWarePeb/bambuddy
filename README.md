@@ -345,6 +345,16 @@ requires the source and because the Klipper work may be useful to someone else.
   printer card is worth a paragraph of describing it
 - **A feature that belongs upstream?** Send it upstream. Anything here that could live in Bambuddy is
   better off there — a smaller patch series is a fork that survives
+- **Want something the Klipper side does not do yet?** Open an issue for it. I am not promising a
+  roadmap: things get built when enough people want the same one, because every commit here is a
+  commit that has to survive the next rebase onto upstream. One person asking is a note; several
+  people asking is a reason. Say what you are trying to do rather than how you think it should work —
+  half the time upstream already does it and I can just point at it
+
+**Keeping current with upstream.** The plan is to stay close to Bambuddy releases rather than drift.
+Upstream develops on its `dev` branch and moves `main` at release; this fork rebases onto `main`, so
+it tracks releases and not daily churn. That is deliberate — it is what makes the fork boring to run.
+The tradeoff is that a brand-new upstream feature lands here a release late.
 
 Pull requests are welcome for the fork-only surface. Keep the rule: one commit per subject, rebased,
 never a merge from upstream. See [`CONTRIBUTING.md`](CONTRIBUTING.md).

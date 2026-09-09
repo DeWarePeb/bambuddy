@@ -62,6 +62,30 @@ The current base is recorded at the top of [`features.md`](features.md) and in
 [`../../NOTICE-modifications.md`](../../NOTICE-modifications.md); at the time of writing it is
 `9b2c49d8`.
 
+**Look at `upstream/dev`, not only at `upstream/main`.** This is the part that is easy to get wrong.
+Upstream develops on `dev` and moves `main` at release, so `main` can sit still for weeks while the
+next version is being built in plain sight. The daily beta tags (`v1.2.6b1-daily.*`) are cut from
+`dev`. Watching only `main` means the first time you see a release is the moment you have to rebase
+onto it.
+
+The two branches genuinely diverge — this is not a fast-forward relationship — so compare with three
+dots, and never rebase onto `dev`. It is a preview, not a base:
+
+```bash
+git log --oneline upstream/main...upstream/dev              # what is coming, both directions
+git diff --name-only upstream/main...upstream/dev > /tmp/dev.txt
+git diff --name-only <current-base>..voron > /tmp/fork.txt
+grep -Fxf /tmp/fork.txt /tmp/dev.txt                        # the files the next rebase will fight over
+```
+
+*Measured 2026-09-09:* `main` at `9b2c49d8`, `dev` 21 commits ahead of it with 11 commits on `main`
+that are not on `dev`. The overlap was 28 files, and the shape of it is worth remembering: the hot
+ones are `routes/printers.py`, `print_scheduler.py`, `main.py`, `client.ts` and `PrintersPage.tsx` —
+and **all fourteen locale files**, every single time. The fork adds keys to all fourteen and so does
+upstream, so locale conflicts are not a sign anything went wrong; they are the standing cost of the
+translation work. Resolve them by keeping both sides' keys, then let `check:i18n` prove nothing was
+dropped.
+
 Read the upstream log for two things specifically:
 
 - **A feature the fork already has.** If upstream ships, say, its own "almost done" notification, the
