@@ -1,34 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 300" role="img" aria-label="Printer">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Printer">
   <!--
     Neutral printer for providers that are not Bambu Lab.
 
     The other images in this folder are product renders of specific Bambu
     machines, and the fallback among them is an X1 — so any printer whose model
     string matched nothing, which is every Klipper machine, was drawn as a Bambu.
-    A Voron is not a Bambu and a photograph of one would be wrong too: they are
-    all different. Hence line art of the frame every CoreXY shares, carrying no
-    brand and asserting nothing about the machine beyond "printer".
+    A Voron is not a Bambu, and a drawing of a Voron would be wrong too: they are
+    all different. Hence the frame every CoreXY shares, asserting nothing about
+    the machine beyond "printer".
 
-    currentColor throughout, so it takes the card's own colour in either theme.
+    Two things this file learned the hard way:
+
+    * The colour is literal, not `currentColor`. Both call sites render this
+      through `<img src>`, which loads it as its own document with no styling
+      context, so `currentColor` resolves to black and the whole drawing
+      disappears into a dark card. This grey is legible on both themes.
+    * The strokes are heavy for the viewBox. The card draws this at about 48px,
+      where anything finer turns to mush.
   -->
-  <g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.75">
-    <!-- Frame: front face of the extrusion cube -->
-    <rect x="55" y="45" width="220" height="210" rx="6" />
-    <!-- Depth, drawn as a shallow offset so it reads as a box, not a square -->
-    <path d="M55 45 L85 22 L305 22 L275 45" />
-    <path d="M275 255 L305 232 L305 22" />
-    <!-- Gantry rail and the toolhead riding on it -->
-    <path d="M55 112 L275 112" />
-    <rect x="140" y="100" width="50" height="34" rx="4" fill="currentColor" fill-opacity="0.15" />
+  <g fill="none" stroke="#9ca3af" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Frame -->
+    <rect x="12" y="16" width="76" height="66" rx="7" fill="#9ca3af" fill-opacity="0.08" />
+    <!-- Gantry rail -->
+    <path d="M12 41 H88" />
+    <!-- Toolhead on the rail -->
+    <rect x="41" y="34" width="18" height="14" rx="3" fill="#9ca3af" fill-opacity="0.45" stroke-width="3" />
     <!-- Nozzle -->
-    <path d="M165 134 L165 146" />
-    <path d="M158 146 L172 146 L165 156 Z" fill="currentColor" fill-opacity="0.25" />
-    <!-- Bed, sitting low in the frame -->
-    <path d="M85 205 L245 205" stroke-width="6" />
-    <path d="M165 205 L165 224" />
-    <path d="M120 224 L210 224" />
+    <path d="M50 48 V54" stroke-width="4" />
+    <!-- Bed -->
+    <path d="M24 68 H76" stroke-width="6" />
     <!-- Feet -->
-    <path d="M80 255 L80 272" />
-    <path d="M250 255 L250 272" />
+    <path d="M27 82 V90" />
+    <path d="M73 82 V90" />
   </g>
 </svg>
