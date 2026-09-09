@@ -1342,6 +1342,12 @@ export interface AppSettings {
   currency: string;
   energy_cost_per_kwh: number;
   energy_tracking_mode: 'print' | 'total';
+  // Suggested selling price (fork). Upstream finance is chargeback; these answer
+  // the other question -- what should the print sell for.
+  pricing_enabled: boolean;
+  pricing_labour_per_hour: number;
+  pricing_markup: number;
+  pricing_floor: number;
   check_updates: boolean;
   check_printer_firmware: boolean;
   include_beta_updates: boolean;
@@ -2802,6 +2808,7 @@ export interface PrintBatchDispatchRequest {
 }
 
 export interface PrintQueueItemUpdate {
+  job_name?: string;  // Optional label; names the uploaded file (fork)
   printer_id?: number | null;  // null = unassign
   target_model?: string | null;  // Target printer model (mutually exclusive with printer_id)
   target_location?: string | null;  // Target location filter (only used with target_model)
