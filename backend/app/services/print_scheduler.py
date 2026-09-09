@@ -61,7 +61,7 @@ from backend.app.services.printer_manager import (
 from backend.app.services.smart_plug_manager import smart_plug_manager
 from backend.app.utils.color_utils import perceptual_color_distance
 from backend.app.utils.filament_types import canonical_filament_type
-from backend.app.utils.filename import derive_remote_filename
+from backend.app.utils.filename import derive_remote_filename, safe_path_component
 from backend.app.utils.local_time import utcnow_naive
 from backend.app.utils.printer_models import (
     is_gcode_compatible,
@@ -6204,9 +6204,20 @@ class PrintScheduler:
 
         # Upload to root directory (not /cache/) - the start_print command references
         # files by name only (ftp://{filename}), so they must be in the root
-        remote_filename = derive_remote_filename(filename)
+        # A queue item may carry its own label -- an order number rather than the
+        # model's name -- and the printer's screen shows the file it was handed.
+        # Renaming the upload is how that label reaches the machine. The obvious
+        # alternative, sending a different `subtask_name` on the MQTT command,
+        # would split the print's identity from its file, and `subtask_name` is
+        # what this codebase resolves the 3MF, the cover image, the archive name
+        # and the running-print match by. The budget leaves room for the suffix
+        # the two derivers append.
+        upload_source = filename
+        if item.job_name:
+            upload_source = safe_path_component(item.job_name, fallback=filename, max_bytes=240)
+        remote_filename = derive_remote_filename(upload_source)
         if getattr(printer, "provider", "bambu") == "klipper":
-            remote_filename = moonraker_remote_filename(filename, item.plate_id)
+            remote_filename = moonraker_remote_filename(upload_source, item.plate_id)
         remote_path = f"/{remote_filename}"
 
         # Get FTP retry settings

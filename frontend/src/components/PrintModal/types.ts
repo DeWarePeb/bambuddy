@@ -100,6 +100,8 @@ export interface ScheduleOptions {
   scheduleType: ScheduleType;
   scheduledTime: string;
   requireManualStart: boolean;
+  /** Optional label; names the file uploaded to the printer (fork). */
+  jobName: string;
   requirePreviousSuccess: boolean;
   autoOffAfter: boolean;
   gcodeInjection: boolean;
@@ -115,6 +117,7 @@ export const DEFAULT_SCHEDULE_OPTIONS: ScheduleOptions = {
   scheduleType: 'asap',
   scheduledTime: '',
   requireManualStart: false,
+  jobName: '',
   requirePreviousSuccess: false,
   autoOffAfter: false,
   gcodeInjection: false,

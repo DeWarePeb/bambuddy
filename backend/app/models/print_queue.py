@@ -43,6 +43,10 @@ class PrintQueueItem(Base):
     batch_id: Mapped[int | None] = mapped_column(ForeignKey("print_batches.id", ondelete="SET NULL"), nullable=True)
 
     # Scheduling
+    # Optional label for this job. When set, the file uploaded to the printer is
+    # named after it, so the machine's own screen shows the order rather than the
+    # model. Never required; empty means "name it after the file".
+    job_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0)  # Queue order
     scheduled_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # None = ASAP
     manual_start: Mapped[bool] = mapped_column(Boolean, default=False)  # Requires manual trigger to start

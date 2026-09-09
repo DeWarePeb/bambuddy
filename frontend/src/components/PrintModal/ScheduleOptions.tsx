@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Clock, Hand, Power, Layers, Code, ListOrdered } from 'lucide-react';
+import { Calendar, Clock, Hand, Power, Layers, Code, ListOrdered, Tag } from 'lucide-react';
 import type { ScheduleOptionsProps, ScheduleType } from './types';
 import {
   formatDateInput,
@@ -240,6 +240,27 @@ export function ScheduleOptionsPanel({
             <Hand className="w-3.5 h-3.5" />
             {t('printModal.requireManualStart')}
           </label>
+        </div>
+      )}
+
+      {/* Job name -- the printer's screen shows the file it was handed, so a
+          label here is how an order number gets in front of you at the machine. */}
+      {options.scheduleType === 'queue' && (
+        <div>
+          <label htmlFor="jobName" className="text-sm text-bambu-gray flex items-center gap-1 mb-1">
+            <Tag className="w-3.5 h-3.5" />
+            {t('printModal.jobName')}
+          </label>
+          <input
+            type="text"
+            id="jobName"
+            maxLength={120}
+            value={options.jobName}
+            onChange={(e) => onChange({ ...options, jobName: e.target.value })}
+            placeholder={t('printModal.jobNamePlaceholder')}
+            className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white text-sm focus:border-bambu-green focus:outline-none"
+          />
+          <p className="text-xs text-bambu-gray mt-1">{t('printModal.jobNameHint')}</p>
         </div>
       )}
 

@@ -4762,6 +4762,10 @@ async def run_migrations(conn):
     # regardless, so even a NULL row could not disable the retry cap.
     await _safe_execute(conn, "ALTER TABLE print_queue ADD COLUMN dispatch_attempts INTEGER DEFAULT 0")
 
+    # Fork: optional label for a queue item, used to name the uploaded file so
+    # the printer's own screen shows it.
+    await _safe_execute(conn, "ALTER TABLE print_queue ADD COLUMN job_name VARCHAR(120)")
+
     # Backfill: copy the selected plate from linked queue rows onto their archives
     # (#2603). Recovers the plate for archives created before print_archives had a
     # plate_id column, wherever the queue row still points at the archive and

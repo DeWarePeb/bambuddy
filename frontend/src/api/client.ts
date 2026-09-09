@@ -2580,6 +2580,7 @@ export interface PrintQueueItem {
   require_previous_success: boolean;
   auto_off_after: boolean;
   manual_start: boolean;  // Requires manual trigger to start (staged)
+  job_name?: string | null;  // Optional label; names the uploaded file (fork)
   // Set by the dispatch scheduler when the assigned spool can't satisfy
   // any required slot's grams (#1496). Surfaced on the queue row as a
   // "filament short" badge; cleared on a successful ▶ click (live recheck).
@@ -2716,6 +2717,7 @@ export interface PrintQueueItemCreate {
   require_previous_success?: boolean;
   auto_off_after?: boolean;
   manual_start?: boolean;  // Requires manual trigger to start (staged)
+  job_name?: string;
   insert_at_top?: boolean;  // Insert ahead of other pending items in the same queue scope
   insert_position?: number | null;  // 1-indexed insertion position for priority queueing
   // PrintModal "Print Anyway" on the deficit warning — persisted so the

@@ -167,6 +167,7 @@ export function PrintModal({
         scheduleType,
         scheduledTime,
         requireManualStart: queueItem.manual_start,
+        jobName: queueItem.job_name ?? '',
         requirePreviousSuccess: queueItem.require_previous_success,
         autoOffAfter: queueItem.auto_off_after,
         gcodeInjection: queueItem.gcode_injection ?? false,
@@ -1068,6 +1069,7 @@ export function PrintModal({
           auto_off_after: scheduleOptions.autoOffAfter,
           gcode_injection: scheduleOptions.gcodeInjection,
           manual_start: scheduleOptions.scheduleType === 'queue' && scheduleOptions.requireManualStart,
+              job_name: scheduleOptions.jobName.trim() || undefined,
           scheduled_time: scheduleOptions.scheduleType === 'scheduled' && scheduleOptions.scheduledTime
             ? new Date(scheduleOptions.scheduledTime).toISOString()
             : undefined,
@@ -1171,6 +1173,7 @@ export function PrintModal({
       auto_off_after: scheduleOptions.autoOffAfter,
       gcode_injection: scheduleOptions.gcodeInjection,
       manual_start: scheduleOptions.scheduleType === 'queue' && scheduleOptions.requireManualStart,
+              job_name: scheduleOptions.jobName.trim() || undefined,
       // When the user clicks "Print Anyway" on the frontend deficit warning,
       // persist that acknowledgement so the scheduler doesn't immediately
       // re-flag the item on its first dispatch tick (#1698-followup).
@@ -1214,6 +1217,7 @@ export function PrintModal({
               auto_off_after: scheduleOptions.autoOffAfter,
               gcode_injection: scheduleOptions.gcodeInjection,
               manual_start: scheduleOptions.scheduleType === 'queue' && scheduleOptions.requireManualStart,
+              job_name: scheduleOptions.jobName.trim() || undefined,
               ams_mapping: undefined,
               plate_id: plateId,
               scheduled_time: scheduleOptions.scheduleType === 'scheduled' && scheduleOptions.scheduledTime
@@ -1272,6 +1276,7 @@ export function PrintModal({
                 auto_off_after: scheduleOptions.autoOffAfter,
                 gcode_injection: scheduleOptions.gcodeInjection,
                 manual_start: scheduleOptions.scheduleType === 'queue' && scheduleOptions.requireManualStart,
+              job_name: scheduleOptions.jobName.trim() || undefined,
                 ams_mapping: printerMapping,
                 // null, not undefined: an operator who cleared their picks
                 // means "assign these again", and undefined would leave the

@@ -80,6 +80,8 @@ class PrintQueueItemCreate(BaseModel):
     require_previous_success: bool = False
     auto_off_after: bool = False  # Power off printer after print completes
     manual_start: bool = False  # Requires manual trigger to start (staged)
+    # Optional label; names the file uploaded to the printer (fork).
+    job_name: str | None = Field(default=None, max_length=120)
     insert_at_top: bool = False  # Insert ahead of other pending items in the same queue scope
     insert_position: int | None = None  # 1-indexed insertion position for priority queueing
     # Persistent "Print Anyway" acknowledgement (#1698-followup). When set,
@@ -145,6 +147,7 @@ class PrintQueueItemUpdate(BaseModel):
     require_previous_success: bool | None = None
     auto_off_after: bool | None = None
     manual_start: bool | None = None
+    job_name: str | None = Field(default=None, max_length=120)
     ams_mapping: list[int] | None = None
     plate_id: int | None = None
     # Print options
@@ -197,6 +200,7 @@ class PrintQueueItemResponse(BaseModel):
     require_previous_success: bool
     auto_off_after: bool
     manual_start: bool
+    job_name: str | None = None
     # True when the dispatch scheduler last evaluated this item and the
     # assigned spool could not satisfy at least one slot's required grams
     # (#1496). Display-only — the ▶ click recomputes deficit against live
