@@ -420,6 +420,18 @@ export default {
       editFieldHelp: 'Quando attivata, questa stampante è in pausa da MQTT, dispatch della coda e notifiche — utile per riparazioni, installazioni Bambuddy parallele o sospensione temporanea.',
     },
     // Chamber light
+    console: {
+      title: 'Macro e console',
+      searchMacros: 'Cerca macro',
+      noMacros: 'Questa stampante non definisce macro',
+      emptyLog: 'Ancora niente nel registro della stampante',
+      placeholder: 'Digita un comando G-code',
+      send: 'Invia',
+      printingWarning: 'È in corso una stampa. Quello che invii da qui arriva a lavoro avviato: spunta per inviare comunque.',
+      confirmRequired: 'È in corso una stampa: conferma sopra per inviare comunque',
+      sendFailed: 'La stampante ha rifiutato il comando: {{error}}',
+      unavailable: 'Impossibile raggiungere la stampante',
+    },
     chamberLightOn: 'Accendi luce camera',
     chamberLightOff: 'Spegni luce camera',
     // Files

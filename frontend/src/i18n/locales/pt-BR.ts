@@ -420,6 +420,18 @@ export default {
       editFieldHelp: 'Quando ativado, esta impressora é pausada do MQTT, despacho de fila e notificações — útil para reparos, instalações paralelas do Bambuddy ou suspensão temporária.',
     },
     // Chamber light
+    console: {
+      title: 'Macros e console',
+      searchMacros: 'Buscar macros',
+      noMacros: 'Esta impressora não define macros',
+      emptyLog: 'Ainda não há nada no registro da impressora',
+      placeholder: 'Digite um comando G-code',
+      send: 'Enviar',
+      printingWarning: 'Há uma impressão em andamento. O que você enviar daqui chega no meio do trabalho — marque para enviar mesmo assim.',
+      confirmRequired: 'Há uma impressão em andamento — confirme acima para enviar mesmo assim',
+      sendFailed: 'A impressora recusou esse comando: {{error}}',
+      unavailable: 'Não foi possível alcançar a impressora',
+    },
     chamberLightOn: 'Ligar luz da câmara',
     chamberLightOff: 'Desligar luz da câmara',
     // Files

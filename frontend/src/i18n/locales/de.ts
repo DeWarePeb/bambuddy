@@ -420,6 +420,18 @@ export default {
       editFieldHelp: 'Wenn aktiviert, ist dieser Drucker von MQTT, Warteschlangenversand und Benachrichtigungen pausiert — nützlich für Reparaturen, parallele Bambuddy-Installationen oder temporäre Außerbetriebnahme.',
     },
     // Chamber light
+    console: {
+      title: 'Makros und Konsole',
+      searchMacros: 'Makros suchen',
+      noMacros: 'Dieser Drucker hat keine Makros',
+      emptyLog: 'Noch nichts im Druckerprotokoll',
+      placeholder: 'G-Code-Befehl eingeben',
+      send: 'Senden',
+      printingWarning: 'Es läuft ein Druck. Alles von hier erreicht den Drucker mitten im Auftrag — zum Senden trotzdem ankreuzen.',
+      confirmRequired: 'Es läuft ein Druck — oben bestätigen, um trotzdem zu senden',
+      sendFailed: 'Der Drucker hat den Befehl abgelehnt: {{error}}',
+      unavailable: 'Drucker nicht erreichbar',
+    },
     chamberLightOn: 'Kammerbeleuchtung einschalten',
     chamberLightOff: 'Kammerbeleuchtung ausschalten',
     // Files

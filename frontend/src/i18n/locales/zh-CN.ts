@@ -420,6 +420,18 @@ export default {
       editFieldHelp: '启用后，此打印机将从 MQTT、队列调度和通知中暂停 — 适用于维修、并行 Bambuddy 安装或临时停用。',
     },
     // Chamber light
+    console: {
+      title: '宏与控制台',
+      searchMacros: '搜索宏',
+      noMacros: '该打印机没有定义宏',
+      emptyLog: '打印机日志暂时为空',
+      placeholder: '输入 G-code 命令',
+      send: '发送',
+      printingWarning: '正在打印。从这里发送的命令会在作业进行中送达打印机，勾选后仍要发送。',
+      confirmRequired: '正在打印，请在上方确认后发送',
+      sendFailed: '打印机拒绝了该命令：{{error}}',
+      unavailable: '无法连接打印机',
+    },
     chamberLightOn: '打开腔室灯',
     chamberLightOff: '关闭腔室灯',
     // Files

@@ -423,6 +423,18 @@ export default {
       editFieldHelp: 'Als dit is ingeschakeld, wordt deze printer gepauzeerd voor MQTT, wachtrijverwerking en meldingen — handig voor reparatie, parallelle Bambuddy-installaties of tijdelijke buitengebruikstelling.',
     },
     // Chamber light
+    console: {
+      title: 'Macro’s en console',
+      searchMacros: 'Macro’s zoeken',
+      noMacros: 'Deze printer heeft geen macro’s',
+      emptyLog: 'Nog niets in het printerlogboek',
+      placeholder: 'Typ een G-code-commando',
+      send: 'Versturen',
+      printingWarning: 'Er loopt een print. Alles wat je hier stuurt komt midden in de job aan — vink aan om toch te versturen.',
+      confirmRequired: 'Er loopt een print — vink hierboven aan om toch te versturen',
+      sendFailed: 'De printer weigerde dat commando: {{error}}',
+      unavailable: 'Kon de printer niet bereiken',
+    },
     chamberLightOn: 'Kamerverlichting inschakelen',
     chamberLightOff: 'Kamerverlichting uitschakelen',
     // Files

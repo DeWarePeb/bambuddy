@@ -384,7 +384,7 @@ Translated in all fourteen locales in `d63f8954`, which also corrected the five 
 
 ## Part C — Klipper parity (fork-original)
 
-Six places where a Klipper printer was still a second-class citizen next to a Bambu on the same
+Seven places where a Klipper printer was still a second-class citizen next to a Bambu on the same
 dashboard. Each one is Moonraker already exposing something this fork ignored. Nothing here is ported
 from Printbuddy — it does not have any of it either.
 
@@ -486,6 +486,50 @@ the printer, in Mainsail. So the Klipper badge is not a button, and both firmwar
 refuse a Klipper printer rather than starting an FTPS transfer that cannot land.
 
 New file `services/klipper_update.py`.
+
+### C7 · The printer's own macros, and a G-code console
+
+The card had jog, home, extrude and the two temperatures. Everything else a Voron owner does daily is
+a macro in printer.cfg — `PRINT_START`, `LOAD_FILAMENT`, `Z_TILT_ADJUST`, the Happy Hare set — or a
+line they type, and for both of those the answer was "keep Mainsail open in another tab". Upstream is
+asked for the same thing in [maziggy/bambuddy#1139](https://github.com/maziggy/bambuddy/issues/1139)
+and does not do Klipper, so it only ever lands here.
+
+Nothing new on the transport: `send_gcode()` already posts to `printer/gcode/script`, and every
+Klipper control on the card goes through it. What was missing was the two lists. Macro names come
+from `printer/objects/list` and descriptions from `printer/gcode/help`, asked live like
+`chamber_candidates()` so a macro added since the service started needs a refresh, not a restart —
+and matched case-insensitively, because printer.cfg spells a macro any way it likes while Klipper
+answers to the upper-case command. Macros whose name starts with `_` stay hidden, Klipper's own
+convention for "half of another macro".
+
+The log is Moonraker's `server/gcode_store`, the same source Mainsail reads, rather than a list of
+what this tab has sent. A command issued from Mainsail, by a macro or by queue dispatch belongs in
+the same history, and a reload should not empty it.
+
+**The print-active rule is the reason this is not just a text box.** E2 (`69804332`) made jog, home
+and extrude answer 409 while a job is loaded, because a stale tab could otherwise put a relative move
+in front of the slicer's G-code. A console that silently accepted `G1 X10` would be a hole straight
+through that guard. Refusing it outright is equally wrong: `M117`, `SET_HEATER_TEMPERATURE`,
+`SET_PRESSURE_ADVANCE` are exactly what a console is for mid-print, and Mainsail allows them. So the
+same predicate asks instead of refusing — while `is_print_active` is true a send needs
+`confirm_during_print`, and the UI puts that in an amber banner with a checkbox. The rule lives in
+the API, so a second browser or a script has to follow it too. No denylist: one that thought it knew
+which G-code was safe would be a worse promise than one that says "you are printing, say so on
+purpose".
+
+Two smaller decisions. The line rides in a **body**, not a query parameter — what someone types here
+ends up in access logs and browser history otherwise, and a macro invocation can carry a filename or
+a temperature nobody meant to publish. And a **multi-line paste is refused** (422): it is a script,
+not a console line, and one confirmation must not cover lines the person never looked at.
+
+`GET /printers/{id}/klipper/macros` and `.../klipper/console` at `PRINTERS_READ`,
+`POST .../klipper/gcode` at `PRINTERS_CONTROL` — per-printer, like starting a file in place. Sends
+are logged at info level: a console is the one place where someone hands the machine something
+nobody reviewed, so what was sent and when should be answerable afterwards.
+
+New component `components/KlipperConsoleModal.tsx`, opened by a Terminal button next to Files on a
+Klipper card. Fourteen locales.
 
 ---
 

@@ -11,6 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from backend.app.core.config import settings
+from backend.app.services.moonraker_client import MoonrakerClient
 from backend.app.services.printer_media import PrinterFilesJobStatus, PrinterFilesZipResult
 
 
@@ -4622,6 +4623,136 @@ class TestKlipperProviderOptionsRoundTrip:
         body = (await async_client.get(f"/api/v1/printers/{printer.id}")).json()
         assert body["chamber_object"] is None
         assert body["transport"] is None
+
+
+class TestKlipperConsoleAPI:
+    """Fork: macros and a G-code console for a Klipper printer.
+
+    The card's own controls cover jog, home, extrude and the temperatures.
+    Everything else a Voron owner does daily lives in printer.cfg as a macro,
+    or gets typed. Three endpoints: the macro list and the log are reads, and
+    one line goes out through the same ``send_gcode`` every other control uses.
+    """
+
+    async def _voron(self, printer_factory):
+        return await printer_factory(name="Voron", provider="klipper", api_url="http://voron:7125")
+
+    def _client(self):
+        client = MagicMock(spec=MoonrakerClient)
+        client.list_macros.return_value = [{"name": "PRINT_START", "description": "start a print"}]
+        client.console_log.return_value = [{"message": "G28", "time": 1.0, "type": "command"}]
+        client.send_gcode.return_value = True
+        return client
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_macros_come_from_the_printer(self, async_client: AsyncClient, printer_factory):
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            response = await async_client.get(f"/api/v1/printers/{printer.id}/klipper/macros")
+        assert response.status_code == 200
+        assert response.json()["macros"][0]["name"] == "PRINT_START"
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_the_console_reads_moonrakers_store(self, async_client: AsyncClient, printer_factory):
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            response = await async_client.get(f"/api/v1/printers/{printer.id}/klipper/console?count=25")
+        assert response.status_code == 200
+        assert response.json()["entries"][0]["message"] == "G28"
+        client.console_log.assert_called_once_with(25)
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.parametrize("path", ["klipper/macros", "klipper/console"])
+    async def test_a_bambu_has_none_of_this(self, async_client: AsyncClient, printer_factory, path):
+        printer = await printer_factory(name="Eddy", model="X1C")
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = self._client()
+            response = await async_client.get(f"/api/v1/printers/{printer.id}/{path}")
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_line_reaches_the_printer(self, async_client: AsyncClient, printer_factory):
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            mock_pm.is_print_active.return_value = False
+            response = await async_client.post(
+                f"/api/v1/printers/{printer.id}/klipper/gcode", json={"script": "  Z_TILT_ADJUST  "}
+            )
+        assert response.status_code == 200
+        client.send_gcode.assert_called_once_with("Z_TILT_ADJUST")
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_send_during_a_print_has_to_be_meant(self, async_client: AsyncClient, printer_factory):
+        """The jog endpoints refuse outright while a job is loaded (`69804332`).
+        A console cannot — M117 and the tuning commands are exactly what it is
+        for mid-print — so the same predicate asks instead, and an unconfirmed
+        send is refused before anything reaches the machine."""
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            mock_pm.is_print_active.return_value = True
+            response = await async_client.post(
+                f"/api/v1/printers/{printer.id}/klipper/gcode", json={"script": "G1 X10"}
+            )
+        assert response.status_code == 409
+        client.send_gcode.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_confirmed_send_during_a_print_goes_through(self, async_client: AsyncClient, printer_factory):
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            mock_pm.is_print_active.return_value = True
+            response = await async_client.post(
+                f"/api/v1/printers/{printer.id}/klipper/gcode",
+                json={"script": "M117 halfway", "confirm_during_print": True},
+            )
+        assert response.status_code == 200
+        client.send_gcode.assert_called_once_with("M117 halfway")
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_a_multi_line_paste_is_not_a_console_line(self, async_client: AsyncClient, printer_factory):
+        """One confirmation must not cover a script whose other lines the
+        person never looked at."""
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            mock_pm.is_print_active.return_value = False
+            response = await async_client.post(
+                f"/api/v1/printers/{printer.id}/klipper/gcode", json={"script": "G28\nG1 X10"}
+            )
+        assert response.status_code == 422
+        client.send_gcode.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_moonraker_refusing_the_command_is_not_a_success(self, async_client: AsyncClient, printer_factory):
+        printer = await self._voron(printer_factory)
+        client = self._client()
+        client.send_gcode.return_value = False
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = client
+            mock_pm.is_print_active.return_value = False
+            response = await async_client.post(
+                f"/api/v1/printers/{printer.id}/klipper/gcode", json={"script": "BAD_MACRO"}
+            )
+        assert response.status_code == 502
 
 
 class TestMovementRefusedWhilePrinting:

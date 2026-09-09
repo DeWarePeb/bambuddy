@@ -420,6 +420,18 @@ export default {
       editFieldHelp: 'Etkinleştirildiğinde, bu yazıcı MQTT, kuyruk gönderimi ve bildirimlerden duraklatılır — tamir, paralel Bambuddy kurulumları veya geçici askıya alma için kullanışlıdır.',
     },
     // Hazne ışığı
+    console: {
+      title: 'Makrolar ve konsol',
+      searchMacros: 'Makro ara',
+      noMacros: 'Bu yazıcıda makro tanımlı değil',
+      emptyLog: 'Yazıcı günlüğünde henüz bir şey yok',
+      placeholder: 'Bir G-code komutu yazın',
+      send: 'Gönder',
+      printingWarning: 'Bir baskı sürüyor. Buradan gönderdiğiniz her şey iş sürerken yazıcıya ulaşır — yine de göndermek için işaretleyin.',
+      confirmRequired: 'Bir baskı sürüyor — yine de göndermek için yukarıdan onaylayın',
+      sendFailed: 'Yazıcı bu komutu reddetti: {{error}}',
+      unavailable: 'Yazıcıya ulaşılamadı',
+    },
     chamberLightOn: 'Hazne ışığını aç',
     chamberLightOff: 'Hazne ışığını kapat',
     // Dosyalar

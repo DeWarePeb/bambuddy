@@ -419,6 +419,18 @@ export default {
       editFieldHelp: '有効にすると、このプリンターはMQTT、キューディスパッチ、通知から一時停止されます — 修理、並列のBambuddyインストール、または一時的な停止に役立ちます。',
     },
     // Chamber light
+    console: {
+      title: 'マクロとコンソール',
+      searchMacros: 'マクロを検索',
+      noMacros: 'このプリンターにはマクロがありません',
+      emptyLog: 'プリンターのログはまだ空です',
+      placeholder: 'G-code コマンドを入力',
+      send: '送信',
+      printingWarning: '印刷中です。ここから送ったコマンドは印刷中のプリンターに届きます。それでも送る場合はチェックしてください。',
+      confirmRequired: '印刷中です。上でチェックすると送信できます',
+      sendFailed: 'プリンターがコマンドを拒否しました: {{error}}',
+      unavailable: 'プリンターに接続できませんでした',
+    },
     chamberLightOn: 'チャンバーライトをオンにしました',
     chamberLightOff: 'チャンバーライトをオフにしました',
     // Files

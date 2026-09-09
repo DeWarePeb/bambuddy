@@ -350,6 +350,27 @@ class NozzleRackSlot(BaseModel):
     filament_type: str = ""  # Material type (e.g. "PLA", "PETG")
 
 
+class KlipperGcodeBody(BaseModel):
+    """One line for a Klipper printer's G-code console (Voron patch series).
+
+    A body rather than a query parameter: what someone types here ends up in
+    access logs and browser history if it rides in the URL, and a macro
+    invocation can carry a filename or a temperature nobody meant to publish.
+
+    ``confirm_during_print`` is the console's half of the movement guard. The
+    endpoints behind the jog buttons refuse outright while a job is loaded;
+    a console cannot, because ``M117``, ``SET_HEATER_TEMPERATURE`` and the
+    tuning commands are exactly what it is for mid-print. So it asks instead,
+    and the API refuses a send that has not been confirmed — which is a rule a
+    second browser or a script has to follow too.
+    """
+
+    # Klipper takes one command per line. Multi-line pastes are a script, not a
+    # console line, and would make the confirmation cover more than it showed.
+    script: str = Field(..., min_length=1, max_length=512, pattern=r"^[^\r\n]+$")
+    confirm_during_print: bool = False
+
+
 class AmsLabelBody(BaseModel):
     label: str = Field(..., min_length=1, max_length=100)
     ams_serial: str = Field(default="", max_length=50)

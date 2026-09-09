@@ -153,6 +153,7 @@ import { Button } from '../components/Button';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { BulkPrinterToolbar, type PrinterState } from '../components/BulkPrinterToolbar';
 import { FileManagerModal } from '../components/FileManagerModal';
+import { KlipperConsoleModal } from '../components/KlipperConsoleModal';
 import { EmbeddedCameraViewer } from '../components/EmbeddedCameraViewer';
 import { CameraWall } from '../components/CameraWall';
 import { ContextMenu, type ContextMenuItem } from '../components/ContextMenu';
@@ -2171,6 +2172,7 @@ function PrinterCard({
   const [deleteArchives, setDeleteArchives] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFileManager, setShowFileManager] = useState(false);
+  const [showKlipperConsole, setShowKlipperConsole] = useState(false);
   const [showMQTTDebug, setShowMQTTDebug] = useState(false);
   const [showPowerOnConfirm, setShowPowerOnConfirm] = useState(false);
   const [showPowerOffConfirm, setShowPowerOffConfirm] = useState(false);
@@ -6695,6 +6697,25 @@ function PrinterCard({
                     onClose={() => setCameraMenuAnchor(null)}
                   />
                 )}
+                {/* Voron patch series (C7): the printer's own macros and a
+                    G-code console. Klipper only — a Bambu has no equivalent,
+                    and the three endpoints behind this refuse anything else. */}
+                {printer.provider === 'klipper' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowKlipperConsole(true)}
+                    disabled={!hasPermission('printers:control')}
+                    title={
+                      !hasPermission('printers:control')
+                        ? t('printers.permission.noControl')
+                        : t('printers.console.title')
+                    }
+                    className={footerIconButtonClass}
+                  >
+                    <Terminal className="w-[var(--pc-i4,1rem)] h-[var(--pc-i4,1rem)]" />
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -6749,6 +6770,21 @@ function PrinterCard({
           printerName={printer.name}
           provider={printer.provider}
           onClose={() => setShowFileManager(false)}
+        />
+      )}
+
+      {/* Klipper macros and console (Voron patch series, C7) */}
+      {showKlipperConsole && (
+        <KlipperConsoleModal
+          printerId={printer.id}
+          printerName={printer.name}
+          // The same states the API's own guard counts as "a job is loaded"
+          // (printer_manager.ACTIVE_PRINT_STATES). The API is the authority —
+          // this only decides whether the confirmation is offered up front
+          // instead of arriving as a 409.
+          isPrinting={['RUNNING', 'PAUSE', 'PREPARE', 'SLICING'].includes(status?.state ?? '')}
+          canControl={hasPermission('printers:control')}
+          onClose={() => setShowKlipperConsole(false)}
         />
       )}
 

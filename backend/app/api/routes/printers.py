@@ -36,6 +36,7 @@ from backend.app.schemas.printer import (
     FilaSwitchResponse,
     HmsActionBody,
     HMSErrorResponse,
+    KlipperGcodeBody,
     NozzleInfoResponse,
     NozzleRackSlot,
     PrinterCreate,
@@ -2343,6 +2344,90 @@ async def import_klipper_history(
     except Exception as exc:  # noqa: BLE001 - Moonraker unreachable or answering something else
         logger.warning("Klipper history import failed for printer %s: %s", printer_id, exc)
         raise HTTPException(502, f"Could not read Moonraker's job history: {exc}") from exc
+
+
+@router.get("/{printer_id}/klipper/macros")
+async def klipper_macros(
+    printer_id: int,
+    _=RequirePermissionIfAuthEnabled(Permission.PRINTERS_READ),
+):
+    """The macros this Klipper printer defines (Voron patch series).
+
+    What a Voron owner reaches for daily — `PRINT_START`, `LOAD_FILAMENT`,
+    `Z_TILT_ADJUST`, the Happy Hare set — lives in printer.cfg, so the list can
+    only come from the machine. Asked live, like the chamber candidates: a
+    macro added since the service started is a refresh away, not a restart.
+    """
+    printer = await _load_printer_or_404(printer_id)
+    if getattr(printer, "provider", "bambu") != "klipper":
+        raise HTTPException(400, "Macros are a Klipper concept")
+    client = printer_manager.get_client(printer_id)
+    if not isinstance(client, MoonrakerClient):
+        raise HTTPException(503, "Printer is not connected")
+    try:
+        return {"macros": await asyncio.to_thread(client.list_macros)}
+    except Exception as exc:  # noqa: BLE001 - an unreachable printer is a 503, not a 500
+        raise HTTPException(503, f"Could not ask the printer: {exc}") from exc
+
+
+@router.get("/{printer_id}/klipper/console")
+async def klipper_console(
+    printer_id: int,
+    count: int = 100,
+    _=RequirePermissionIfAuthEnabled(Permission.PRINTERS_READ),
+):
+    """Recent commands and responses from Moonraker's G-code store.
+
+    Moonraker keeps this log itself, so the console shows what the printer
+    did — including commands sent from Mainsail, from a macro, or by this
+    app's own controls — rather than what one browser tab remembers typing.
+    """
+    printer = await _load_printer_or_404(printer_id)
+    if getattr(printer, "provider", "bambu") != "klipper":
+        raise HTTPException(400, "The G-code console is only available for Klipper printers")
+    client = printer_manager.get_client(printer_id)
+    if not isinstance(client, MoonrakerClient):
+        raise HTTPException(503, "Printer is not connected")
+    try:
+        return {"entries": await asyncio.to_thread(client.console_log, count)}
+    except Exception as exc:  # noqa: BLE001 - an unreachable printer is a 503, not a 500
+        raise HTTPException(503, f"Could not ask the printer: {exc}") from exc
+
+
+@router.post("/{printer_id}/klipper/gcode")
+async def send_klipper_gcode(
+    printer_id: int,
+    body: KlipperGcodeBody,
+    _=RequirePrinterPermissionIfAuthEnabled(Permission.PRINTERS_CONTROL),
+):
+    """Send one line to a Klipper printer: the console, and the macro buttons.
+
+    The movement endpoints refuse outright while a job is loaded (`69804332`).
+    A console cannot take that rule as it stands — `M117`,
+    `SET_HEATER_TEMPERATURE`, `SET_PRESSURE_ADVANCE` are exactly what a console
+    is for mid-print, and Mainsail allows them. So the same predicate asks
+    instead of refusing: while a print is active the caller has to say it means
+    it. That keeps the guard honest for a second browser or a script, without
+    a denylist pretending to know which G-code is safe.
+    """
+    printer = await _load_printer_or_404(printer_id)
+    if getattr(printer, "provider", "bambu") != "klipper":
+        raise HTTPException(400, "The G-code console is only available for Klipper printers")
+    script = body.script.strip()
+    if not script:
+        raise HTTPException(400, "Nothing to send")
+    if printer_manager.is_print_active(printer_id) and not body.confirm_during_print:
+        raise HTTPException(409, "A print is running — resend with confirm_during_print to send anyway")
+    client = printer_manager.get_client(printer_id)
+    if client is None:
+        raise HTTPException(503, "Printer is not connected")
+    if not await asyncio.to_thread(client.send_gcode, script):
+        raise HTTPException(502, "Moonraker refused the command")
+    # Deliberately in the service log: a console is the one place where a
+    # person hands the machine something nobody reviewed, so what was sent and
+    # when should be answerable afterwards.
+    logger.info("Klipper console: printer %s sent %r", printer_id, script)
+    return {"status": "sent", "script": script}
 
 
 @router.get("/{printer_id}/storage")

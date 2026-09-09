@@ -423,6 +423,19 @@ export default {
       editFieldHelp: 'When on, this printer is paused from MQTT, queue dispatch and notifications — useful for repair, parallel Bambuddy installs, or temporary suspension.',
     },
     // Chamber light
+    // Klipper macros and G-code console (fork, C7)
+    console: {
+      title: 'Macros and console',
+      searchMacros: 'Search macros',
+      noMacros: 'This printer defines no macros',
+      emptyLog: 'Nothing in the printer log yet',
+      placeholder: 'Type a G-code command',
+      send: 'Send',
+      printingWarning: 'A print is running. Anything sent from here reaches the printer mid-job — tick to send anyway.',
+      confirmRequired: 'A print is running — confirm above to send anyway',
+      sendFailed: 'The printer refused that command: {{error}}',
+      unavailable: 'Could not reach the printer',
+    },
     chamberLightOn: 'Turn on chamber light',
     chamberLightOff: 'Turn off chamber light',
     // Files

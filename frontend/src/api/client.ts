@@ -382,6 +382,18 @@ export interface TvFeedPrinter {
   } | null;
 }
 
+// Voron patch series: the macros a Klipper printer defines, and its console.
+export interface KlipperMacro {
+  name: string;          // the command, upper case, as Klipper answers to it
+  description: string;   // from printer/gcode/help; "" when the macro sets none
+}
+
+export interface KlipperConsoleEntry {
+  message: string;
+  time: number | null;   // Moonraker's own epoch seconds
+  type: string;          // "command" or "response"
+}
+
 // Printer types
 export type PrinterProvider = 'bambu' | 'klipper';
 
@@ -5302,6 +5314,18 @@ export const api = {
     return request<Archive[]>(`/archives/search?${params}`);
   },
   rebuildSearchIndex: () => request<{ message: string }>('/archives/search/rebuild-index', { method: 'POST' }),
+  // Voron patch series: the printer's own macros, its console log, and one line
+  // out. `confirmDuringPrint` is the console's half of the movement guard — the
+  // API refuses an unconfirmed send while a job is loaded.
+  getKlipperMacros: (printerId: number) =>
+    request<{ macros: KlipperMacro[] }>(`/printers/${printerId}/klipper/macros`),
+  getKlipperConsole: (printerId: number, count = 100) =>
+    request<{ entries: KlipperConsoleEntry[] }>(`/printers/${printerId}/klipper/console?count=${count}`),
+  sendKlipperGcode: (printerId: number, script: string, confirmDuringPrint = false) =>
+    request<{ status: string; script: string }>(`/printers/${printerId}/klipper/gcode`, {
+      method: 'POST',
+      body: JSON.stringify({ script, confirm_during_print: confirmDuringPrint }),
+    }),
   getKlipperChamberCandidates: (printerId: number) =>
     request<{ candidates: string[]; configured: string | null; in_use: string | null }>(
       `/printers/${printerId}/klipper/chamber-candidates`,

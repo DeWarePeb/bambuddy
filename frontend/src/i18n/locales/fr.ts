@@ -420,6 +420,18 @@ export default {
       editFieldHelp: "Quand activé, cette imprimante est mise en pause de MQTT, de la file d'attente et des notifications — utile pour les réparations, les installations Bambuddy parallèles ou une suspension temporaire.",
     },
     // Chamber light
+    console: {
+      title: 'Macros et console',
+      searchMacros: 'Rechercher des macros',
+      noMacros: 'Cette imprimante ne définit aucune macro',
+      emptyLog: 'Rien dans le journal de l’imprimante',
+      placeholder: 'Tapez une commande G-code',
+      send: 'Envoyer',
+      printingWarning: 'Une impression est en cours. Tout ce qui part d’ici arrive en pleine tâche — cochez pour envoyer quand même.',
+      confirmRequired: 'Une impression est en cours — confirmez ci-dessus pour envoyer quand même',
+      sendFailed: 'L’imprimante a refusé cette commande : {{error}}',
+      unavailable: 'Imprimante injoignable',
+    },
     chamberLightOn: 'Allumer la lumière de la chambre',
     chamberLightOff: 'Éteindre la lumière de la chambre',
     // Files

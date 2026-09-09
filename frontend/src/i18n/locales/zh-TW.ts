@@ -420,6 +420,18 @@ export default {
       editFieldHelp: '啟用後，此印表機將從 MQTT、佇列調度和通知中暫停 — 適用於維修、並行 Bambuddy 安裝或暫時停用。',
     },
     // Chamber light
+    console: {
+      title: '巨集與主控台',
+      searchMacros: '搜尋巨集',
+      noMacros: '這台印表機沒有定義巨集',
+      emptyLog: '印表機記錄暫時是空的',
+      placeholder: '輸入 G-code 指令',
+      send: '傳送',
+      printingWarning: '正在列印。從這裡送出的指令會在工作進行中送達印表機，勾選後仍要傳送。',
+      confirmRequired: '正在列印，請在上方確認後傳送',
+      sendFailed: '印表機拒絕了該指令：{{error}}',
+      unavailable: '無法連線到印表機',
+    },
     chamberLightOn: '開啟腔室燈',
     chamberLightOff: '關閉腔室燈',
     // Files

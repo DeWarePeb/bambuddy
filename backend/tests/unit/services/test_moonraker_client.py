@@ -512,3 +512,83 @@ def test_the_poll_never_opens_a_stream_when_transport_is_poll():
         client._poll_loop()
     discover.assert_not_called()
     assert client._stream is None
+
+
+# ---------------------------------------------------------- macros and console
+
+
+def _macro_objects():
+    return {
+        "objects": [
+            "configfile",
+            "gcode_macro PRINT_START",
+            "gcode_macro Load_Filament",
+            "gcode_macro _PARK_HEAD",
+            "toolhead",
+        ]
+    }
+
+
+def test_list_macros_gives_the_command_name_klipper_answers_to():
+    client = MoonrakerClient("http://voron.test")
+    responses = {
+        "printer/objects/list": _macro_objects(),
+        "printer/gcode/help": {"PRINT_START": "start a print", "LOAD_FILAMENT": "load"},
+    }
+    with patch.object(client, "_get", side_effect=lambda path, **_: responses[path]):
+        macros = client.list_macros()
+    # printer.cfg spells them any way it likes; Klipper takes the command in
+    # upper case, and that is what a button has to send.
+    assert [m["name"] for m in macros] == ["LOAD_FILAMENT", "PRINT_START"]
+    assert macros[1]["description"] == "start a print"
+
+
+def test_list_macros_hides_the_internal_ones():
+    client = MoonrakerClient("http://voron.test")
+    with patch.object(client, "_get", side_effect=lambda path, **_: {"printer/objects/list": _macro_objects(), "printer/gcode/help": {}}[path]):
+        names = [m["name"] for m in client.list_macros()]
+    # A leading underscore is Klipper's own convention for "half of another
+    # macro" — it keeps them out of its help output, so they stay out here.
+    assert "_PARK_HEAD" not in names
+
+
+def test_list_macros_still_lists_them_when_help_is_unavailable():
+    client = MoonrakerClient("http://voron.test")
+
+    def _get(path, **_):
+        if path == "printer/gcode/help":
+            raise httpx.HTTPError("no such endpoint")
+        return _macro_objects()
+
+    with patch.object(client, "_get", side_effect=_get):
+        macros = client.list_macros()
+    # Descriptions are a nicety. The names are the feature, so an older
+    # Moonraker that does not answer gcode/help still gets its buttons.
+    assert [m["name"] for m in macros] == ["LOAD_FILAMENT", "PRINT_START"]
+    assert all(m["description"] == "" for m in macros)
+
+
+def test_console_log_reads_moonrakers_own_store():
+    client = MoonrakerClient("http://voron.test")
+    store = {
+        "gcode_store": [
+            {"message": "G28", "time": 1757000000.0, "type": "command"},
+            {"message": "// homing", "time": 1757000001.0, "type": "response"},
+            "not a dict",
+        ]
+    }
+    with patch.object(client, "_get", return_value=store) as get:
+        entries = client.console_log(50)
+    assert get.call_args[0][0] == "server/gcode_store?count=50"
+    assert entries == [
+        {"message": "G28", "time": 1757000000.0, "type": "command"},
+        {"message": "// homing", "time": 1757000001.0, "type": "response"},
+    ]
+
+
+@pytest.mark.parametrize(("asked", "sent"), [(0, 1), (-5, 1), (5000, 1000), (100, 100)])
+def test_console_log_asks_for_a_sane_count(asked, sent):
+    client = MoonrakerClient("http://voron.test")
+    with patch.object(client, "_get", return_value={}) as get:
+        assert client.console_log(asked) == []
+    assert get.call_args[0][0] == f"server/gcode_store?count={sent}"

@@ -1253,6 +1253,61 @@ class MoonrakerClient:
         except Exception:  # noqa: BLE001
             return {"used_bytes": None, "free_bytes": None}
 
+    # ----------------------------------------------------- macros and console
+
+    def list_macros(self) -> list[dict[str, str]]:
+        """The macros this printer defines, with whatever description they carry.
+
+        Queried live rather than served from the connect-time object cache, for
+        the same reason as ``chamber_candidates()``: a macro added to
+        printer.cfg since the service started should appear without a restart.
+
+        Klipper keeps macros whose name starts with an underscore out of its own
+        help output — they are the internal halves of other macros — so they
+        stay out of the list here too. Descriptions come from
+        ``printer/gcode/help``, which is keyed by command name (uppercase);
+        ``printer.cfg`` may spell the macro any way it likes, so the two are
+        matched case-insensitively and the command name is what gets sent.
+        """
+        objects = self._get("printer/objects/list").get("objects") or []
+        names = sorted(
+            {
+                obj.split(" ", 1)[1].strip().upper()
+                for obj in objects
+                if isinstance(obj, str) and obj.startswith("gcode_macro ") and obj.split(" ", 1)[1].strip()
+            }
+        )
+        try:
+            help_text = self._get("printer/gcode/help")
+        except Exception:  # noqa: BLE001 - descriptions are a nicety, the names are the feature
+            help_text = {}
+        described = {str(k).upper(): str(v) for k, v in help_text.items()} if isinstance(help_text, dict) else {}
+        return [
+            {"name": name, "description": described.get(name, "")}
+            for name in names
+            if not name.startswith("_")
+        ]
+
+    def console_log(self, count: int = 100) -> list[dict[str, Any]]:
+        """Recent commands and responses from Moonraker's own G-code store.
+
+        The same source Mainsail's console reads, deliberately: a command typed
+        there, sent by a macro, or issued by this app's own controls is in this
+        list too. The console then shows what the printer did, not what one
+        client remembers doing to it.
+        """
+        result = self._get(f"server/gcode_store?count={max(1, min(int(count), 1000))}")
+        entries = result.get("gcode_store") if isinstance(result, dict) else None
+        return [
+            {
+                "message": str(entry.get("message", "")),
+                "time": entry.get("time"),
+                "type": str(entry.get("type") or "response"),
+            }
+            for entry in (entries or [])
+            if isinstance(entry, dict)
+        ]
+
     # ------------------------------------------------------------- logging
 
     def _record_log(self, direction: str, text: str) -> None:
