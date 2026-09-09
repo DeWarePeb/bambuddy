@@ -38,6 +38,23 @@ APP_VERSION = "1.0.0b1"
 # The fork has no releases yet, which the updater reports as "No releases found"
 # and offers nothing. That is the correct resting state until releases are cut.
 GITHUB_REPO = "DeWarePeb/printhok"
+
+# Voron patch series: how this fork identifies itself to third parties —
+# MakerWorld, Bambu's cloud, Orca's cloud, firmware servers, notification
+# services, spool databases.
+#
+# Upstream hardcodes `Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)` in
+# seven places. Left alone, every outbound request a fork makes is attributed to
+# maziggy's project: if Printhok ever hammers an endpoint or gets itself rate
+# limited, he wears it, and neither of us can tell the two clients apart in
+# anyone's logs.
+#
+# The literal "Bambuddy" is kept in the string on purpose. Some of these are
+# third-party endpoints nobody here controls, and a UA that no longer contains
+# the token a service might match on is a silent breakage — this way the change
+# is honest without betting on how each endpoint parses it. The version is real
+# now too, rather than upstream's frozen 1.0.
+USER_AGENT = f"Printhok/{APP_VERSION} (Bambuddy fork; +https://github.com/{GITHUB_REPO})"
 # Voron patch series: upstream defaults this to its own relay, which files the
 # report as an issue on maziggy/bambuddy. On a fork that is the wrong tracker
 # and the button is the path of least resistance to it — a tester hits a bug in

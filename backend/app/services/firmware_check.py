@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 
-from backend.app.core.config import _data_dir
+from backend.app.core.config import USER_AGENT, _data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 # JA3/TLS-fingerprint challenge (cf-mitigated=challenge) that plain Python
 # TLS can't pass (#1666). curl_cffi replays Chrome's actual ClientHello
 # bytes so the handshake clears CF; we override the HTTP User-Agent back to
-# the honest Bambuddy/1.0 string so the application-layer identity stays
-# truthful (TLS fingerprint matches Chrome because Python's TLS is the
-# signal CF gates on; everything above TLS is still Bambuddy).
+# our own `USER_AGENT` so the application-layer identity stays truthful (TLS
+# fingerprint matches Chrome because Python's TLS is the signal CF gates on;
+# everything above TLS still says who is really calling — Printhok now, rather
+# than upstream, which is the point of the constant).
 #
 # Soft dependency — if curl_cffi isn't importable on the running platform,
 # firmware_check degrades to httpx (which will likely 403) and wiki-based
@@ -153,7 +154,7 @@ class FirmwareCheckService:
         self._client = httpx.AsyncClient(
             timeout=30.0,
             headers={
-                "User-Agent": "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)",
+                "User-Agent": USER_AGENT,
                 "Accept": "text/html,application/json,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.9",
             },
@@ -184,7 +185,7 @@ class FirmwareCheckService:
             self._bambulab_client = _CurlCffiAsyncSession(
                 impersonate="chrome",
                 headers={
-                    "User-Agent": "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)",
+                    "User-Agent": USER_AGENT,
                     "Accept": "text/html,application/json,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.9",
                 },

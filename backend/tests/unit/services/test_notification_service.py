@@ -2583,7 +2583,9 @@ class TestNtfyOutbound:
         notification client must too."""
         client = await service._get_client()
         try:
-            assert client.headers.get("user-agent") == "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)"
+            from backend.app.core.config import USER_AGENT
+
+            assert client.headers.get("user-agent") == USER_AGENT
         finally:
             await service.close()
 

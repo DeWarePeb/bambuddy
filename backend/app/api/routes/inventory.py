@@ -16,6 +16,7 @@ from backend.app.core.auth import (
     require_auth_if_enabled,
 )
 from backend.app.core.catalog_defaults import DEFAULT_COLOR_CATALOG, DEFAULT_SPOOL_CATALOG
+from backend.app.core.config import USER_AGENT
 from backend.app.core.database import get_db
 from backend.app.core.permissions import Permission
 from backend.app.core.websocket import ws_manager
@@ -1078,7 +1079,7 @@ async def sync_from_filamentcolors(
             # outbound client (bambu_cloud, makerworld, firmware_check).
             async with httpx.AsyncClient(
                 timeout=120.0,
-                headers={"User-Agent": "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)"},
+                headers={"User-Agent": USER_AGENT},
             ) as client:
                 page = 1
                 while True:

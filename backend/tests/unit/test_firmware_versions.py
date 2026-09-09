@@ -171,7 +171,9 @@ async def test_client_headers_identify_honestly_and_send_browser_accept():
     """
     svc = FirmwareCheckService()
     headers = svc._client.headers
-    assert headers["User-Agent"].startswith("Bambuddy/")
+    from backend.app.core.config import USER_AGENT
+
+    assert headers["User-Agent"] == USER_AGENT
     assert "Chrome" not in headers["User-Agent"]
     assert "Accept" in headers
     assert "Accept-Language" in headers
@@ -205,7 +207,9 @@ async def test_bambulab_curl_cffi_session_keeps_honest_user_agent():
     # the rename rather than silently passing.
     session_headers = client.headers  # type: ignore[attr-defined]
     ua = session_headers.get("User-Agent", "")
-    assert ua.startswith("Bambuddy/"), f"curl_cffi session UA leaked Chrome default: {ua!r}"
+    from backend.app.core.config import USER_AGENT
+
+    assert ua == USER_AGENT, f"curl_cffi session UA leaked Chrome default: {ua!r}"
     assert "Chrome" not in ua
     assert "Mozilla" not in ua
 

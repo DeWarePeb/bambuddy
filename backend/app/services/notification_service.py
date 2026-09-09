@@ -17,6 +17,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.core.config import USER_AGENT
 from backend.app.models.notification import NotificationDigestQueue, NotificationLog, NotificationProvider
 from backend.app.models.notification_template import NotificationTemplate
 from backend.app.services.notify_live_activity_client import DEFAULT_NOTIFY_BASE_URL
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 # inventory). Previously this client leaked python-httpx/<version>, which
 # was both inconsistent with the rest of the project and a more obvious
 # bot signature for upstream WAFs.
-_USER_AGENT = "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)"
+_USER_AGENT = USER_AGENT
 
 
 def _looks_like_cloudflare_challenge(response: httpx.Response) -> bool:

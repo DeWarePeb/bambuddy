@@ -82,7 +82,9 @@ class TestRequestDeviceCode:
         _args, kwargs = svc._client.post.call_args
         assert kwargs["data"]["client_id"] == ORCA_CLIENT_ID
         assert kwargs["data"]["scope"]  # a scope is always sent
-        assert kwargs["headers"]["User-Agent"].startswith("Bambuddy/")
+        from backend.app.core.config import USER_AGENT
+
+        assert kwargs["headers"]["User-Agent"] == USER_AGENT
         assert "apikey" not in kwargs["headers"]
 
     @pytest.mark.asyncio
@@ -286,7 +288,9 @@ class TestApiHeaders:
         svc.access_token = "oc_ext_123"
         headers = svc._api_headers()
         assert headers["Authorization"] == "Bearer oc_ext_123"
-        assert headers["User-Agent"].startswith("Bambuddy/")
+        from backend.app.core.config import USER_AGENT
+
+        assert headers["User-Agent"] == USER_AGENT
         assert "apikey" not in headers
 
     def test_api_headers_without_token_raises(self, svc):

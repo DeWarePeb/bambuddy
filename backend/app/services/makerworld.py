@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 import certifi
 import httpx
 
+from backend.app.core.config import USER_AGENT
 from backend.app.services.bambu_cloud import is_captcha_challenge, is_expiry_401
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ _ALLOWED_DOWNLOAD_SUFFIXES = (".amazonaws.com",)
 # The Referer is kept because MakerWorld's CSRF / origin-check middleware uses
 # it on some endpoints — that's distinct from client impersonation.
 _CLIENT_HEADERS = {
-    "User-Agent": "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)",
+    "User-Agent": USER_AGENT,
     "Accept": "text/html,application/json,*/*",
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://makerworld.com/",

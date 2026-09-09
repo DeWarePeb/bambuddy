@@ -126,7 +126,9 @@ class TestGetDesign:
 
         await service.get_design(1)
         headers = service._client.get.call_args.kwargs["headers"]
-        assert headers["User-Agent"].startswith("Bambuddy/")
+        from backend.app.core.config import USER_AGENT
+
+        assert headers["User-Agent"] == USER_AGENT
         # Browser-impersonation strings must not creep back in
         assert "Mozilla" not in headers["User-Agent"]
         assert "Firefox" not in headers["User-Agent"]

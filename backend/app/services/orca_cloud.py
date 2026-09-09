@@ -42,6 +42,8 @@ from typing import Any
 
 import httpx
 
+from backend.app.core.config import USER_AGENT
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -73,7 +75,7 @@ ORCA_SCOPE = os.environ.get("ORCA_CLOUD_SCOPE", "sync:read")
 # Honest client identity. Same posture as the Bambu Cloud client: identifies
 # Bambuddy without impersonating Orca's desktop client. Also the thing that
 # clears Cloudflare's User-Agent gate in front of the API.
-_USER_AGENT = "Bambuddy/1.0 (+https://github.com/maziggy/bambuddy)"
+_USER_AGENT = USER_AGENT
 
 # Refresh the access token when it has less than this much life left, so a
 # slow downstream API call doesn't expire the token mid-flight.
