@@ -43,6 +43,25 @@ from backend.app.services.bambu_mqtt import MQTTLogEntry, PrinterState
 
 logger = logging.getLogger(__name__)
 
+# Ceiling on a single file fetched off a Klipper printer. Generous for any real
+# print file or timelapse, and small enough that one download cannot take the
+# process with it.
+MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
+
+
+class MoonrakerDownloadTooLarge(RuntimeError):
+    """A file on the printer is larger than this install is willing to buffer."""
+
+
+def _declared_length(header: str | None) -> int | None:
+    """Content-Length as an int, or None when absent or not a number."""
+    if header is None:
+        return None
+    try:
+        return int(header)
+    except ValueError:
+        return None
+
 # Moonraker print_stats.state -> Bambu gcode_state vocabulary the rest of the
 # app is written against (see print_scheduler._ACTIVE_PRINT_STATES).
 _STATE_MAP = {
@@ -1040,15 +1059,34 @@ class MoonrakerClient:
             )
         return out
 
-    def download_file(self, remote_name: str) -> bytes:
+    def download_file(self, remote_name: str, max_bytes: int = MAX_DOWNLOAD_BYTES) -> bytes:
+        """Fetch a G-code file off the printer, refusing an unreasonable one.
+
+        The body is streamed and counted rather than taken whole, because the
+        size is the printer's to decide and this process holds it in memory
+        before anything writes it out. A multi-day print's G-code runs to
+        hundreds of megabytes; the container this runs in has been OOM-killed
+        once already. Past the cap the download raises, which every caller
+        already treats as "leave the archive as it was" -- the same outcome as
+        any other failed fetch, and better than taking the app down with it.
+        """
         name = remote_name.lstrip("/")
-        response = httpx.get(
-            f"{self.base_url}/server/files/gcodes/{quote(name, safe='/')}",
-            headers=self._headers(),
-            timeout=max(self.timeout, 300.0),
-        )
-        response.raise_for_status()
-        return response.content
+        url = f"{self.base_url}/server/files/gcodes/{quote(name, safe='/')}"
+        chunks: list[bytes] = []
+        total = 0
+        with httpx.stream("GET", url, headers=self._headers(), timeout=max(self.timeout, 300.0)) as response:
+            response.raise_for_status()
+            declared = _declared_length(response.headers.get("content-length"))
+            if declared is not None and declared > max_bytes:
+                raise MoonrakerDownloadTooLarge(f"{name} is {declared} bytes, over the {max_bytes} limit")
+            for chunk in response.iter_bytes():
+                total += len(chunk)
+                # Checked per chunk as well as up front: Content-Length is the
+                # server's claim, and a chunked response carries none at all.
+                if total > max_bytes:
+                    raise MoonrakerDownloadTooLarge(f"{name} exceeded the {max_bytes} byte limit")
+                chunks.append(chunk)
+        return b"".join(chunks)
 
     def get_storage_info(self) -> dict[str, Any]:
         """``{used_bytes, free_bytes}`` for the gcodes root, from Moonraker's disk usage."""

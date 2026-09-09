@@ -2,11 +2,19 @@
 
 import zipfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from backend.app.schemas.printer import PrinterCreate, klipper_identity_from_url
-from backend.app.services.moonraker_client import MoonrakerClient, map_moonraker_state
+from backend.app.services.moonraker_client import (
+    MAX_DOWNLOAD_BYTES,
+    MoonrakerClient,
+    MoonrakerDownloadTooLarge,
+    _declared_length,
+    map_moonraker_state,
+)
 from backend.app.services.moonraker_dispatch import extract_plate_gcode, moonraker_remote_filename
 
 # --------------------------------------------------------------------- state
@@ -280,3 +288,82 @@ def test_external_slot_is_reported_as_virtual_tray_254():
     assert client.ams_set_filament_setting(0, 1, "", "PLA", "", "", 0, 0) is False  # no AMS on Klipper
     assert client.reset_ams_slot(255, 0) is True
     assert client.state.raw_data["vt_tray"][0]["tray_type"] == ""
+
+
+# ------------------------------------------------------------------ downloads
+
+
+class _FakeStream:
+    """Stands in for the context manager ``httpx.stream`` returns."""
+
+    def __init__(self, chunks, content_length=None, status_error=None):
+        self._chunks = chunks
+        self.headers = {} if content_length is None else {"content-length": str(content_length)}
+        self._status_error = status_error
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def raise_for_status(self):
+        if self._status_error:
+            raise self._status_error
+
+    def iter_bytes(self):
+        yield from self._chunks
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [(None, None), ("12", 12), ("0", 0), ("not-a-number", None), ("", None)],
+)
+def test_declared_length(header, expected):
+    """A malformed Content-Length must read as "unknown", not raise: the body
+    still has to be counted either way."""
+    assert _declared_length(header) == expected
+
+
+def test_download_file_returns_a_small_file():
+    client = MoonrakerClient("http://printer:7125")
+    with patch("backend.app.services.moonraker_client.httpx.stream") as stream:
+        stream.return_value = _FakeStream([b"G28", b"\nG1"], content_length=6)
+        assert client.download_file("a.gcode") == b"G28\nG1"
+
+
+def test_download_file_refuses_a_declared_size_over_the_cap():
+    """Refused before a byte of the body is read."""
+    client = MoonrakerClient("http://printer:7125")
+    with patch("backend.app.services.moonraker_client.httpx.stream") as stream:
+        stream.return_value = _FakeStream([b"x"], content_length=MAX_DOWNLOAD_BYTES + 1)
+        with pytest.raises(MoonrakerDownloadTooLarge):
+            client.download_file("huge.gcode")
+
+
+def test_download_file_counts_the_body_when_no_length_is_declared():
+    """Content-Length is the server's claim, and a chunked response has none —
+    so the arriving bytes are counted too."""
+    client = MoonrakerClient("http://printer:7125")
+    with patch("backend.app.services.moonraker_client.httpx.stream") as stream:
+        stream.return_value = _FakeStream([b"abc", b"def"], content_length=None)
+        with pytest.raises(MoonrakerDownloadTooLarge):
+            client.download_file("chunked.gcode", max_bytes=4)
+
+
+def test_download_file_accepts_a_body_exactly_at_the_cap():
+    """The limit is inclusive; an off-by-one here would refuse a legal file."""
+    client = MoonrakerClient("http://printer:7125")
+    with patch("backend.app.services.moonraker_client.httpx.stream") as stream:
+        stream.return_value = _FakeStream([b"abcd"], content_length=4)
+        assert client.download_file("edge.gcode", max_bytes=4) == b"abcd"
+
+
+def test_download_file_lets_an_http_error_through():
+    """A 404 must stay a 404 — the caller distinguishes "no file" from "too big"."""
+    client = MoonrakerClient("http://printer:7125")
+    error = httpx.HTTPStatusError("404", request=MagicMock(), response=MagicMock())
+    with patch("backend.app.services.moonraker_client.httpx.stream") as stream:
+        stream.return_value = _FakeStream([], status_error=error)
+        with pytest.raises(httpx.HTTPStatusError):
+            client.download_file("missing.gcode")

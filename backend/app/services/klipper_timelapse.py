@@ -29,6 +29,8 @@ from urllib.parse import quote
 
 import httpx
 
+from backend.app.services.moonraker_client import MAX_DOWNLOAD_BYTES, MoonrakerDownloadTooLarge
+
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = 10.0
@@ -102,14 +104,36 @@ async def download(printer, remote_path: str, expected_size: int | None = None) 
     base_url = _base_url(printer)
     if not base_url:
         return None
+    # The listing already told us how big it is, so an unreasonable video can be
+    # refused without fetching a byte of it. A 4K timelapse of a long print is
+    # the realistic case; buffering one whole is how this process runs out of
+    # memory on a small container.
+    if expected_size is not None and expected_size > MAX_DOWNLOAD_BYTES:
+        logger.warning(
+            "[TIMELAPSE] %s is %s bytes, over the %s limit - leaving it on the printer",
+            remote_path,
+            expected_size,
+            MAX_DOWNLOAD_BYTES,
+        )
+        return None
     try:
         async with httpx.AsyncClient(timeout=_DOWNLOAD_TIMEOUT) as client:
-            response = await client.get(
+            chunks: list[bytes] = []
+            total = 0
+            async with client.stream(
+                "GET",
                 f"{base_url}/server/files/timelapse/{quote(remote_path.lstrip('/'), safe='/')}",
                 headers=_headers(printer),
-            )
-            response.raise_for_status()
-            content = response.content
+            ) as response:
+                response.raise_for_status()
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    # The listing's size is the server's claim; count the bytes
+                    # actually arriving too.
+                    if total > MAX_DOWNLOAD_BYTES:
+                        raise MoonrakerDownloadTooLarge(f"{remote_path} exceeded the {MAX_DOWNLOAD_BYTES} byte limit")
+                    chunks.append(chunk)
+            content = b"".join(chunks)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[TIMELAPSE] Moonraker download of %s failed: %s", remote_path, exc)
         return None
