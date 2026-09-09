@@ -99,11 +99,12 @@ it up automatically.
 
 | | |
 |---|---|
-| **Status** | ⚠️ |
-| **Commit** | `e6dd9e3d` |
+| **Status** | ✅ |
+| **Commits** | `e6dd9e3d`, `d63f8954`, `b5463da0` |
 
-All Klipper keys exist in all fourteen locales. The exception is B10's `printers.tv.*` block — see
-below.
+All Klipper keys exist in all fourteen locales. B10's `printers.tv.*` and B11's `farm.*` followed in
+`d63f8954`; B6's, B8's and B9's blocks — the last that shipped `en`/`nl` only — in `b5463da0`. Every
+key this fork adds now exists in every locale, and `npm run check:i18n` proves it on each run.
 
 ### A8 · Archive a print started outside Printhok
 
@@ -417,5 +418,8 @@ photo, automatic archive and file cleanup, the trash bin, and fourteen languages
 |---|---|
 | B9 | Notify payloads unverified against the real iOS app |
 | A6 | Chamber temperature waits on `[temperature_sensor chamber]` in `printer.cfg` |
-| i18n | Russian and Ukrainian use the repository's two-form `_one`/`_other` convention throughout. Slavic plurals want `_few` and `_many`; no key anywhere in the repo has them, so this is pre-existing and affects roughly thirteen keys per locale file, not only the fork's. |
-| i18n | `npm run check:i18n` is **red**, and was before the C series: B6's and B8's blocks (`inventory.nextSlot.*`, `inventory.openFilamentDatabase.*`, the `notify` provider) shipped `en`/`nl` only, so twelve locales are 54 keys short. C2 cut that from 63 by giving the alerts banner all fourteen. `npm run test:run` runs this after vitest, so the frontend suite fails on the last step until the rest is translated. |
+| i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's counted keys still use the repository's two-form `_one`/`_other` convention, so roughly thirteen keys per Slavic locale file resolve through fallback. Pre-existing, and not the fork's to fix — but `b5463da0` taught the parity gate the difference, so adding the missing forms upstream-side no longer trips it. |
+
+`npm run test:run` is green as of `b5463da0` — 261 test files, then `check:i18n` — having failed on
+that last step since the B series. Verified on LXC 109 in `/opt/bambuddy-b`; the commit touches
+locale files and the parity script only, so the backend suite was not re-run.
