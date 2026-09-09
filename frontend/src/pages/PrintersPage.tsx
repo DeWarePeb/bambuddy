@@ -8539,6 +8539,17 @@ function EditPrinterModal({
     is_active: printer.is_active,
     api_url: printer.api_url || '',
     auth_token: '',
+    chamber_object: printer.chamber_object || '',
+  });
+
+  // What this printer could call its chamber. Only asked of a connected Klipper
+  // printer, and a failure is not an error worth showing: the field falls back
+  // to a free-text box so a disconnected printer can still be configured.
+  const { data: chamberCandidates } = useQuery({
+    queryKey: ['printers', printer.id, 'chamber-candidates'],
+    queryFn: () => api.getKlipperChamberCandidates(printer.id),
+    enabled: printer.provider === 'klipper',
+    retry: false,
   });
 
   // Setup-time pre-flight — same warn-on-save as the Add-Printer dialog, so an
@@ -8597,6 +8608,8 @@ function EditPrinterModal({
     }
     if (printer.provider === 'klipper') {
       data.api_url = form.api_url.trim();
+      // Always sent, so clearing the box back to Automatic actually clears it.
+      data.chamber_object = form.chamber_object.trim();
       delete data.ip_address;  // derived server-side from api_url
       if (form.auth_token) {
         data.auth_token = form.auth_token;
@@ -8673,6 +8686,34 @@ function EditPrinterModal({
                     onChange={(e) => setForm({ ...form, auth_token: e.target.value })}
                     placeholder={t('printers.accessCodePlaceholder')}
                   />
+                </div>
+                <div>
+                  <label className="block text-sm text-bambu-gray mb-1">{t('printers.modal.chamberObject')}</label>
+                  {chamberCandidates?.candidates?.length ? (
+                    <select
+                      className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                      value={form.chamber_object}
+                      onChange={(e) => setForm({ ...form, chamber_object: e.target.value })}
+                    >
+                      <option value="">{t('printers.modal.chamberObjectAuto')}</option>
+                      {chamberCandidates.candidates.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                      value={form.chamber_object}
+                      onChange={(e) => setForm({ ...form, chamber_object: e.target.value })}
+                      placeholder={t('printers.modal.chamberObjectPlaceholder')}
+                    />
+                  )}
+                  <p className="text-xs text-bambu-gray mt-1">
+                    {chamberCandidates?.in_use && !form.chamber_object
+                      ? t('printers.modal.chamberObjectUsing', { name: chamberCandidates.in_use })
+                      : t('printers.modal.chamberObjectHelp')}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm text-bambu-gray mb-1">{t('printers.model')}</label>

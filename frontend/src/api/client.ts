@@ -392,6 +392,9 @@ export interface Printer {
   ip_address: string;
   provider: PrinterProvider;  // Voron patch series
   api_url: string | null;     // Moonraker base URL (klipper only)
+  // Which Klipper object reports the chamber. Null means guess from the usual
+  // names; the install decides what its own sensor is called (fork, A6).
+  chamber_object?: string | null;
   // Optional because the backend only returns access_code when the caller has
   // PRINTERS_UPDATE — Admin / Operator JWTs or auth-disabled mode. Viewers and
   // API keys receive a Printer without this field.
@@ -710,6 +713,7 @@ export interface PrinterCreate {
   provider?: PrinterProvider;
   api_url?: string | null;
   auth_token?: string | null;
+  chamber_object?: string | null;
   model?: string;
   location?: string;
   auto_archive?: boolean;
@@ -5290,6 +5294,10 @@ export const api = {
     return request<Archive[]>(`/archives/search?${params}`);
   },
   rebuildSearchIndex: () => request<{ message: string }>('/archives/search/rebuild-index', { method: 'POST' }),
+  getKlipperChamberCandidates: (printerId: number) =>
+    request<{ candidates: string[]; configured: string | null; in_use: string | null }>(
+      `/printers/${printerId}/klipper/chamber-candidates`,
+    ),
   getPriceReference: (days = 90) =>
     request<{ median_unit_cost: number | null; sample_size: number; window_days: number }>(
       `/archives/price-reference?days=${days}`,

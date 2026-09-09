@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.models.printer import Printer
+from backend.app.services import provider_options
 from backend.app.services.bambu_mqtt import (
     STAGE_NAMES,
     BambuMQTTClient,
@@ -830,6 +831,9 @@ class PrinterManager:
                 on_print_progress=on_print_progress,
                 on_bed_temp_update=on_bed_temp_update,
                 on_print_running_observed=on_print_running_observed,
+                # Which object is the chamber is a property of that install's
+                # printer.cfg, so it is configured per printer rather than guessed.
+                chamber_object=provider_options.get_str(printer.provider_options, "chamber_object"),
             )
         else:
             client = BambuMQTTClient(

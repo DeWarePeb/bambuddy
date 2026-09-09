@@ -80,6 +80,34 @@ _BASE_OBJECTS = ["print_stats", "virtual_sdcard", "display_status", "extruder", 
 
 _CHAMBER_OBJECT_PREFIXES = ("temperature_sensor chamber", "temperature_fan chamber", "heater_generic chamber")
 
+# Klipper object kinds that can report a temperature. The chamber is whichever
+# one the user says it is; these are the candidates worth offering them.
+CHAMBER_OBJECT_KINDS = ("temperature_sensor ", "temperature_fan ", "heater_generic ")
+
+
+def chamber_object_candidates(objects: list[Any]) -> list[str]:
+    """Every object on this printer that could plausibly be the chamber.
+
+    Offered to the user so they pick from what their printer actually reports,
+    rather than renaming a sensor in printer.cfg to match what Bambuddy guesses.
+    """
+    return sorted(str(o) for o in objects if str(o).startswith(CHAMBER_OBJECT_KINDS))
+
+
+def _pick_chamber_object(objects: list[Any], configured: str | None) -> str | None:
+    """The configured chamber object, else a guess from the usual names.
+
+    A configured name the printer does not report is ignored rather than polled:
+    Moonraker answers a query for an unknown object with an error, which would
+    cost every poll rather than just the chamber reading. That happens when a
+    sensor is renamed or removed in printer.cfg, so falling back to the guess
+    leaves a working card instead of a broken one.
+    """
+    names = [str(o) for o in objects]
+    if configured and configured in names:
+        return configured
+    return next((o for o in names if o.startswith(_CHAMBER_OBJECT_PREFIXES)), None)
+
 
 def map_moonraker_state(raw_state: Any) -> str:
     return _STATE_MAP.get(str(raw_state or "").lower(), "unknown")
@@ -161,6 +189,7 @@ class MoonrakerClient:
         on_print_running_observed: Callable[[dict], None] | None = None,
         poll_interval: float = 2.0,
         timeout: float = 5.0,
+        chamber_object: str | None = None,
         **_ignored_bambu_callbacks: Any,
     ) -> None:
         if not base_url:
@@ -195,6 +224,10 @@ class MoonrakerClient:
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._objects: list[str] = list(_BASE_OBJECTS)
+        # Which Klipper object is the chamber. Configured per printer, because
+        # the name is whatever that install's printer.cfg calls it; None means
+        # fall back to guessing from the usual names.
+        self._configured_chamber_object = (chamber_object or "").strip() or None
         self._chamber_object: str | None = None
         self._light_object: str | None = None
         self._has_sample = False
@@ -309,7 +342,7 @@ class MoonrakerClient:
             objects = self._get("printer/objects/list").get("objects") or []
         except Exception:  # noqa: BLE001 - optional; polling works without it
             return
-        chamber = next((o for o in objects if str(o).startswith(_CHAMBER_OBJECT_PREFIXES)), None)
+        chamber = _pick_chamber_object(objects, self._configured_chamber_object)
         polled = list(_BASE_OBJECTS)
         # Happy Hare MMU: live state on the `mmu` object, the gate map (material,
         # colour, name, availability) in Klipper's save_variables.
@@ -877,6 +910,19 @@ class MoonrakerClient:
 
     def set_nozzle_temperature(self, target: int, nozzle: int = 0) -> bool:
         return self.send_gcode(f"M104 S{int(target)} T{int(nozzle)}")
+
+    def chamber_candidates(self) -> dict[str, Any]:
+        """What this printer could call its chamber, and what it is using.
+
+        Queried live rather than served from the connect-time cache, so a sensor
+        added to printer.cfg since Bambuddy started shows up without a restart.
+        """
+        objects = self._get("printer/objects/list").get("objects") or []
+        return {
+            "candidates": chamber_object_candidates(objects),
+            "configured": self._configured_chamber_object,
+            "in_use": self._chamber_object,
+        }
 
     def set_chamber_temperature(self, target: int) -> bool:
         if not self._chamber_object or not self._chamber_object.startswith("heater_generic"):

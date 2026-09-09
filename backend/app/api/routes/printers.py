@@ -49,7 +49,7 @@ from backend.app.schemas.printer import (
     PrintOptionsResponse,
     klipper_identity_from_url,
 )
-from backend.app.services import drying_preflight
+from backend.app.services import drying_preflight, provider_options
 from backend.app.services.bambu_ftp import (
     cache_3mf_download,
     delete_file_async,
@@ -210,7 +210,13 @@ async def create_printer(
                 },
             )
 
-    printer = Printer(**printer_data.model_dump())
+    fields = printer_data.model_dump()
+    # Provider-specific knobs live in the provider_options JSON, not columns of
+    # their own, so they never reach the constructor as keyword arguments.
+    chamber_object = fields.pop("chamber_object", None)
+    printer = Printer(**fields)
+    if chamber_object:
+        printer.provider_options = provider_options.merge(None, {"chamber_object": chamber_object})
     db.add(printer)
     await db.commit()
     await db.refresh(printer)
@@ -417,6 +423,14 @@ async def update_printer(
             update_data["plate_detection_roi_y"] = None
             update_data["plate_detection_roi_w"] = None
             update_data["plate_detection_roi_h"] = None
+
+    # Folded into provider_options rather than set on the model: there is no
+    # such column, and setattr would put it on the instance where it would be
+    # silently dropped at commit.
+    if "chamber_object" in update_data:
+        printer.provider_options = provider_options.merge(
+            printer.provider_options, {"chamber_object": update_data.pop("chamber_object") or None}
+        )
 
     for field, value in update_data.items():
         setattr(printer, field, value)
@@ -2261,6 +2275,30 @@ async def print_printer_file(
     if not await asyncio.to_thread(client.start_print, path.lstrip("/")):
         raise HTTPException(500, f"Moonraker refused to start {path}")
     return {"status": "started", "path": path}
+
+
+@router.get("/{printer_id}/klipper/chamber-candidates")
+async def klipper_chamber_candidates(
+    printer_id: int,
+    _=RequirePermissionIfAuthEnabled(Permission.PRINTERS_READ),
+):
+    """Objects on this Klipper printer that could report the chamber.
+
+    Klipper has no chamber concept: an install names its own sensor, and the
+    guess Bambuddy falls back to only finds one called "chamber". Rather than
+    asking people to rename a sensor in printer.cfg to suit us, the edit dialog
+    offers what the printer actually reports and they pick.
+    """
+    printer = await _load_printer_or_404(printer_id)
+    if getattr(printer, "provider", "bambu") != "klipper":
+        raise HTTPException(400, "Chamber objects are a Klipper concept")
+    client = printer_manager.get_client(printer_id)
+    if not isinstance(client, MoonrakerClient):
+        raise HTTPException(503, "Printer is not connected")
+    try:
+        return await asyncio.to_thread(client.chamber_candidates)
+    except Exception as exc:  # noqa: BLE001 - an unreachable printer is a 503, not a 500
+        raise HTTPException(503, f"Could not ask the printer: {exc}") from exc
 
 
 @router.post("/{printer_id}/klipper/import-history")

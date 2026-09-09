@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from backend.app.services import provider_options
 from backend.app.utils.printer_models import supports_nozzle_flow_type
 
 
@@ -46,6 +47,10 @@ class PrinterBase(BaseModel):
     # MQTT/FTPS client, "klipper" talks to Moonraker over HTTP at api_url.
     provider: Literal["bambu", "klipper"] = "bambu"
     api_url: str | None = Field(default=None, max_length=500)
+    # Klipper only: which object reports the chamber, e.g. "temperature_sensor
+    # enclosure". None means guess from the usual names. Stored in
+    # provider_options, not a column of its own.
+    chamber_object: str | None = Field(default=None, max_length=120)
 
 
 def klipper_identity_from_url(api_url: str) -> tuple[str, str]:
@@ -113,6 +118,7 @@ class PrinterUpdate(BaseModel):
     access_code: str | None = None
     api_url: str | None = Field(default=None, max_length=500)  # Klipper: Moonraker base URL
     auth_token: str | None = Field(default=None, max_length=500)  # Klipper: Moonraker API key
+    chamber_object: str | None = Field(default=None, max_length=120)  # Klipper: chamber object name
     model: str | None = None
     location: str | None = None
     is_active: bool | None = None
@@ -168,6 +174,7 @@ class PrinterResponse(PrinterBase):
             "camera_rotation": printer.camera_rotation,
             "provider": getattr(printer, "provider", None) or "bambu",
             "api_url": getattr(printer, "api_url", None),
+            "chamber_object": provider_options.get_str(getattr(printer, "provider_options", None), "chamber_object"),
             "is_active": printer.is_active,
             "nozzle_count": printer.nozzle_count,
             "supports_nozzle_flow_type": supports_nozzle_flow_type(printer.model),
