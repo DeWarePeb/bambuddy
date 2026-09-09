@@ -4504,6 +4504,7 @@ class TestXYJogAPI:
     async def test_not_connected(self, async_client: AsyncClient, printer_factory):
         printer = await printer_factory(name="P", model="X1C")
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = None
             response = await async_client.post(f"/api/v1/printers/{printer.id}/xy-jog?x=10&y=0")
         assert response.status_code == 400
@@ -4516,6 +4517,7 @@ class TestXYJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/xy-jog?x=10&y=0")
         assert response.status_code == 200
@@ -4534,11 +4536,75 @@ class TestXYJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/xy-jog?x=-5&y=7")
         assert response.status_code == 200
         sent = mock_client.send_gcode.call_args.args[0]
         assert "X-5.00" in sent and "Y7.00" in sent
+
+
+class TestMovementRefusedWhilePrinting:
+    """Fork: the manual movement endpoints refuse while a job is loaded.
+
+    The printer card already hides jog and home while a print is running, but
+    that is advice, not enforcement — the API accepted the call anyway. A stale
+    tab, a second browser, an API client, or a queued print that starts while
+    the control panel is open could all still put a relative move in front of
+    the slicer's own G-code, and the part is gone.
+
+    Which states count is not decided here: the guard reuses
+    ``printer_manager.is_print_active``, the same predicate upstream already
+    uses to refuse starting a print on a busy machine, whose state matrix is
+    covered in ``test_printer_manager.py``.
+    """
+
+    JOGS = [
+        "xy-jog?x=10&y=0",
+        "bed-jog?distance=1",
+        "extruder-jog?distance=10",
+        "home-axes?axes=all",
+    ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.parametrize("path", JOGS)
+    async def test_refused_while_a_print_is_active(self, async_client: AsyncClient, printer_factory, path):
+        printer = await printer_factory(name="P", model="X1C")
+        mock_client = MagicMock()
+        mock_client.send_gcode.return_value = True
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = mock_client
+            mock_pm.is_print_active.return_value = True
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/{path}")
+        assert response.status_code == 409
+        # Refused before anything reaches the machine, not after.
+        mock_client.send_gcode.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.parametrize("path", JOGS)
+    async def test_allowed_while_idle(self, async_client: AsyncClient, printer_factory, path):
+        """The guard must not swallow the normal case."""
+        printer = await printer_factory(name="P", model="X1C")
+        mock_client = MagicMock()
+        mock_client.send_gcode.return_value = True
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = mock_client
+            mock_pm.is_print_active.return_value = False
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/{path}")
+        assert response.status_code != 409
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_bad_arguments_still_answer_400_first(self, async_client: AsyncClient, printer_factory):
+        """Argument validation runs before the guard, so a typo keeps saying so
+        rather than being reported as a busy printer."""
+        printer = await printer_factory(name="P", model="X1C")
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = True
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/xy-jog?x=0&y=0")
+        assert response.status_code == 400
 
 
 class TestExtruderJogAPI:
@@ -4569,6 +4635,7 @@ class TestExtruderJogAPI:
     async def test_not_connected(self, async_client: AsyncClient, printer_factory):
         printer = await printer_factory(name="P", model="X1C")
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = None
             response = await async_client.post(f"/api/v1/printers/{printer.id}/extruder-jog?distance=5")
         assert response.status_code == 400
@@ -4581,6 +4648,7 @@ class TestExtruderJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/extruder-jog?distance=5")
         assert response.status_code == 200
@@ -4596,6 +4664,7 @@ class TestExtruderJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/extruder-jog?distance=-3.5")
         assert response.status_code == 200

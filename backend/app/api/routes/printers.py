@@ -3998,6 +3998,15 @@ async def bed_jog(
     if distance == 0 or abs(distance) > 200:
         raise HTTPException(400, "Distance must be non-zero and ≤ 200 mm")
 
+    # A jog reaching the machine mid-print is a misclick nobody recovers from:
+    # the move interleaves with the slicer's own G-code and the part is ruined.
+    # The card already hides these controls while a job is loaded; this is the
+    # same rule where it can actually be enforced, for a stale tab, a second
+    # browser, an API client, or a print that starts from the queue while the
+    # panel is open. Same predicate upstream already uses to refuse a start.
+    if printer_manager.is_print_active(printer_id):
+        raise HTTPException(409, "Printer is busy")
+
     result = await db.execute(select(Printer).where(Printer.id == printer_id))
     printer = result.scalar_one_or_none()
     if not printer:
@@ -4033,6 +4042,15 @@ async def xy_jog(
     """Move the toolhead by a relative X/Y distance."""
     if (x == 0 and y == 0) or abs(x) > 200 or abs(y) > 200:
         raise HTTPException(400, "X/Y movement must be non-zero and ≤ 200 mm per axis")
+
+    # A jog reaching the machine mid-print is a misclick nobody recovers from:
+    # the move interleaves with the slicer's own G-code and the part is ruined.
+    # The card already hides these controls while a job is loaded; this is the
+    # same rule where it can actually be enforced, for a stale tab, a second
+    # browser, an API client, or a print that starts from the queue while the
+    # panel is open. Same predicate upstream already uses to refuse a start.
+    if printer_manager.is_print_active(printer_id):
+        raise HTTPException(409, "Printer is busy")
 
     result = await db.execute(select(Printer).where(Printer.id == printer_id))
     printer = result.scalar_one_or_none()
@@ -4075,6 +4093,15 @@ async def extruder_jog(
     """
     if distance == 0 or abs(distance) > 100:
         raise HTTPException(400, "Extruder movement must be non-zero and ≤ 100 mm")
+
+    # A jog reaching the machine mid-print is a misclick nobody recovers from:
+    # the move interleaves with the slicer's own G-code and the part is ruined.
+    # The card already hides these controls while a job is loaded; this is the
+    # same rule where it can actually be enforced, for a stale tab, a second
+    # browser, an API client, or a print that starts from the queue while the
+    # panel is open. Same predicate upstream already uses to refuse a start.
+    if printer_manager.is_print_active(printer_id):
+        raise HTTPException(409, "Printer is busy")
 
     result = await db.execute(select(Printer).where(Printer.id == printer_id))
     printer = result.scalar_one_or_none()
@@ -4119,6 +4146,15 @@ async def home_axes(
     axes = axes.lower()
     if axes not in ("z", "xy", "all"):
         raise HTTPException(400, "axes must be 'z', 'xy', or 'all'")
+
+    # A jog reaching the machine mid-print is a misclick nobody recovers from:
+    # the move interleaves with the slicer's own G-code and the part is ruined.
+    # The card already hides these controls while a job is loaded; this is the
+    # same rule where it can actually be enforced, for a stale tab, a second
+    # browser, an API client, or a print that starts from the queue while the
+    # panel is open. Same predicate upstream already uses to refuse a start.
+    if printer_manager.is_print_active(printer_id):
+        raise HTTPException(409, "Printer is busy")
 
     result = await db.execute(select(Printer).where(Printer.id == printer_id))
     printer = result.scalar_one_or_none()

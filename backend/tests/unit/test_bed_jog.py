@@ -34,6 +34,7 @@ class TestBedJogAPI:
     async def test_bed_jog_not_connected(self, async_client: AsyncClient, printer_factory):
         printer = await printer_factory(name="Disconnected")
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = None
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=10")
             assert response.status_code == 400
@@ -45,6 +46,7 @@ class TestBedJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = False
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=10")
             assert response.status_code == 500
@@ -58,6 +60,7 @@ class TestBedJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=10")
             assert response.status_code == 200
@@ -76,6 +79,7 @@ class TestBedJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=50&force=true")
             assert response.status_code == 200
@@ -94,6 +98,7 @@ class TestBedJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=-10")
             assert response.status_code == 200
@@ -117,6 +122,7 @@ class TestBedJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             # UI sends -10 for "Up" → backend must emit G1 Z+10 on A1.
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=-10")
@@ -133,6 +139,7 @@ class TestBedJogAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/bed-jog?distance=10")
             assert response.status_code == 200
@@ -162,6 +169,7 @@ class TestHomeAxesAPI:
         mock_client = MagicMock()
         mock_client.send_gcode.return_value = True
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = mock_client
             response = await async_client.post(f"/api/v1/printers/{printer.id}/home-axes?axes={axes}")
             assert response.status_code == 200
@@ -171,6 +179,7 @@ class TestHomeAxesAPI:
     async def test_home_axes_not_connected(self, async_client: AsyncClient, printer_factory):
         printer = await printer_factory(name="D")
         with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.is_print_active.return_value = False
             mock_pm.get_client.return_value = None
             response = await async_client.post(f"/api/v1/printers/{printer.id}/home-axes?axes=z")
             assert response.status_code == 400
