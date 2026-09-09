@@ -510,12 +510,23 @@ photo, automatic archive and file cleanup, the trash bin, and fourteen languages
 
 ## Open items
 
-| | |
-|---|---|
-| B9 | Notify payloads unverified against the real iOS app |
-| A6 | Chamber temperature waits on `[temperature_sensor chamber]` in `printer.cfg` |
-| i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's counted keys still use the repository's two-form `_one`/`_other` convention, so roughly thirteen keys per Slavic locale file resolve through fallback. Pre-existing, and not the fork's to fix — but `b5463da0` taught the parity gate the difference, so adding the missing forms upstream-side no longer trips it. |
+Each one has an issue on the fork, so this table is the summary and the issue is the detail.
 
-`npm run test:run` is green as of `b5463da0` — 261 test files, then `check:i18n` — having failed on
-that last step since the B series. Verified on LXC 109 in `/opt/bambuddy-b`; the commit touches
-locale files and the parity script only, so the backend suite was not re-run.
+| | | |
+|---|---|---|
+| [#1](https://github.com/DeWarePeb/bambuddy/issues/1) | A0 | `api_url` reaches an outbound fetch unguarded — SSRF and DNS rebinding. Recorded in `test_outbound_url_ssrf_guards.py` under `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD`, alongside upstream's own camera URLs; closing it needs a scheme-aware guard, not a delegation. |
+| [#2](https://github.com/DeWarePeb/bambuddy/issues/2) | A0 | Live status is a two-second poll where Moonraker offers a WebSocket. Better transport, but it replaces the load-bearing part of A0 for seconds of latency on three printers. |
+| [#3](https://github.com/DeWarePeb/bambuddy/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
+| [#4](https://github.com/DeWarePeb/bambuddy/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
+| [#5](https://github.com/DeWarePeb/bambuddy/issues/5) | A6 | Chamber temperature waits on a `[temperature_sensor chamber]` stanza in the Voron's `printer.cfg`. No code. |
+
+Both suites are green as of `302a49db`, verified on LXC 109 in `/opt/bambuddy-b`: backend
+`pytest -n 4` at 11970 passed / 1 skipped, and `npm run test:run` at 262 test files followed by
+`check:i18n`.
+
+**Typecheck with `npx tsc -b`, or just `npm run build`.** `npx tsc --noEmit` compiles nothing here —
+the root `tsconfig.json` is a references file with no `files` or `include` of its own, so it exits 0
+without looking at a line. Twenty-six real errors passed three such "clean" checks during Part E and
+surfaced only at deploy, where `build` is `tsc -b && vite build`: the short-circuit meant no bundle,
+and because `static/` is tracked, the reset had already put upstream's committed bundle back. See
+`302a49db`.
