@@ -33,7 +33,7 @@ Corollaries:
 |---|---|
 | `upstream` | `maziggy/bambuddy` — read only |
 | `printbuddy` | `vmhomelab/printbuddy` — read only, the source for the B series |
-| `origin` | `DeWarePeb/bambuddy` — this fork |
+| `origin` | `DeWarePeb/printhok` — this fork |
 | `voron` | the patch series. The working branch |
 | `main` | forced to the same commit as `voron` after every sync, so upstream's installer default branch works |
 | `voron-b*` | frozen snapshots from earlier rounds. History only; do not build on them |

@@ -96,7 +96,7 @@ class TestBugReportService:
         # The fork's wording, not upstream's: an unset relay is the *default*
         # here rather than a misconfiguration, so the message has to tell the
         # user where to actually report instead of naming an env var at them.
-        assert "DeWarePeb/bambuddy/issues" in result["message"]
+        assert "DeWarePeb/printhok/issues" in result["message"]
         assert "maziggy/bambuddy" in result["message"]
 
     @pytest.mark.asyncio

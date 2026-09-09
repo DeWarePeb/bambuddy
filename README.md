@@ -21,6 +21,14 @@
 
 ## What this is
 
+> **This repository was renamed** from `DeWarePeb/bambuddy` to `DeWarePeb/printhok`. GitHub redirects
+> the old URLs indefinitely, so existing clones and links keep working — but if you cloned before the
+> rename, point the remote at the new name so it does not depend on a redirect:
+> `git -C /opt/bambuddy remote set-url origin https://github.com/DeWarePeb/printhok.git`.
+> The install path, the systemd service and the HTTP API are all still called `bambuddy`, on purpose:
+> renaming them inside upstream's files is exactly the kind of churn that makes a fork expensive to
+> rebase. See [`docs/printhok/upstream-sync.md`](docs/printhok/upstream-sync.md).
+
 Printhok is [maziggy/bambuddy](https://github.com/maziggy/bambuddy) plus a patch series. Not a
 rewrite, not a competitor, not a hard fork that drifted — a stack of commits that gets **rebased**
 onto upstream, never merged, so upstream's work keeps arriving.
@@ -200,7 +208,7 @@ tell me.
 
 ```bash
 sudo mkdir -p /opt/bambuddy
-sudo git clone https://github.com/DeWarePeb/bambuddy.git /opt/bambuddy
+sudo git clone https://github.com/DeWarePeb/printhok.git /opt/bambuddy
 sudo bash /opt/bambuddy/install/install.sh --path /opt/bambuddy
 ```
 
@@ -246,7 +254,7 @@ There is **no published Printhok image**. `docker-compose.yml` still points at
 `ghcr.io/maziggy/bambuddy:latest`, which is upstream, not this fork. Build from source:
 
 ```bash
-git clone https://github.com/DeWarePeb/bambuddy.git printhok
+git clone https://github.com/DeWarePeb/printhok.git printhok
 cd printhok
 docker compose up -d --build
 ```
@@ -338,7 +346,7 @@ requires the source and because the Klipper work may be useful to someone else.
 - **Bug in Bambuddy itself?** → [upstream issues](https://github.com/maziggy/bambuddy/issues) and the
   [Discord](https://discord.gg/aFS3ZfScHM). Please do not send them fork bugs
 - **Bug in the Klipper path, the ported features, or the branding?** →
-  [issues here](https://github.com/DeWarePeb/bambuddy/issues). A report I can act on has: the commit
+  [issues here](https://github.com/DeWarePeb/printhok/issues). A report I can act on has: the commit
   (`git -C /opt/bambuddy rev-parse --short HEAD`), your printer and Klipper front end (Mainsail /
   Fluidd / neither), the Moonraker URL form you used, `moonraker.conf`'s `[authorization]` block with
   any key removed, and the relevant lines from `journalctl -u bambuddy -f`. A screenshot of a wrong

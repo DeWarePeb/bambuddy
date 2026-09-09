@@ -638,9 +638,9 @@ Each one has an issue on the fork, so this table is the summary and the issue is
 
 | | | |
 |---|---|---|
-| [#1](https://github.com/DeWarePeb/bambuddy/issues/1) | A14 | Mostly closed. `api_url` is guarded on all three paths (A14 above), and the two entries moved to `GUARDED_BODY_URLS`. What remains is DNS rebinding, which is the shared guard's documented TOCTOU and not specific to this fork. Upstream's `external_camera_url` / `external_camera_snapshot_url` stay in `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD` — they really do need the scheme-aware variant, because they also dial `rtsp://`. |
-| [#3](https://github.com/DeWarePeb/bambuddy/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
-| [#4](https://github.com/DeWarePeb/bambuddy/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
+| [#1](https://github.com/DeWarePeb/printhok/issues/1) | A14 | Mostly closed. `api_url` is guarded on all three paths (A14 above), and the two entries moved to `GUARDED_BODY_URLS`. What remains is DNS rebinding, which is the shared guard's documented TOCTOU and not specific to this fork. Upstream's `external_camera_url` / `external_camera_snapshot_url` stay in `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD` — they really do need the scheme-aware variant, because they also dial `rtsp://`. |
+| [#3](https://github.com/DeWarePeb/printhok/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
+| [#4](https://github.com/DeWarePeb/printhok/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
 
 Both suites are green as of `302a49db`, verified on LXC 109 in `/opt/bambuddy-b`: backend
 `pytest -n 4` at 11970 passed / 1 skipped, and `npm run test:run` at 262 test files followed by

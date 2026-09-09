@@ -1,6 +1,7 @@
 # Modification notice (AGPL-3.0 section 5(a))
 
-This repository (`DeWarePeb/bambuddy`, branches `main` and `voron`, shown in the UI as **Printhok**)
+This repository (`DeWarePeb/printhok`, formerly `DeWarePeb/bambuddy`, branches `main` and `voron`,
+shown in the UI as **Printhok**)
 is a modified version of [maziggy/bambuddy](https://github.com/maziggy/bambuddy). The upstream
 license (AGPL-3.0), copyright and history are kept unchanged.
 

@@ -141,7 +141,7 @@ class OpenFilamentDatabaseClient:
         self.transport = transport  # httpx.MockTransport in tests
         self.headers = {
             "Accept": "application/json",
-            "User-Agent": f"Bambuddy/{APP_VERSION} (+https://github.com/DeWarePeb/bambuddy)",
+            "User-Agent": f"Bambuddy/{APP_VERSION} (+https://github.com/DeWarePeb/printhok)",
         }
 
     async def _get_json(self, path: str) -> dict[str, Any]:

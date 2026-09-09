@@ -2,7 +2,7 @@
 
 > **This is the fork's copy.** Printhok is a rebased patch series on
 > [maziggy/bambuddy](https://github.com/maziggy/bambuddy) — see [`README.md`](README.md).
-> The commands below point at `DeWarePeb/bambuddy`, not upstream. Everything else
+> The commands below point at `DeWarePeb/printhok`, not upstream. Everything else
 > about updating is upstream's, unchanged.
 
 > **In-app updates:** the **Update** button follows whichever `origin` and branch
@@ -32,7 +32,7 @@ recent releases added `cap_add: NET_BIND_SERVICE`, extra virtual-printer ports
 for bridge mode, and an optional Postgres block:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DeWarePeb/bambuddy/main/docker-compose.yml \
+curl -fsSL https://raw.githubusercontent.com/DeWarePeb/printhok/main/docker-compose.yml \
   -o docker-compose.yml.new
 # Diff against yours, merge by hand, then:
 docker compose up -d --build
@@ -54,7 +54,7 @@ API, resets to `origin/<branch>`, installs Python deps, rebuilds the frontend,
 and restarts the service. It rolls back automatically if any step fails. It is
 branch- and remote-agnostic, so upstream's script needs no fork changes: it
 follows whichever `origin` your tree has, which for a Printhok install is
-`DeWarePeb/bambuddy`.
+`DeWarePeb/printhok`.
 
 > On a machine with 2 GB of RAM the frontend build needs a heap cap, or Node is
 > killed mid-build: `NODE_OPTIONS=--max-old-space-size=1400`.
@@ -95,7 +95,7 @@ sudo tar czf ~/bambuddy-backup.tgz -C /opt/bambuddy \
 
 # 2. Remove the old install, clone the fork, and run its installer
 sudo rm -rf /opt/bambuddy
-sudo git clone https://github.com/DeWarePeb/bambuddy.git /opt/bambuddy
+sudo git clone https://github.com/DeWarePeb/printhok.git /opt/bambuddy
 sudo bash /opt/bambuddy/install/install.sh --path /opt/bambuddy
 
 # 3. Restore your data

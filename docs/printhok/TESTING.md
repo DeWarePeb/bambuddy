@@ -33,7 +33,7 @@ Full instructions are in the [README](../../README.md#install). The short versio
 
 ```bash
 sudo mkdir -p /opt/bambuddy
-sudo git clone https://github.com/DeWarePeb/bambuddy.git /opt/bambuddy
+sudo git clone https://github.com/DeWarePeb/printhok.git /opt/bambuddy
 sudo bash /opt/bambuddy/install/install.sh --path /opt/bambuddy
 ```
 
@@ -125,7 +125,7 @@ Nothing here is one-way.
 
 ## Reporting
 
-[Issues on the fork](https://github.com/DeWarePeb/bambuddy/issues). That is the tracker — there is
+[Issues on the fork](https://github.com/DeWarePeb/printhok/issues). That is the tracker — there is
 no Printhok Discord, and there will not be one until enough people are running this to need it. If
 you found this through a thread somewhere, replying there is fine too, but a thread scrolls and an
 issue does not.

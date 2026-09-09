@@ -48,7 +48,7 @@ async def submit_report(
             "message": (
                 "One-click bug reporting is off in this fork, because upstream's relay files "
                 "reports on maziggy/bambuddy and this is not that project. Please open an issue "
-                "at https://github.com/DeWarePeb/bambuddy/issues instead — and if you can "
+                "at https://github.com/DeWarePeb/printhok/issues instead — and if you can "
                 "reproduce it on stock Bambuddy with a Bambu printer, upstream is the right "
                 "place after all."
             ),
