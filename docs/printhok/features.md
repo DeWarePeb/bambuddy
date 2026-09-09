@@ -10,7 +10,7 @@ rewrites the SHAs but not the order or the subjects.
 **Legend:** ✅ done and in use · ⚠️ done with a known gap · ⬜ deliberately not done
 
 **Parts:** A — Klipper and Moonraker, built here · B — reimplemented from Printbuddy · C — Klipper
-parity, built here · D — deliberately not ported.
+parity, built here · D — deliberately not ported · E — from the other forks.
 
 ---
 
@@ -85,6 +85,11 @@ was uploaded through Mainsail without going back through the library.
 
 Link the printer to its smart plug under Settings → Smart plugs and fill in the energy-total sensor;
 kWh then flows through upstream's existing plumbing. Nothing in the fork changes.
+
+Done for all three printers as of 2026-09-09: Stekker Henk, Eddy and Kees each carry a
+`ha_energy_total_entity`, so `archive.energy_cost` is real on every machine. That is what makes E1's
+price worth anything, and it is why the "estimate energy without a plug" idea from another fork was
+dropped rather than ported — there is no printer here without one.
 
 ### A6 · Chamber temperature
 
@@ -388,6 +393,97 @@ the printer, in Mainsail. So the Klipper badge is not a button, and both firmwar
 refuse a Klipper printer rather than starting an FTPS transfer that cannot land.
 
 New file `services/klipper_update.py`.
+
+---
+
+## Part E — from the other forks
+
+Upstream has 393 forks; eight diverge meaningfully. Surveyed on 2026-09-09 —
+`OneDrive\Claude\docs\bambuddy-forks-survey.md` has the full landscape and what was
+rejected. Like Part B these are reimplementations: every one of those forks is
+hundreds of commits behind upstream, so a merge is not on the table.
+
+### E1 · Suggested selling price ✅ `97f2fa59`
+
+Upstream's `finance` module is a chargeback system — cost centres, budgets, per-user
+wallets, a print charged against a balance. It answers "who owes what for the machine
+time", which is a makerspace's question. Nothing upstream answers a shop's.
+
+Four settings (labour per print hour, markup, minimum price, and a switch) turn the
+`cost` and `energy_cost` already on every archive row into a suggested price beside the
+existing cost line, the margin in the tooltip, and a marker when the minimum rather than
+the markup set the number. Off by default.
+
+The arithmetic is a pure frontend util (`utils/printPrice.ts`) so it follows a settings
+change without a round trip and is testable without rendering. The one part that cannot
+live there is the reference figure: `GET /archives/price-reference`
+(`services/print_price.py`) returns the **median** unit cost of recent completed prints,
+because the list the browser holds is paginated and filtered, and a median taken from it
+would describe whichever page was open. Median rather than mean — one exotic filament or
+one nine-hour failure drags an average somewhere unhelpful — and zero-cost rows are
+excluded, since filament that was never priced is not a print that was free.
+
+A markup below 1 prices under cost and the margin reads negative rather than being
+clamped; that is the number doing its job. Negative settings are treated as unset, so a
+stray minus cannot put a nonsense price on every card.
+
+From [Aito3D/fenrir](https://github.com/Aito3D/fenrir), the one fork built for a print
+shop rather than a farm. Its margin-curve charts and formula popovers are not here.
+
+### E2 · Movement refused while a print is loaded ✅ `69804332`
+
+The printer card already hides jog and home while a job runs — advice, not enforcement.
+`bed-jog`, `xy-jog`, `extruder-jog` and `home-axes` accepted the call anyway, so a stale
+tab, a second browser, an API client, or a print starting from the queue while the panel
+is open could put a relative move in front of the slicer's own G-code.
+
+All four now answer 409 on `printer_manager.is_print_active` — deliberately the predicate
+upstream already uses to refuse a start, not a new one, so the API and the button cannot
+disagree. Temperature, fan, light and pause/resume/stop stay available. Klipper is covered
+without a provider branch, because the predicate reads the shared `PrinterState`.
+
+The guard sits after argument validation (a typo still answers 400) and before the client
+lookup (nothing reaches the machine on the refused path). Fifteen existing tests patched
+`printer_manager` with a bare MagicMock, whose auto-created `is_print_active` is truthy;
+they now say the printer is idle, which is what they always meant.
+
+From [khaosdoctor/bambuddy](https://github.com/khaosdoctor/bambuddy).
+
+### E3 · Queue job name ✅ `418bfbbe`
+
+An optional label on a queue item, offered in the print modal's schedule block. When set,
+the dispatcher derives the **uploaded filename** from it, so the machine's own screen
+names the order rather than the model. Empty means today's behaviour byte for byte.
+
+Deliberately not the source fork's approach. khaosdoctor sends a separate `subtask_name`
+on the MQTT command and leaves the file alone, which reads tidier until you follow
+`subtask_name` through this codebase: it is how the cover image and the 3MF are resolved
+over FTP, what the archive is named after, and what the running-print matcher compares
+against. A label there splits a print's identity from its file in fourteen places.
+Renaming the upload keeps one name for one print, and the archive carries the order number
+too.
+
+The label is free text, so `safe_path_component` runs before it is a path — separators and
+the Windows-reserved set become dashes, `..` cannot climb, and the byte budget stops short
+of the filesystem cap so the suffix fits. Each deriver keeps its own rules on top: the
+Bambu path replaces spaces because the firmware parses `ftp://{filename}` as a URL,
+Moonraker keeps them because it takes the name over an HTTP multipart upload, and the plate
+suffix survives so two plates of one job cannot overwrite each other. Not offered on the
+bulk update, where one label across many items would have every upload overwrite the last.
+
+### E4 · Bounded Klipper downloads, and the A0 read ✅ `f2e744c6`
+
+`MoonrakerClient.download_file` and `klipper_timelapse.download` both took
+`response.content` — a whole file, in memory, at a size the printer decides. Both now
+stream and count against a 512 MiB cap, checking `Content-Length` first where it exists
+and the arriving bytes regardless. Over the cap raises, which every caller already treats
+as "leave the archive as it was".
+
+Found by reading [Timpan4/layercove](https://github.com/Timpan4/layercove), which solved
+Klipper support independently. Three further differences are recorded rather than changed
+— redirects (no fix needed: httpx does not follow them by default), a WebSocket transport
+instead of our two-second poll, and DNS-rebinding protection on `api_url`. Written up in
+[`moonraker-vs-layercove.md`](moonraker-vs-layercove.md).
 
 ---
 
