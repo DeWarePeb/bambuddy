@@ -1,4 +1,11 @@
-"""Bug report service — posts to the bambuddy.cool relay which holds the GitHub PAT."""
+"""Bug report service.
+
+Upstream posts to the bambuddy.cool relay, which holds a GitHub PAT and opens the
+issue on maziggy/bambuddy. This fork ships with no relay configured, so the
+button explains where to report instead — see BUG_REPORT_RELAY_URL in
+core/config.py for why. Set that variable to a relay of your own to turn
+one-click reporting back on; everything below then works unchanged.
+"""
 
 import logging
 import time
@@ -33,7 +40,7 @@ async def submit_report(
     screenshot_base64: str | None,
     support_info: dict | None,
 ) -> dict:
-    """Submit a bug report via the bambuddy.cool relay."""
+    """Submit a bug report via the configured relay, if there is one."""
     if not _check_rate_limit():
         return {
             "success": False,
