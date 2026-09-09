@@ -4588,6 +4588,35 @@ class TestKlipperProviderOptionsRoundTrip:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
+    async def test_changing_a_provider_option_reconnects_the_printer(self, async_client: AsyncClient, printer_factory):
+        """Both options are read by the client's constructor, so a running client
+        keeps the old value until it is rebuilt. Without the reconnect the
+        setting saved, read back correctly, and did nothing at all until the
+        service was restarted — which is how it was reported."""
+        printer = await printer_factory(name="Voron", provider="klipper", api_url="http://voron:7125")
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.connect_printer = AsyncMock()
+            response = await async_client.patch(
+                f"/api/v1/printers/{printer.id}",
+                json={"chamber_object": "temperature_sensor enclosure"},
+            )
+        assert response.status_code == 200
+        mock_pm.disconnect_printer.assert_called_once_with(printer.id)
+        mock_pm.connect_printer.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_an_unrelated_change_does_not_reconnect(self, async_client: AsyncClient, printer_factory):
+        """Renaming a printer must not drop its session."""
+        printer = await printer_factory(name="Voron", provider="klipper", api_url="http://voron:7125")
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.connect_printer = AsyncMock()
+            response = await async_client.patch(f"/api/v1/printers/{printer.id}", json={"name": "Voron 2.4"})
+        assert response.status_code == 200
+        mock_pm.disconnect_printer.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
     async def test_a_printer_without_options_reads_as_null(self, async_client: AsyncClient, printer_factory):
         printer = await printer_factory(name="Eddy", model="X1C")
         body = (await async_client.get(f"/api/v1/printers/{printer.id}")).json()

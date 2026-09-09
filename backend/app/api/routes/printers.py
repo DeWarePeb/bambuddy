@@ -444,8 +444,13 @@ async def update_printer(
     await db.commit()
     await db.refresh(printer)
 
-    # Reconnect if connection settings changed
-    if any(k in update_data for k in ["ip_address", "access_code", "is_active", "api_url", "auth_token"]):
+    # Reconnect if connection settings changed. `option_updates` counts: both
+    # provider options are read by the client's constructor — which object is
+    # the chamber, and whether to open a status stream — so a running client
+    # keeps the old value until it is rebuilt. Without this the setting saves,
+    # reads back correctly, and changes nothing until the next restart. They are
+    # checked separately because they were popped out of `update_data` above.
+    if option_updates or any(k in update_data for k in ["ip_address", "access_code", "is_active", "api_url", "auth_token"]):
         printer_manager.disconnect_printer(printer_id)
         if printer.is_active:
             await printer_manager.connect_printer(printer)
