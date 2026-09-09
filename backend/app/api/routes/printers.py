@@ -48,6 +48,7 @@ from backend.app.schemas.printer import (
     PrinterUpdate,
     PrintOptionsResponse,
     klipper_identity_from_url,
+    normalize_moonraker_url,
 )
 from backend.app.services import drying_preflight, provider_options
 from backend.app.services.bambu_ftp import (
@@ -435,10 +436,11 @@ async def update_printer(
 
     if getattr(printer, "provider", "bambu") == "klipper" and "api_url" in update_data and printer.api_url:
         # Voron patch series: ip_address mirrors the Moonraker host (used for
-        # the card, discovery dedupe and the external camera default).
-        if "://" not in printer.api_url:
-            printer.api_url = f"http://{printer.api_url}"
-        printer.api_url = printer.api_url.rstrip("/")
+        # the card, discovery dedupe and the external camera default). The URL
+        # itself arrives normalized and SSRF-checked from PrinterUpdate (A0),
+        # which is why the scheme prefixing that used to sit here is gone —
+        # doing it after validation meant the guard could be walked around by
+        # editing a printer instead of creating one.
         printer.ip_address = klipper_identity_from_url(printer.api_url)[1]
 
     await db.commit()
@@ -1093,7 +1095,17 @@ async def test_printer_connection(
     """Test connection to a printer without saving."""
     if provider == "klipper":
         # Voron patch series: Moonraker probe, returns hostname + webcams for the dialog.
-        return await asyncio.to_thread(probe_moonraker, api_url or ip_address, auth_token)
+        # Guarded like the create/update bodies (A0), and it matters more here
+        # than there: this one hands the response back to the caller, so an
+        # unguarded probe is an SSRF that reflects what it read. Query params
+        # are not request-body fields, so the classification backstop in
+        # test_outbound_url_ssrf_guards.py cannot see this call site — the
+        # coverage is test_test_endpoint_rejects_a_metadata_probe instead.
+        try:
+            target = normalize_moonraker_url(api_url or ip_address)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        return await asyncio.to_thread(probe_moonraker, target, auth_token)
     result = await printer_manager.test_connection(
         ip_address=ip_address,
         serial_number=serial_number,

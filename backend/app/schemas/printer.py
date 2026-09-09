@@ -71,6 +71,38 @@ def klipper_identity_from_url(api_url: str) -> tuple[str, str]:
     return serial[:50], host
 
 
+def normalize_moonraker_url(api_url: str | None) -> str:
+    """Normalize a Moonraker base URL, and reject the SSRF-unsafe ones (A0, #1).
+
+    Three paths normalize this value identically — ``PrinterCreate`` below, the
+    PATCH handler in ``routes/printers.py`` and the connection probe — so the
+    guard lives with the normalization instead of at each fetch: a URL that
+    reaches the client has necessarily passed both.
+
+    Scheme-less input ("192.168.2.177") is prefixed rather than rejected. It is
+    what the add-printer form asks for and what the stored Klipper rows hold.
+    Unlike the scheme-less settings URLs it does not stay inert — it is prefixed
+    here and then genuinely fetched, so it needs the guard rather than the
+    exemption those got.
+
+    Moonraker is an ordinary LAN HTTP service, so this is the LAN tier: the Voron
+    sits on the same subnet, and blocking RFC-1918 would reject the only kind of
+    address anyone ever enters. This is *not* the scheme-aware problem the
+    external camera URLs have — ``rtsp://`` is never a Moonraker URL, so the
+    plain guard fits and those two stay open.
+    """
+    from backend.app.api.routes._url_safety import assert_safe_lan_service_url
+
+    url = (api_url or "").strip()
+    if not url:
+        return url
+    if "://" not in url:
+        url = f"http://{url}"
+    url = url.rstrip("/")
+    assert_safe_lan_service_url(url, label="Moonraker URL")
+    return url
+
+
 class PrinterCreate(PrinterBase):
     # access_code lives on the input shapes only — never on the default
     # PrinterResponse. Direct exposure on PRINTERS_READ would let a Viewer
@@ -85,14 +117,12 @@ class PrinterCreate(PrinterBase):
         """Klipper printers only need a Moonraker URL; serial/IP/access code are derived."""
         if not isinstance(data, dict) or data.get("provider") != "klipper":
             return data
-        api_url = (data.get("api_url") or "").strip()
-        if not api_url:
+        if not (data.get("api_url") or "").strip():
             raise ValueError("api_url is required for Klipper printers")
-        if "://" not in api_url:
-            api_url = f"http://{api_url}"
+        api_url = normalize_moonraker_url(data.get("api_url"))
         serial, host = klipper_identity_from_url(api_url)
         filled = dict(data)
-        filled["api_url"] = api_url.rstrip("/")
+        filled["api_url"] = api_url
         if not filled.get("serial_number"):
             filled["serial_number"] = serial
         if not filled.get("ip_address"):
@@ -135,6 +165,23 @@ class PrinterUpdate(BaseModel):
     camera_rotation: int | None = None  # 0, 90, 180, 270 degrees
     plate_detection_enabled: bool | None = None
     plate_detection_roi: PlateDetectionROI | None = None
+
+    @field_validator("api_url")
+    @classmethod
+    def _normalize_api_url(cls, v: str | None) -> str | None:
+        """Same normalization and guard PrinterCreate applies (A0, #1).
+
+        The PATCH handler used to prefix the scheme itself, after validation, so
+        a value rejected on create could still be edited in afterwards. Doing it
+        here means the two shapes cannot disagree, and the handler is left with
+        only the identity it has to re-derive.
+
+        ``None`` means the field was not sent and must stay untouched; empty
+        string is handled by the helper and skipped by the handler.
+        """
+        if v is None:
+            return None
+        return normalize_moonraker_url(v)
 
 
 class PrinterResponse(PrinterBase):

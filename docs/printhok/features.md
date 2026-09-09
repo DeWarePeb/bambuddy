@@ -601,13 +601,44 @@ photo, automatic archive and file cleanup, the trash bin, and fourteen languages
 
 ---
 
+### A14 · The Moonraker URL goes through the SSRF guard
+
+| | |
+|---|---|
+| **Status** | ✅ |
+| **New function** | `normalize_moonraker_url` in `backend/app/schemas/printer.py` |
+| **Touched** | `schemas/printer.py`, `api/routes/printers.py`, `tests/unit/test_outbound_url_ssrf_guards.py` |
+
+`api_url` is admin-entered and then fetched, and nothing checked where it pointed. It was recorded in
+`KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD` next to upstream's external camera URLs on the assumption
+that it shared their problem. It does not: those must also accept `rtsp://`, which the LAN-service
+guard rejects, whereas Moonraker is only ever http(s). So the existing guard fits `api_url` as-is and
+the two camera entries stay where they are.
+
+One helper now does the normalizing and the checking together, and all three paths call it —
+`PrinterCreate`, `PrinterUpdate` and the `POST /printers/test` probe. That last one is the reason the
+work was worth doing beyond bookkeeping: it hands the response back to the caller, so an unguarded
+probe was an SSRF that reflected what it read. The `PrinterUpdate` path mattered too — the PATCH
+handler used to prefix the scheme itself, *after* validation, so a target refused on create could be
+edited in afterwards.
+
+A scheme-less value ("192.168.2.177") is prefixed rather than rejected: it is what the add-printer
+form asks for and what the stored rows hold. That is the opposite of the call made for the scheme-less
+*settings* URLs, and deliberately so — those stay inert because every consumer hands them to httpx,
+which refuses a URL with no scheme, while this one is prefixed and then genuinely fetched.
+
+**Still open, by policy:** DNS rebinding. The guard does not resolve hostnames, so `http://evil.test`
+resolving to 169.254.169.254 at request time still passes — the same TOCTOU hole every LAN-tier
+consumer has, documented in `_url_safety.py`. Closing it means resolving at request time and pinning
+the address, which is a change to the shared guard and not to this fork's patch series.
+
 ## Open items
 
 Each one has an issue on the fork, so this table is the summary and the issue is the detail.
 
 | | | |
 |---|---|---|
-| [#1](https://github.com/DeWarePeb/bambuddy/issues/1) | A0 | `api_url` reaches an outbound fetch unguarded — SSRF and DNS rebinding. Recorded in `test_outbound_url_ssrf_guards.py` under `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD`, alongside upstream's own camera URLs; closing it needs a scheme-aware guard, not a delegation. |
+| [#1](https://github.com/DeWarePeb/bambuddy/issues/1) | A14 | Mostly closed. `api_url` is guarded on all three paths (A14 above), and the two entries moved to `GUARDED_BODY_URLS`. What remains is DNS rebinding, which is the shared guard's documented TOCTOU and not specific to this fork. Upstream's `external_camera_url` / `external_camera_snapshot_url` stay in `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD` — they really do need the scheme-aware variant, because they also dial `rtsp://`. |
 | [#3](https://github.com/DeWarePeb/bambuddy/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
 | [#4](https://github.com/DeWarePeb/bambuddy/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
 

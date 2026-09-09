@@ -591,6 +591,13 @@ GUARDED_BODY_URLS = {
     ("SmartPlugUpdate", "rest_status_url"),
     ("SmartPlugUpdate", "rest_power_url"),
     ("SmartPlugUpdate", "rest_energy_url"),
+    # Voron patch series: the Moonraker URL of a Klipper printer. Both shapes
+    # normalize through schemas.printer.normalize_moonraker_url, which applies
+    # the LAN tier. It was grouped with the external camera URLs above until it
+    # turned out not to share their problem: those must also accept rtsp://,
+    # Moonraker is only ever http(s), so the plain guard fits it and they stay.
+    ("PrinterCreate", "api_url"),
+    ("PrinterUpdate", "api_url"),
 }
 
 # Not a destination Bambuddy requests — no guard applies.
@@ -622,11 +629,6 @@ KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD = {
     ("PrinterCreate", "external_camera_snapshot_url"),
     ("PrinterUpdate", "external_camera_url"),
     ("PrinterUpdate", "external_camera_snapshot_url"),
-    # Voron patch series: the Moonraker URL of a Klipper printer. Same class as
-    # the camera URLs above (an admin-entered printer address that Bambuddy
-    # fetches over HTTP); tracked in docs/bambuddy-fork-plan.md, not upstream.
-    ("PrinterCreate", "api_url"),
-    ("PrinterUpdate", "api_url"),
 }
 
 
@@ -662,3 +664,121 @@ def test_classification_lists_do_not_drift_from_the_routes():
     actual = _request_body_url_fields()
     stale = (GUARDED_BODY_URLS | NOT_A_FETCH_TARGET | KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD) - actual
     assert not stale, f"Classification entries no longer match any route: {sorted(stale)}"
+
+
+# ---------------------------------------------------------------------------
+# Moonraker api_url (Voron patch series, A0 / #1)
+# ---------------------------------------------------------------------------
+
+
+def _create_payload(**over):
+    payload = {
+        "name": "Voron",
+        "provider": "klipper",
+        "api_url": "http://192.168.2.177",
+        "access_code": "-",
+        "serial_number": "KLIPPER-192-168-2-177",
+    }
+    payload.update(over)
+    return payload
+
+
+@pytest.mark.parametrize("url", UNIVERSALLY_BLOCKED)
+def test_moonraker_url_rejects_universally_dangerous_targets(url: str):
+    from backend.app.schemas.printer import PrinterCreate, PrinterUpdate
+
+    with pytest.raises(ValueError):
+        PrinterCreate(**_create_payload(api_url=url))
+    with pytest.raises(ValueError):
+        PrinterUpdate(api_url=url)
+
+
+@pytest.mark.parametrize("url", LAN_ALLOWED)
+def test_moonraker_url_permits_the_normal_self_hosted_topology(url: str):
+    """A Klipper printer is on the LAN by definition — the whole point of the
+    LAN tier. If this ever starts failing, the guard was swapped for the public
+    one and every real Voron just became unaddressable."""
+    from backend.app.schemas.printer import PrinterUpdate
+
+    assert PrinterUpdate(api_url=url).api_url == url.rstrip("/")
+
+
+def test_a_scheme_less_moonraker_url_is_prefixed_not_rejected():
+    """What the add-printer form actually asks for, and what the stored rows
+    hold. Unlike the scheme-less settings URLs this one does not stay inert —
+    it is prefixed here and then genuinely fetched — so it is normalized into
+    the guard rather than exempted from it."""
+    from backend.app.schemas.printer import PrinterCreate, PrinterUpdate
+
+    assert PrinterUpdate(api_url="192.168.2.177").api_url == "http://192.168.2.177"
+    assert PrinterCreate(**_create_payload(api_url="192.168.2.177/")).api_url == "http://192.168.2.177"
+
+
+def test_a_scheme_less_metadata_address_is_still_rejected():
+    """The prefixing above must not become a way in: 169.254.169.254 typed
+    without a scheme is the same probe as with one."""
+    from backend.app.schemas.printer import PrinterUpdate
+
+    with pytest.raises(ValueError):
+        PrinterUpdate(api_url="169.254.169.254")
+
+
+def test_editing_a_printer_cannot_walk_around_the_create_guard():
+    """The PATCH handler used to prefix the scheme itself, after validation, so
+    a target refused on create could be edited in afterwards. Both shapes now
+    run the same normalization, so the two cannot disagree."""
+    from backend.app.schemas.printer import PrinterCreate, PrinterUpdate
+
+    for url in ("http://169.254.169.254/latest/meta-data/", "file:///etc/passwd"):
+        with pytest.raises(ValueError):
+            PrinterCreate(**_create_payload(api_url=url))
+        with pytest.raises(ValueError):
+            PrinterUpdate(api_url=url)
+
+
+def test_an_absent_api_url_is_left_alone():
+    """None means "not in this PATCH" and must not become an empty string —
+    that would blank a Klipper printer's address on any unrelated edit."""
+    from backend.app.schemas.printer import PrinterUpdate
+
+    assert PrinterUpdate(name="Voron").api_url is None
+
+
+def test_the_error_names_the_field():
+    from backend.app.schemas.printer import PrinterUpdate
+
+    with pytest.raises(ValueError, match="Moonraker URL"):
+        PrinterUpdate(api_url="file:///etc/passwd")
+
+
+@pytest.mark.asyncio
+async def test_test_endpoint_rejects_a_metadata_probe():
+    """POST /printers/test takes api_url as a query parameter, so the body-field
+    backstop above cannot see it — and it is the worst place to miss, because it
+    returns what it read straight back to the caller. Imported under a local
+    alias: the route is called `test_printer_connection`, and binding that name
+    at module level would have pytest collect the route itself as a test."""
+    from fastapi import HTTPException
+
+    from backend.app.api.routes.printers import test_printer_connection as probe_route
+
+    with pytest.raises(HTTPException) as exc:
+        await probe_route(provider="klipper", api_url="http://169.254.169.254/latest/meta-data/")
+    assert exc.value.status_code == 400
+    assert "Moonraker URL" in str(exc.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_test_endpoint_still_probes_a_lan_address():
+    """The guard must not swallow the normal case. Stops at the probe itself,
+    which is patched out — this is about what reaches it, not about Moonraker."""
+    from unittest.mock import patch
+
+    from backend.app.api.routes import printers as printers_route
+
+    with patch.object(printers_route, "probe_moonraker", return_value={"ok": True}) as probe:
+        result = await printers_route.test_printer_connection(provider="klipper", api_url="192.168.2.177/")
+
+    assert result == {"ok": True}
+    # Normalized on the way through, exactly as the create/update paths store it.
+    assert probe.call_args.args[0] == "http://192.168.2.177"
