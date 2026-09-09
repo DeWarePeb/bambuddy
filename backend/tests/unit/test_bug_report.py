@@ -106,20 +106,23 @@ class TestBugReportService:
         an issue on maziggy/bambuddy. On a fork that is the wrong tracker, and the
         button is the shortest path to it: a tester hits a bug in the Klipper path,
         clicks Report a Bug, and upstream gets a report about a printer it does not
-        support. The default is unset here and stays unset."""
+        support. The default is unset here and stays unset.
+
+        Deliberately does NOT reload the config module to force the default. An
+        earlier version did, and `reload()` rebinds `config.settings` to a fresh
+        object while every module that already did `from ... import settings`
+        keeps the old one. That made an unrelated log-health test fail several
+        files later, because its monkeypatch landed on one instance and the code
+        under test read the other. A test that has to corrupt module state to
+        make its assertion is asserting in the wrong place."""
         import os
-        from importlib import reload
 
         from backend.app.core import config
 
-        saved = os.environ.pop("BUG_REPORT_RELAY_URL", None)
-        try:
-            reload(config)
-            assert config.BUG_REPORT_RELAY_URL == ""
-        finally:
-            if saved is not None:
-                os.environ["BUG_REPORT_RELAY_URL"] = saved
-            reload(config)
+        if os.environ.get("BUG_REPORT_RELAY_URL"):
+            pytest.skip("BUG_REPORT_RELAY_URL is set in this environment; the shipped default is what matters here")
+
+        assert config.BUG_REPORT_RELAY_URL == ""
 
     @pytest.mark.asyncio
     @pytest.mark.unit
