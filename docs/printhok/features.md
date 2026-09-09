@@ -95,10 +95,32 @@ dropped rather than ported — there is no printer here without one.
 
 | | |
 |---|---|
-| **Status** | ⬜ needs printer-side config, no code |
+| **Status** | ✅ |
+| **Commit** | `d3216632` |
+| **New file** | `backend/app/services/provider_options.py` |
 
-Add a `[temperature_sensor chamber]` section to `printer.cfg` on the Klipper host and the client picks
-it up automatically.
+Klipper has no chamber concept: an install names its own sensor in `printer.cfg`. The original guess
+only recognised an object starting `temperature_sensor chamber`, so an enclosure sensor called
+anything else — most of them — went unnoticed and the card showed nothing where a Bambu shows a
+temperature. The answer used to be "rename your sensor", which is fine for the person who wrote it
+and no use to anyone else.
+
+The object is now configured per printer, offered in the edit dialog as a list of what that printer
+actually reports: `GET /printers/{id}/klipper/chamber-candidates` asks Moonraker live, so a sensor
+added since Bambuddy started appears without a restart. Empty means Automatic — the old guess,
+unchanged — and the help line names what it found, so the default is legible rather than mysterious.
+A disconnected printer falls back to a free-text box instead of an empty dropdown.
+
+A configured object the printer does not report is ignored in favour of the guess: Moonraker answers
+a query for an unknown object with an error, so insisting would cost every poll rather than just the
+chamber reading, and a sensor renamed in `printer.cfg` would take the whole card down with it.
+
+Stored in `printers.provider_options` — the nullable JSON column A0 added and nothing had read since.
+`provider_options.py` is the only thing that knows the storage is JSON; routes read and write typed
+fields. Forgiving on the way in, because the column is free-form text a hand-edited database could
+leave in any shape and a printer that fails to load is worse than one with default options. Clearing
+a key removes it rather than storing null, so "cleared" and "never set" cannot come to mean different
+things.
 
 ### A7 · Fourteen locales
 
@@ -165,6 +187,46 @@ title. `e241ee12` moved it under `/img/` so it bypasses the SPA catch-all route.
 running install is a file edit and a page reload — no rebuild. The backend, service name, install
 paths, API and translated strings deliberately keep saying Bambuddy: renaming those is pure rebase
 surface.
+
+### A12 · Pushed status over Moonraker's WebSocket
+
+| | |
+|---|---|
+| **Status** | ⚠️ working, never spoken to real hardware |
+| **Commit** | `a7bbd33c` |
+| **New files** | `backend/app/services/moonraker_stream.py`, `backend/tests/unit/services/test_moonraker_stream.py`, `backend/tests/integration/test_moonraker_stream_live.py` |
+
+A0 polled `printer/objects/query` every two seconds: a card up to two seconds stale, and one request
+per Klipper printer per tick, forever. Moonraker pushes over the JSON-RPC socket at `/websocket`.
+
+**The poll stays, deliberately.** Moonraker behind a reverse proxy that will not forward an upgrade
+is common, and so is a host reached through a tunnel that drops idle connections; a card that stops
+updating because of either is worse than a two-second delay. The stream is an accelerator — while it
+is healthy the poll interval backs off from 2s to 30s, and the moment it goes quiet it snaps back.
+Nothing is knowable only through the socket.
+
+Both transports reach the card through `_apply_status`, split out of the poll for exactly that
+reason: two paths that processed status differently would be two things to keep in step, and the
+difference would surface on someone else's printer, not here.
+
+Pushed updates are **partial** — the fields that changed of the objects that changed — so they merge
+into a cached full picture seeded by the snapshot that answers the subscribe. Replacing an object
+wholesale would drop its temperature the moment only the target moved. They are also **frequent**,
+since toolhead position never stops changing, so applying is coalesced to four times a second while
+the merge runs on every frame: dropped from the work, never from the picture.
+
+Per-printer `transport` setting beside the chamber object: Automatic, or polling only.
+
+Built on aiohttp, already a declared dependency. `websockets` is installed as well, but only because
+`uvicorn[standard]` pulls it, and a transport that disappears when uvicorn changes its extras is not
+one to build on.
+
+**Gap:** the only Moonraker this has spoken to is the fake one in the integration tests — the Voron
+was powered off when it was written. Those tests do drive the real protocol (connect, subscribe,
+snapshot, pushed update, API key on the handshake, reconnect after the server hangs up, survive a
+callback that raises), and they caught the bug the exercise existed to find: `stop()` set a flag the
+thread never looked at, because it spends its life awaiting a frame an idle printer never sends, so
+every disconnect leaked a thread. Still, the first run against real hardware is the one that counts.
 
 ---
 
@@ -515,10 +577,9 @@ Each one has an issue on the fork, so this table is the summary and the issue is
 | | | |
 |---|---|---|
 | [#1](https://github.com/DeWarePeb/bambuddy/issues/1) | A0 | `api_url` reaches an outbound fetch unguarded — SSRF and DNS rebinding. Recorded in `test_outbound_url_ssrf_guards.py` under `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD`, alongside upstream's own camera URLs; closing it needs a scheme-aware guard, not a delegation. |
-| [#2](https://github.com/DeWarePeb/bambuddy/issues/2) | A0 | Live status is a two-second poll where Moonraker offers a WebSocket. Better transport, but it replaces the load-bearing part of A0 for seconds of latency on three printers. |
+| [#2](https://github.com/DeWarePeb/bambuddy/issues/2) | A12 | **Done** in `a7bbd33c`, but never against real hardware — the only Moonraker it has spoken to is the fake one in the tests. Close it after a run with the Voron powered on. |
 | [#3](https://github.com/DeWarePeb/bambuddy/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
 | [#4](https://github.com/DeWarePeb/bambuddy/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
-| [#5](https://github.com/DeWarePeb/bambuddy/issues/5) | A6 | Chamber temperature waits on a `[temperature_sensor chamber]` stanza in the Voron's `printer.cfg`. No code. |
 
 Both suites are green as of `302a49db`, verified on LXC 109 in `/opt/bambuddy-b`: backend
 `pytest -n 4` at 11970 passed / 1 skipped, and `npm run test:run` at 262 test files followed by
