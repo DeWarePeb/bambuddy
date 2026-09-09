@@ -100,7 +100,11 @@ describe('useSponsorPrompt', () => {
     // The CTA is present for navigation but carries no onClick side effect —
     // anchoring no longer depends on the user clicking through.
     const options = showPersistentToast.mock.calls[0][3];
-    expect(options.action.href).toContain('from=app-toast-prints-500');
+    // No `?from=` tag: that was Matomo attribution for upstream's funnel, and
+    // sending it from a fork install would count Printhok's users as
+    // Bambuddy's (`bc26297e`).
+    expect(options.action.href).toBe('https://github.com/sponsors/maziggy');
+    expect(options.action.href).not.toContain('from=');
     expect(options.action.onClick).toBeUndefined();
   });
 
@@ -146,15 +150,17 @@ describe('useSponsorPrompt', () => {
 });
 
 /**
- * Fleet-size audience split.
+ * Fleet-size audience split — removed on this fork (`bc26297e`).
  *
- * A print farm has no use for a "chip in $5" toast — it wants a support
- * contract. At/above BUSINESS_FLEET_THRESHOLD configured printers the toast
- * makes the commercial ask instead, and points at business.html rather than
- * sponsors.html. Same milestone, same cooldown, same single interruption; only
- * the ask changes.
+ * Upstream swaps the toast for a commercial ask above BUSINESS_FLEET_THRESHOLD
+ * printers, offering a farm "a support contract, an invoice and a named
+ * contact". That offer is maziggy's to make about Bambuddy and not his to make
+ * about Printhok, so `fleetAudience()` returns 'personal' at any fleet size and
+ * the href is his sponsors page. These tests pin that it stays gone: a rebase
+ * that quietly restored upstream's version of the file would sell support for
+ * software the seller does not support.
  */
-describe('useSponsorPrompt — fleet-size audience', () => {
+describe('useSponsorPrompt — fleet size does not change the ask', () => {
   beforeEach(() => {
     server.use(
       http.get('/api/v1/sponsor-prompt/check', () =>
@@ -170,34 +176,19 @@ describe('useSponsorPrompt — fleet-size audience', () => {
     );
   });
 
-  it('makes the personal ask below the threshold', async () => {
+  it('makes the personal ask on a small fleet', async () => {
     withFleet(4);
     renderHook(() => useSponsorPrompt('EUR'), { wrapper: wrapper() });
 
     await waitFor(() => expect(showPersistentToast).toHaveBeenCalledTimes(1));
     const [, message, , options] = showPersistentToast.mock.calls[0];
-    expect(options.action.href).toContain('sponsors.html');
-    expect(options.action.href).not.toContain('business.html');
+    expect(options.action.href).toBe('https://github.com/sponsors/maziggy');
     expect(message).toContain('30'); // the prints milestone copy, not the fleet copy
   });
 
-  it('makes the commercial ask at the threshold, pointing at business.html', async () => {
-    withFleet(5);
-    renderHook(() => useSponsorPrompt('EUR'), { wrapper: wrapper() });
-
-    await waitFor(() => expect(showPersistentToast).toHaveBeenCalledTimes(1));
-    const [, message, , options] = showPersistentToast.mock.calls[0];
-    expect(options.action.href).toContain('business.html');
-    // Attribution still rides on the milestone, so Matomo keeps segmenting it.
-    expect(options.action.href).toContain('from=app-toast-prints-25');
-    expect(message).toContain('5'); // fleet size, not the print count
-    expect(message).toMatch(/support plan/i);
-  });
-
-  it('counts configured printers, not active ones — maintenance mode must not downgrade the ask', async () => {
-    // Eight printers, five of them in maintenance (is_active: false). This is
-    // still an eight-printer business; if the split filtered on is_active it
-    // would see three and pitch them as a hobbyist mid-outage.
+  it('makes the same ask on a fleet upstream would have pitched a support plan', async () => {
+    // Eight printers, five of them in maintenance — upstream's split counts
+    // configured printers, so this was its clearest business case.
     server.use(
       http.get('/api/v1/printers/', () =>
         HttpResponse.json(
@@ -217,32 +208,7 @@ describe('useSponsorPrompt — fleet-size audience', () => {
 
     await waitFor(() => expect(showPersistentToast).toHaveBeenCalledTimes(1));
     const [, message, , options] = showPersistentToast.mock.calls[0];
-    expect(options.action.href).toContain('business.html');
-    expect(message).toContain('8');
-  });
-
-  it('waits for the fleet to load before deciding — a farm is never pitched as a hobbyist', async () => {
-    // Slow printers response: if the hook fired the toast before the fleet
-    // resolved, it would default to 0 printers and make the personal ask.
-    server.use(
-      http.get('/api/v1/printers/', async () => {
-        await new Promise((r) => setTimeout(r, 50));
-        return HttpResponse.json(
-          Array.from({ length: 6 }, (_, i) => ({
-            id: i + 1,
-            name: `Printer ${i + 1}`,
-            serial_number: `SN${i + 1}`,
-            ip_address: '192.168.1.10',
-            model: 'X1C',
-            is_active: true,
-          })),
-        );
-      }),
-    );
-
-    renderHook(() => useSponsorPrompt('EUR'), { wrapper: wrapper() });
-
-    await waitFor(() => expect(showPersistentToast).toHaveBeenCalledTimes(1), { timeout: 2000 });
-    expect(showPersistentToast.mock.calls[0][3].action.href).toContain('business.html');
+    expect(options.action.href).toBe('https://github.com/sponsors/maziggy');
+    expect(message).not.toMatch(/support plan/i);
   });
 });

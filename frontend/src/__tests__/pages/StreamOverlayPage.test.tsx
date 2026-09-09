@@ -129,7 +129,8 @@ describe('StreamOverlayPage', () => {
       await waitFor(() => {
         const logo = screen.getByAltText('Bambuddy');
         const link = logo.closest('a');
-        expect(link).toHaveAttribute('href', 'https://github.com/maziggy/bambuddy');
+        // The overlay's logo points at the fork, like both sidebars (`2ce5b24e`).
+        expect(link).toHaveAttribute('href', 'https://github.com/DeWarePeb/printhok');
       });
     });
   });

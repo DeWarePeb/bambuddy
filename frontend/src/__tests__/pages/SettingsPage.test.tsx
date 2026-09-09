@@ -1848,10 +1848,9 @@ describe('SettingsPage — location sensor reachability', () => {
 /**
  * Sponsor banner on Settings -> General.
  *
- * Below the fleet threshold it makes the community/donation ask; at or above it
- * the same slot makes the commercial ask and points at business.html. A print
- * farm asked to chip in $5 is a wasted impression, and a hobbyist pitched a
- * support contract is an annoyed user — so both directions are pinned.
+ * Upstream swaps this slot for a commercial ask above the fleet threshold. The
+ * fork does not (`bc26297e`): the community ask stays, at any fleet size, and
+ * points at maziggy's sponsors page rather than bambuddy.cool's funnel.
  */
 describe('SettingsPage — sponsor banner audience', () => {
   beforeEach(() => {
@@ -1882,20 +1881,17 @@ describe('SettingsPage — sponsor banner audience', () => {
     render(<SettingsPage />);
 
     const banner = await screen.findByRole('link', { name: /Independent & community-funded/i });
-    expect(banner).toHaveAttribute('href', 'https://bambuddy.cool/sponsors.html?from=app-settings');
+    expect(banner).toHaveAttribute('href', 'https://github.com/sponsors/maziggy');
     expect(screen.queryByText(/Bambuddy for business/i)).not.toBeInTheDocument();
   });
 
-  it('shows the commercial ask for a business-sized fleet', async () => {
+  it('shows the same ask for a fleet upstream would have sold a support plan', async () => {
     fleet(6);
     render(<SettingsPage />);
 
-    const banner = await screen.findByRole('link', { name: /Bambuddy for business/i });
-    expect(banner).toHaveAttribute('href', 'https://bambuddy.cool/business.html?from=app-settings');
-    // The donation copy is replaced, not merely supplemented.
-    expect(screen.queryByText(/Independent & community-funded/i)).not.toBeInTheDocument();
-    // The ask names the fleet back to them.
-    expect(screen.getByText(/6 printers/i)).toBeInTheDocument();
+    const banner = await screen.findByRole('link', { name: /Independent & community-funded/i });
+    expect(banner).toHaveAttribute('href', 'https://github.com/sponsors/maziggy');
+    expect(screen.queryByText(/Bambuddy for business/i)).not.toBeInTheDocument();
   });
 });
 
