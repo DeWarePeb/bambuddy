@@ -5281,6 +5281,10 @@ export const api = {
     return request<Archive[]>(`/archives/search?${params}`);
   },
   rebuildSearchIndex: () => request<{ message: string }>('/archives/search/rebuild-index', { method: 'POST' }),
+  getPriceReference: (days = 90) =>
+    request<{ median_unit_cost: number | null; sample_size: number; window_days: number }>(
+      `/archives/price-reference?days=${days}`,
+    ),
   getNo3MFWarning: () =>
     request<{
       has_fallback: boolean;

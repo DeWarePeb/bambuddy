@@ -39,6 +39,7 @@ from backend.app.services.archive import ArchiveService
 from backend.app.services.bambu_ftp import ftps_handshake_blocked, list_files_result_async
 from backend.app.services.design_settings import overrides_from_config
 from backend.app.services.filament_requirements import annotate_rack_groups
+from backend.app.services.print_price import median, recent_unit_costs
 from backend.app.services.print_storage import (
     REASON_INTERNAL_HISTORY,
     REASON_INTERNAL_STORAGE,
@@ -517,6 +518,34 @@ async def list_archives(
             )
         )
     return result
+
+
+@router.get("/price-reference")
+async def price_reference(
+    days: int = Query(90, ge=1, le=3650),
+    db: AsyncSession = Depends(get_db),
+    auth_result: tuple[User | None, bool] = Depends(
+        require_ownership_permission(
+            Permission.ARCHIVES_READ_ALL,
+            Permission.ARCHIVES_READ_OWN,
+        )
+    ),
+):
+    """Median unit cost of recent completed prints, for the pricing settings.
+
+    A markup means nothing on its own; this is the number that gives it a
+    scale — "a typical print costs X, so a markup of 2.5 asks Y for it".
+
+    Computed here rather than in the browser because the archive list the
+    frontend holds is paginated and filtered, so a median taken from it would
+    describe whichever page happened to be open, not the shop.
+    """
+    costs = await recent_unit_costs(db, days=days)
+    return {
+        "median_unit_cost": median(costs),
+        "sample_size": len(costs),
+        "window_days": days,
+    }
 
 
 @router.get("/no-3mf-warning")

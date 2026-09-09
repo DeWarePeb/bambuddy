@@ -65,6 +65,16 @@ class AppSettings(BaseModel):
         description="Energy display mode on stats: 'print' shows sum of per-print energy, 'total' shows lifetime plug consumption",
     )
 
+    # Selling price (fork). Upstream's finance module is chargeback — cost
+    # centres, budgets, per-print charges. These four answer the other
+    # question: what should a print sell for.
+    pricing_enabled: bool = Field(default=False, description="Show a suggested selling price on archived prints")
+    pricing_labour_per_hour: float = Field(
+        default=0.0, description="Labour charged per print hour, added to the unit cost before markup"
+    )
+    pricing_markup: float = Field(default=2.5, description="Multiplier applied to the unit cost to reach the suggested price")
+    pricing_floor: float = Field(default=0.0, description="Minimum selling price; a suggestion never lands below it")
+
     # Spoolman integration
     spoolman_enabled: bool = Field(default=False, description="Enable Spoolman integration for filament tracking")
     spoolman_url: str = Field(default="", description="Spoolman server URL (e.g., http://localhost:7912)")
@@ -664,6 +674,10 @@ class AppSettingsUpdate(BaseModel):
     currency: str | None = None
     energy_cost_per_kwh: float | None = None
     energy_tracking_mode: str | None = None
+    pricing_enabled: bool | None = None
+    pricing_labour_per_hour: float | None = None
+    pricing_markup: float | None = None
+    pricing_floor: float | None = None
     spoolman_enabled: bool | None = None
     spoolman_url: str | None = None
     spoolman_sync_mode: str | None = None

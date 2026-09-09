@@ -68,6 +68,7 @@ import { RunWithPipelineModal } from '../components/RunWithPipelineModal';
 import { openInSlicer, resolveDesktopSlicer, type SlicerType } from '../utils/slicer';
 import { formatDateTime, formatDateOnly, parseUTCDate, type TimeFormat, formatDuration } from '../utils/date';
 import { getCurrencySymbol } from '../utils/currency';
+import { priceForPrint, type PricingSettings } from '../utils/printPrice';
 import { getBedTypeInfo } from '../utils/bedType';
 import { invalidateArchiveAndProjectViews } from '../utils/projectQueries';
 import { assignableProjects } from '../utils/projectTree';
@@ -284,6 +285,7 @@ function ArchiveCard({
   preferredSlicer = 'bambu_studio',
   useSlicerApi = false,
   currency,
+  pricing,
   t,
   onNavigateToArchive,
 }: {
@@ -298,6 +300,8 @@ function ArchiveCard({
   preferredSlicer?: SlicerType;
   useSlicerApi?: boolean;
   currency: string;
+  /** Pricing settings, so the card can say what the print should sell for. */
+  pricing?: Partial<PricingSettings> | null;
   t: TFunction;
   onNavigateToArchive?: (archiveId: number) => void;
   /** Printer id -> name, for naming the printer a saved slicer AMS mapping
@@ -309,6 +313,10 @@ function ArchiveCard({
   if (isHighlighted) {
     console.log('ArchiveCard isHighlighted=true for archive:', archive.id);
   }
+
+  // What this print should sell for. Null unless pricing is switched on and
+  // the archive carries a cost to build the suggestion from.
+  const price = priceForPrint(archive, pricing);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -1229,6 +1237,21 @@ function ArchiveCard({
                     {currency}{archive.energy_cost.toFixed(2)}
                   </div>
                 )}
+            </div>
+          )}
+          {price && (
+            <div
+              className="flex items-center gap-1.5 text-bambu-gray"
+              title={t('archives.card.priceTitle', {
+                cost: `${currency}${price.unitCost.toFixed(2)}`,
+                margin: price.margin != null ? `${Math.round(price.margin * 100)}%` : '-',
+              })}
+            >
+              <Tag className="w-3 h-3" />
+              <span className={price.margin != null && price.margin < 0 ? 'text-red-400' : undefined}>
+                {currency}{price.suggestedPrice.toFixed(2)}
+              </span>
+              {price.onFloor && <span className="text-bambu-gray/50">{t('archives.card.priceFloor')}</span>}
             </div>
           )}
           {(archive.layer_height || archive.total_layers) && (
@@ -4164,6 +4187,7 @@ export function ArchivesPage() {
                 preferredSlicer={preferredSlicer}
                 useSlicerApi={useSlicerApi}
                 currency={currency}
+                pricing={settings}
                 t={t}
                 onNavigateToArchive={handleNavigateToArchive}
               />

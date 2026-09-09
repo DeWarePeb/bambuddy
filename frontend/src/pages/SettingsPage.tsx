@@ -393,6 +393,14 @@ export function SettingsPage() {
     queryFn: api.getSmartPlugs,
   });
 
+  // A markup means nothing without a scale. Only asked for while the pricing
+  // block is open, since it is a reference figure and not part of the form.
+  const { data: priceReference } = useQuery({
+    queryKey: ['archives', 'price-reference'],
+    queryFn: () => api.getPriceReference(90),
+    enabled: Boolean(localSettings?.pricing_enabled),
+  });
+
   // Fetch energy data for all smart plugs when on the plugs tab
   const { data: plugEnergySummary, isLoading: energyLoading } = useQuery({
     queryKey: ['smart-plugs-energy', smartPlugs?.map(p => p.id)],
@@ -1137,6 +1145,10 @@ export function SettingsPage() {
       baseline.currency !== localSettings.currency ||
       baseline.energy_cost_per_kwh !== localSettings.energy_cost_per_kwh ||
       baseline.energy_tracking_mode !== localSettings.energy_tracking_mode ||
+      (baseline.pricing_enabled ?? false) !== (localSettings.pricing_enabled ?? false) ||
+      baseline.pricing_labour_per_hour !== localSettings.pricing_labour_per_hour ||
+      baseline.pricing_markup !== localSettings.pricing_markup ||
+      baseline.pricing_floor !== localSettings.pricing_floor ||
       baseline.check_updates !== localSettings.check_updates ||
       (baseline.check_printer_firmware ?? true) !== (localSettings.check_printer_firmware ?? true) ||
       (baseline.include_beta_updates ?? false) !== (localSettings.include_beta_updates ?? false) ||
@@ -1250,6 +1262,10 @@ export function SettingsPage() {
         currency: localSettings.currency,
         energy_cost_per_kwh: localSettings.energy_cost_per_kwh,
         energy_tracking_mode: localSettings.energy_tracking_mode,
+        pricing_enabled: localSettings.pricing_enabled,
+        pricing_labour_per_hour: localSettings.pricing_labour_per_hour,
+        pricing_markup: localSettings.pricing_markup,
+        pricing_floor: localSettings.pricing_floor,
         check_updates: localSettings.check_updates,
         check_printer_firmware: localSettings.check_printer_firmware,
         include_beta_updates: localSettings.include_beta_updates,
@@ -2448,6 +2464,95 @@ export function SettingsPage() {
                     ? t('settings.energyModePrintDescription')
                     : t('settings.energyModeTotalDescription')}
                 </p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white">{t('settings.pricingEnabled')}</p>
+                    <p className="text-xs text-bambu-gray">{t('settings.pricingEnabledDescription')}</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.pricing_enabled ?? false}
+                      onChange={(e) => updateSetting('pricing_enabled', e.target.checked)}
+                      className="peer sr-only"
+                    />
+                    <div className="w-11 h-6 bg-bambu-dark-tertiary rounded-full peer-checked:bg-bambu-green peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all" />
+                  </label>
+                </div>
+                {localSettings.pricing_enabled && (
+                  <>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm text-bambu-gray mb-1">
+                      {t('settings.pricingLabourPerHour')}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bambu-gray text-sm pointer-events-none">
+                        {getCurrencySymbol(localSettings.currency)}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        value={localSettings.pricing_labour_per_hour ?? 0}
+                        onChange={(e) => updateSetting('pricing_labour_per_hour', parseFloat(e.target.value) || 0)}
+                        style={{ paddingLeft: '2rem' }}
+                        className="w-full pr-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-bambu-gray mb-1">
+                      {t('settings.pricingMarkup')}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bambu-gray text-sm pointer-events-none">
+                        {'x'}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={localSettings.pricing_markup ?? 0}
+                        onChange={(e) => updateSetting('pricing_markup', parseFloat(e.target.value) || 0)}
+                        style={{ paddingLeft: '2rem' }}
+                        className="w-full pr-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-bambu-gray mb-1">
+                      {t('settings.pricingFloor')}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bambu-gray text-sm pointer-events-none">
+                        {getCurrencySymbol(localSettings.currency)}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        value={localSettings.pricing_floor ?? 0}
+                        onChange={(e) => updateSetting('pricing_floor', parseFloat(e.target.value) || 0)}
+                        style={{ paddingLeft: '2rem' }}
+                        className="w-full pr-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                    </div>
+                    <p className="text-xs text-bambu-gray mt-2">
+                      {priceReference && priceReference.sample_size > 0 && priceReference.median_unit_cost != null
+                        ? t('settings.pricingReference', {
+                            cost: `${getCurrencySymbol(localSettings.currency)}${priceReference.median_unit_cost.toFixed(2)}`,
+                            samples: priceReference.sample_size,
+                            days: priceReference.window_days,
+                          })
+                        : t('settings.pricingReferenceEmpty')}
+                    </p>
+                  </>
+                )}
               </div>
               <div>
                 <div className="flex items-center justify-between">
