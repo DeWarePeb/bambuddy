@@ -627,7 +627,7 @@ form asks for and what the stored rows hold. That is the opposite of the call ma
 *settings* URLs, and deliberately so — those stay inert because every consumer hands them to httpx,
 which refuses a URL with no scheme, while this one is prefixed and then genuinely fetched.
 
-**Still open, by policy:** DNS rebinding. The guard does not resolve hostnames, so `http://evil.test`
+**Still open, by policy ([#6](https://github.com/DeWarePeb/printhok/issues/6)):** DNS rebinding. The guard does not resolve hostnames, so `http://evil.test`
 resolving to 169.254.169.254 at request time still passes — the same TOCTOU hole every LAN-tier
 consumer has, documented in `_url_safety.py`. Closing it means resolving at request time and pinning
 the address, which is a change to the shared guard and not to this fork's patch series.
@@ -668,7 +668,7 @@ Each one has an issue on the fork, so this table is the summary and the issue is
 
 | | | |
 |---|---|---|
-| [#1](https://github.com/DeWarePeb/printhok/issues/1) | A14 | Mostly closed. `api_url` is guarded on all three paths (A14 above), and the two entries moved to `GUARDED_BODY_URLS`. What remains is DNS rebinding, which is the shared guard's documented TOCTOU and not specific to this fork. Upstream's `external_camera_url` / `external_camera_snapshot_url` stay in `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD` — they really do need the scheme-aware variant, because they also dial `rtsp://`. |
+| [#6](https://github.com/DeWarePeb/printhok/issues/6) | A14 | DNS rebinding: the LAN-service guard resolves no hostnames, so a name that answers with a metadata address at request time still passes. Not specific to this fork — it is the shared TOCTOU documented in `_url_safety.py` that every LAN-tier consumer has, and fixing it properly belongs upstream. Low severity: it needs someone who can already enter a printer address, i.e. an authenticated admin. #1 (the `api_url` SSRF guard itself) is closed, done in `3511c440`. Upstream's `external_camera_url` / `external_camera_snapshot_url` stay in `KNOWN_UNGUARDED_NEEDS_SCHEME_AWARE_GUARD` — they really do need the scheme-aware variant, because they also dial `rtsp://`. |
 | [#3](https://github.com/DeWarePeb/printhok/issues/3) | B9 | Notify payloads unverified against the real iOS app. Needs the paid app; no test can answer it. |
 | [#4](https://github.com/DeWarePeb/printhok/issues/4) | i18n | Only the fork's own counted keys have proper Slavic plurals. `8cc1ad1b`, C1 and C2 gave twenty `ru`/`uk` keys their `_few` and `_many` forms; upstream's still use the two-form convention, so roughly thirteen keys per Slavic locale resolve through fallback. Pre-existing and not the fork's to fix — but `b5463da0` taught the gate the difference, so fixing it no longer trips anything. |
 
