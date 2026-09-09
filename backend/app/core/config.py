@@ -7,7 +7,23 @@ from pydantic import Field
 from pydantic_settings import BaseSettings
 
 # Application version - single source of truth
-APP_VERSION = "1.2.5.5"
+# Voron patch series: Printhok's own version line, not upstream's.
+#
+# It had been left at upstream's `1.2.5.5`, which the sidebar showed while the
+# fork sat roughly forty commits past it — a number that identified neither what
+# was running nor what it was based on.
+#
+# Digits, dots and one beta marker only. `updates.parse_version` treats *any*
+# letter as a prerelease marker, so a build-metadata style like `1.2.5.5+printhok.1`
+# would silently classify every release as a prerelease. The `b` here is therefore
+# load-bearing and deliberate: while Printhok is beta, only users who tick "include
+# beta" in the updater are offered it, which is the right default for something
+# being handed to testers.
+#
+# The upstream base this sits on is recorded in NOTICE-modifications.md and
+# docs/printhok/features.md, which is where it belongs — it changes on rebase,
+# not on release.
+APP_VERSION = "1.0.0b1"
 # Voron patch series: the repository the in-app updater checks releases against
 # and, crucially, the one it will reset the working tree to.
 #
