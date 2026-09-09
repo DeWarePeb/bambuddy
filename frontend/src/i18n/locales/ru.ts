@@ -926,6 +926,15 @@ export default {
     dropNotPrintable: "Для печати подходят только файлы .gcode и .gcode.3mf",
     dropToPrint: "Перетащите файл для печати",
     dropToQueue: "Перетащите файл в очередь",
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: 'Выберите файл для печати',
+      hint: 'Печать на {{printer}} — выберите файл из библиотеки или загрузите новый',
+      empty: 'В библиотеке пока нет нарезанных файлов',
+      noMatches: 'Нет файлов, соответствующих запросу',
+      uploadInstead: 'Загрузить файл',
+    },
   },
   archives: {
     media: {

@@ -911,6 +911,15 @@ export default {
     dropNotPrintable: '.gcode 및 .gcode.3mf 파일만 인쇄할 수 있습니다',
     dropToPrint: '놓아서 인쇄',
     dropToQueue: '놓아서 대기열에 추가',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: '인쇄할 파일 선택',
+      hint: '{{printer}}에서 인쇄 — 라이브러리에서 파일을 선택하거나 새로 업로드하세요',
+      empty: '라이브러리에 슬라이스된 파일이 없습니다',
+      noMatches: '검색과 일치하는 파일이 없습니다',
+      uploadInstead: '파일 업로드',
+    },
     addPreflight: {
       checking: '연결 확인 중...',
       warning: '일부 연결 확인이 실패했습니다. 이 프린터가 오프라인으로 표시될 수 있습니다. 아래 항목을 검토하고 수정하거나 그냥 저장하세요.',

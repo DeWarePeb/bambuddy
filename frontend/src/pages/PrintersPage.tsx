@@ -176,6 +176,7 @@ import { ChamberLight } from '../components/icons/ChamberLight';
 import { PlateClearedIcon } from '../components/icons/PlateClearedIcon';
 import { SkipObjectsModal, SkipObjectsIcon } from '../components/SkipObjectsModal';
 import { FileUploadModal } from '../components/FileUploadModal';
+import { PrintFilePickerModal } from '../components/PrintFilePickerModal';
 import { PrintModal } from '../components/PrintModal';
 import { PrinterInfoModal } from '../components/PrinterInfoModal';
 import { FeedDirectionModal } from '../components/FeedDirectionModal';
@@ -2203,11 +2204,15 @@ function PrinterCard({
   const [bedJogStep, setBedJogStep] = useState<number>(10);
   const [showResumeConfirm, setShowResumeConfirm] = useState(false);
   const [showSkipObjectsModal, setShowSkipObjectsModal] = useState(false);
-  const [showUploadForPrint, setShowUploadForPrint] = useState(false);
+  // Two steps behind one Print button: pick a file that is already in the
+  // library, or upload a new one. 'picker' is where the button lands; 'upload'
+  // is the old behaviour, reached from the picker's footer -- and the only
+  // step offered to a user who may upload but not read the library.
+  const [printSourceStep, setPrintSourceStep] = useState<'picker' | 'upload' | null>(null);
   const [showPrinterInfo, setShowPrinterInfo] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const closePrinterInfo = useCallback(() => setShowPrinterInfo(false), []);
-  const [printAfterUpload, setPrintAfterUpload] = useState<{ id: number; filename: string } | null>(null);
+  const [printAfterUpload, setPrintAfterUpload] = useState<{ id: number; filename: string; fromLibrary?: boolean } | null>(null);
   // AMS drying popover state: which AMS unit has the popover open
   const [dryingPopoverAmsId, setDryingPopoverAmsId] = useState<number | null>(null);
   const [dryingPopoverModuleType, setDryingPopoverModuleType] = useState<string>('n3f');
@@ -6726,17 +6731,17 @@ function PrinterCard({
                 >
                   <HardDrive className="w-[var(--pc-i4,1rem)] h-[var(--pc-i4,1rem)]" />
                 </Button>
-                {/* Shown whatever the printer is doing (#2849): this uploads a
-                    file and queues it, which a busy or offline printer is no
-                    reason to refuse -- it only means the item waits. Hiding it
-                    while the drop zone accepted the same file would have left
+                {/* Shown whatever the printer is doing (#2849): this picks or
+                    uploads a file and queues it, which a busy or offline printer
+                    is no reason to refuse -- it only means the item waits. Hiding
+                    it while the drop zone accepted the same file would have left
                     the two routes into this flow disagreeing. */}
                 <Button
                   size="sm"
-                  onClick={() => setShowUploadForPrint(true)}
-                  disabled={!hasPermission('library:upload') || !hasPermission('queue:create')}
+                  onClick={() => setPrintSourceStep(hasPermission('library:read') ? 'picker' : 'upload')}
+                  disabled={(!hasPermission('library:upload') && !hasPermission('library:read')) || !hasPermission('queue:create')}
                   title={
-                    !hasPermission('library:upload')
+                    !hasPermission('library:upload') && !hasPermission('library:read')
                       ? t('fileManager.noPermissionUpload')
                       : !hasPermission('queue:create')
                         ? t('fileManager.noPermissionAddToQueue')
@@ -6788,11 +6793,30 @@ function PrinterCard({
         />
       )}
 
-      {/* Upload for Print Modal */}
-      {showUploadForPrint && (
+      {/* Step 1: files that are already in the library. The Print button used
+          to open the upload modal directly, so a file sitting in the library
+          had to be uploaded a second time to be printed from this card. */}
+      {printSourceStep === 'picker' && (
+        <PrintFilePickerModal
+          printerName={printer.name}
+          printerModel={mapModelCode(printer.model) || undefined}
+          onClose={() => setPrintSourceStep(null)}
+          onUpload={hasPermission('library:upload') ? () => setPrintSourceStep('upload') : undefined}
+          onSelect={(file) => {
+            setPrintSourceStep(null);
+            // fromLibrary: this row is the user's own stored file, not the
+            // throwaway copy the upload path makes -- dispatching must not
+            // delete it.
+            setPrintAfterUpload({ id: file.id, filename: file.print_name || file.filename, fromLibrary: true });
+          }}
+        />
+      )}
+
+      {/* Step 2: upload a new file (the original flow, unchanged). */}
+      {printSourceStep === 'upload' && (
         <FileUploadModal
           folderId={null}
-          onClose={() => setShowUploadForPrint(false)}
+          onClose={() => setPrintSourceStep(null)}
           onUploadComplete={() => {}}
           autoUpload
           accept=".gcode,.3mf"
@@ -6815,7 +6839,7 @@ function PrinterCard({
         />
       )}
 
-      {/* Print Modal (after upload) */}
+      {/* Step 3: the print dialog, for either source. */}
       {printAfterUpload && (
         <PrintModal
           mode="create"
@@ -6824,7 +6848,7 @@ function PrinterCard({
           initialSelectedPrinterIds={[printer.id]}
           onClose={() => setPrintAfterUpload(null)}
           onSuccess={() => setPrintAfterUpload(null)}
-          cleanupLibraryAfterDispatch
+          cleanupLibraryAfterDispatch={!printAfterUpload.fromLibrary}
         />
       )}
 

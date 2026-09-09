@@ -959,6 +959,15 @@ export default {
     dropNotPrintable: 'Yalnızca .gcode ve .gcode.3mf dosyaları yazdırılabilir',
     dropToPrint: 'Yazdırmak için bırakın',
     dropToQueue: 'Kuyruğa eklemek için bırakın',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: 'Yazdırılacak dosyayı seçin',
+      hint: '{{printer}} üzerinde yazdırma — kitaplığınızdan bir dosya seçin veya yeni bir dosya yükleyin',
+      empty: 'Kitaplığınızda henüz dilimlenmiş dosya yok',
+      noMatches: 'Aramayla eşleşen dosya yok',
+      uploadInstead: 'Dosya yükle',
+    },
   },
 
   // Arşivler sayfası

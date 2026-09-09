@@ -959,6 +959,15 @@ export default {
     dropNotPrintable: '只能打印 .gcode 和 .gcode.3mf 文件',
     dropToPrint: '拖放以打印',
     dropToQueue: '拖放以加入队列',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: '选择要打印的文件',
+      hint: '在 {{printer}} 上打印 — 从文件库中选择文件，或上传新文件',
+      empty: '文件库中还没有已切片的文件',
+      noMatches: '没有匹配的文件',
+      uploadInstead: '上传文件',
+    },
   },
 
   // Archives page

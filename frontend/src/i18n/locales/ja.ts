@@ -958,6 +958,15 @@ export default {
     dropNotPrintable: '.gcodeおよび.gcode.3mfファイルのみ印刷できます',
     dropToPrint: 'ドロップして印刷',
     dropToQueue: 'ドロップしてキューに追加',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: '印刷するファイルを選択',
+      hint: '{{printer}} で印刷 — ライブラリのファイルを選ぶか、新しくアップロードします',
+      empty: 'ライブラリにスライス済みファイルがありません',
+      noMatches: '一致するファイルがありません',
+      uploadInstead: 'ファイルをアップロード',
+    },
   },
 
   // Archives page

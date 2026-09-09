@@ -964,6 +964,15 @@ export default {
     dropNotPrintable: 'Alleen .gcode- en .gcode.3mf-bestanden kunnen worden afgedrukt',
     dropToPrint: 'Sleep hierheen om af te drukken',
     dropToQueue: 'Sleep hierheen voor wachtrij',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: 'Kies een bestand om af te drukken',
+      hint: 'Afdrukken op {{printer}} — kies een bestand uit je bibliotheek of upload een nieuw bestand',
+      empty: 'Nog geen geslicede bestanden in je bibliotheek',
+      noMatches: 'Geen bestanden gevonden',
+      uploadInstead: 'Bestand uploaden',
+    },
   },
 
   // Archives page

@@ -698,6 +698,44 @@ are, the same code path works unchanged against the fork's tags.
 Note the shell updater was never affected: `install/update.sh` is branch- and remote-agnostic, which
 is why this went unnoticed — the documented update path is fine and only the button was armed.
 
+### A16 · Print a file that is already in the library
+
+| | |
+|---|---|
+| **Status** | ✅ |
+| **New files** | `frontend/src/components/PrintFilePickerModal.tsx`, `frontend/src/__tests__/components/PrintFilePickerModal.test.tsx` |
+| **Touched upstream** | `frontend/src/pages/PrintersPage.tsx`, fourteen locales |
+
+The green Print button on a printer card went straight to the upload modal, and had no other route:
+the only way to print from that card was to hand it a file from the local disk. A file already in the
+library — uploaded yesterday, sliced through the slicer API, or dropped on the File Manager — had to
+be uploaded a second time to be printed from the machine you were looking at. The File Manager's own
+Print button could reach it, but that means leaving the printer, finding the file, and picking the
+printer back out of a list.
+
+The button now opens a picker of the library's printable files first, with the upload modal one click
+further on. Nothing about the upload path changed; it is the same modal with the same validation,
+reached from the picker's footer.
+
+Three decisions worth keeping. **The listing is flat, not the folder tree** — `folder_id` unset with
+`include_root=false` is the backend's "every file" form, and a picker wants one searchable list; the
+File Manager is where folders are for. **Newest first**, on `fs_modified_at ?? created_at`, because the
+file someone just sliced is the one they came for, while the endpoint's own order is alphabetical for
+the folder view. **The model check moved in front of the click:** the upload path uploads, compares
+`sliced_for_model` against the card's printer, and on a mismatch deletes the row it just made and
+reports the rejection. The library already knows the field, so a file sliced for another machine is
+greyed out with the reason on it instead.
+
+`cleanupLibraryAfterDispatch` is the one thing that must differ between the two routes. The upload
+route makes a throwaway copy and asks the backend to delete it after dispatch; a file picked from the
+library is the user's own stored file and must survive. The Print modal's state carries `fromLibrary`
+for exactly that, and it is the flag to check first if a picked file ever goes missing after printing.
+
+The button's permission gate widened with the second route: `queue:create` plus **either**
+`library:upload` or `library:read`. A user who may read the library but not upload lands on the
+picker with no upload button; a user who may upload but not read the library skips the picker and
+gets the upload modal as before.
+
 Three tests hardcoded `git@github.com:maziggy/bambuddy.git` as *the correct origin* while asserting
 it gets preserved, so they would have kept passing while asserting the opposite of what the fork
 needs. They derive it from `GITHUB_REPO` now.

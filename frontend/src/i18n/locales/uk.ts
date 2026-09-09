@@ -973,6 +973,15 @@ export default {
     dropNotPrintable: "Можна роздрукувати лише файли .gcode і .gcode.3mf.",
     dropToPrint: "Відпустіть для друку",
     dropToQueue: "Відпустіть, щоб додати в чергу",
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: 'Виберіть файл для друку',
+      hint: 'Друк на {{printer}} — виберіть файл з бібліотеки або завантажте новий',
+      empty: 'У бібліотеці ще немає нарізаних файлів',
+      noMatches: 'Немає файлів, що відповідають пошуку',
+      uploadInstead: 'Завантажити файл',
+    },
   },
 
   // Archives page

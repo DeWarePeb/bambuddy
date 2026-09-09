@@ -959,6 +959,15 @@ export default {
     dropNotPrintable: 'Nur .gcode- und .gcode.3mf-Dateien können gedruckt werden',
     dropToPrint: 'Zum Drucken ablegen',
     dropToQueue: 'Zum Einreihen ablegen',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: 'Datei zum Drucken auswählen',
+      hint: 'Druck auf {{printer}} — wähle eine Datei aus deiner Bibliothek oder lade eine neue hoch',
+      empty: 'Noch keine gesliceten Dateien in deiner Bibliothek',
+      noMatches: 'Keine Dateien gefunden',
+      uploadInstead: 'Datei hochladen',
+    },
   },
 
   // Archives page

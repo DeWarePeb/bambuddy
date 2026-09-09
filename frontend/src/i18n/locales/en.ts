@@ -965,6 +965,15 @@ export default {
     dropNotPrintable: 'Only .gcode and .gcode.3mf files can be printed',
     dropToPrint: 'Drop to print',
     dropToQueue: 'Drop to queue',
+    // Print button on a printer card: pick a file that is already in the
+    // library, instead of only being able to upload one.
+    printSource: {
+      title: 'Choose a file to print',
+      hint: 'Printing on {{printer}} — pick a file from your library, or upload a new one',
+      empty: 'No sliced files in your library yet',
+      noMatches: 'No files match your search',
+      uploadInstead: 'Upload a file',
+    },
   },
 
   // Archives page
