@@ -388,6 +388,14 @@ class MoonrakerClient:
         while not self._stop.is_set():
             try:
                 self.request_status_update()
+                # A printer that was off when connect() ran never reached
+                # _start_stream, and nothing else would ever call it again — the
+                # poll recovers the connection on its own. So the first time it
+                # answers, discover and open the stream. Both calls are
+                # idempotent, so this costs one extra request, once.
+                if self._stream is None and self._transport != "poll":
+                    self._discover_objects()
+                    self._start_stream()
             except Exception as exc:  # noqa: BLE001 - keep polling through transient errors
                 self._mark_unreachable(str(exc))
             # The poll never stops, it just gets out of the way. While the stream

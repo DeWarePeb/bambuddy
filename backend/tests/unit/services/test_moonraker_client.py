@@ -437,3 +437,44 @@ def test_pushed_updates_are_coalesced():
     assert apply_status.call_count == 1
     # Dropped from the work, never from the picture.
     assert client._status_cache["toolhead"]["position"] == [2, 0, 0, 0]
+
+
+def test_a_printer_that_was_off_at_connect_still_gets_a_stream():
+    """connect() gives up before _start_stream when the printer is unreachable,
+    and the poll is what brings the connection back — so the poll has to open
+    the stream too, or a printer powered on after Bambuddy never gets one."""
+    client = MoonrakerClient("http://printer:7125", transport="auto")
+    # Stop after a single pass: the loop checks the event, works, then waits.
+    with (
+        patch.object(client, "request_status_update", return_value=True),
+        patch.object(client, "_discover_objects") as discover,
+        patch.object(client, "_start_stream") as start_stream,
+        patch.object(client._stop, "wait", side_effect=lambda _: client._stop.set()),
+    ):
+        client._poll_loop()
+    discover.assert_called_once()
+    start_stream.assert_called_once()
+
+
+def test_the_poll_does_not_reopen_a_stream_that_already_exists():
+    client = MoonrakerClient("http://printer:7125", transport="auto")
+    client._stream = _StubStatusStream(healthy=True)
+    with (
+        patch.object(client, "request_status_update", return_value=True),
+        patch.object(client, "_discover_objects") as discover,
+        patch.object(client._stop, "wait", side_effect=lambda _: client._stop.set()),
+    ):
+        client._poll_loop()
+    discover.assert_not_called()
+
+
+def test_the_poll_never_opens_a_stream_when_transport_is_poll():
+    client = MoonrakerClient("http://printer:7125", transport="poll")
+    with (
+        patch.object(client, "request_status_update", return_value=True),
+        patch.object(client, "_discover_objects") as discover,
+        patch.object(client._stop, "wait", side_effect=lambda _: client._stop.set()),
+    ):
+        client._poll_loop()
+    discover.assert_not_called()
+    assert client._stream is None
